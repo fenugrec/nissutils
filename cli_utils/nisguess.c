@@ -5,7 +5,7 @@
  * usage : %0 <enc_u32> <dec_u32>
  * args in hex.
  * example : an encrypted ROM has "4166878b"  as a reset vector; we assume the real address is 0000 0104 so
- * "%0 4166878b 00000104" runs a few seconds and gives 0x1A18 0DC8.
+ * "%0 4166878b 00000104" runs a few seconds and gives 0x1A18 0DC8 and others.
  
  */
 
