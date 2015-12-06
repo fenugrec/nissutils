@@ -2,6 +2,8 @@
 //      This file contains the user-defined type definitions.
 //      To use it press F2 in IDA and enter the name of this file.
 //
+// metadata struct starting with FFFF tag, including firmare UID and "DATABASE" string.
+// Identical to struct ID1 with the addition of a few unknown fields at the end
 
 #define UNLOADED_FILE   1
 #include <idc.idc>
@@ -22,9 +24,9 @@ static Enums(void) {
 
 static Structures_0(id) {
 
-	id = AddStrucEx(-1,"ID1",0);
+	id = AddStrucEx(-1,"ID2",0);
 	
-	id = GetStrucIdByName("ID1");
+	id = GetStrucIdByName("ID2");
 	AddStrucMember(id,"FFtag",	0X0,	0x10000400,	-1,	2);
 	AddStrucMember(id,"UID",	0X2,	0x50000400,	0x0,	17);
 	AddStrucMember(id,"DATABASE_str",	0X13,	0x50000400,	0x0,	9);

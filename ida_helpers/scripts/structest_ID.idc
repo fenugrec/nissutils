@@ -3,6 +3,7 @@
 //      This file contains the user-defined type definitions.
 //      To use it press F2 in IDA and enter the name of this file.
 //
+// metadata struct starting with FFFF tag, including firmare UID and "DATABASE" string.
 
 #define UNLOADED_FILE   1
 #include <idc.idc>
