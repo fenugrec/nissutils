@@ -166,7 +166,8 @@ int main(int argc, char * argv[]) {
 	
 	if (argc < 3) {
 		printf("%s <scode> <in_file> [<out_file>]\n\tscode is uint32. Uses NPT_DDL algo"
-			"\n\tExample: %s 55AA00FF test.bin\n", argv[0], argv[0]);
+			"\n\tIf out_file is omitted, output is written to %s"
+			"\n\tExample: %s 55AA00FF test.bin\n", argv[0], DEFAULT_OFILE, argv[0]);
 		return 0;
 	}
 	
