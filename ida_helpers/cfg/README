@@ -1,0 +1,18 @@
+Collection of files to replace IDA's standard "sh3.cfg" file, adding
+
+- memory area definitions
+- peripheral register name defines
+- interrupt vector labels
+
+The basic file is taken from dschultz' versions he posts on this thread:
+http://www.romraider.com/forum/viewtopic.php?f=40&t=5825
+
+The "SH705x_twinVT" variants have a special tweak intended for Nissan ROMs that have only a partial
+vector table at address 0; their reset code then sets the vbr register to point at the complete table @ 0x1000.
+
+*** Files
+sh3_dschultz.cfg it dschultz' standard version;
+705*_additions.txt are the interrupt vectors and slightly different mem area definitions
+sh3_705x_notwin.cfg is the dschultz version augmented with everything except the "twinVT" variants
+sh3_705x_only.cfg includes all 7055* and 7058* variants
+sh3_full.cfg includes everything.
