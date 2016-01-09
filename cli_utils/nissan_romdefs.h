@@ -24,7 +24,7 @@ struct loader_t {
 } ;
 
 
-/* large firmware metadata struct. Yummy !*/
+/* large firmware metadata struct. for some 705822, 705823, */
 struct fid_t {
 	uint8_t FFtag[2];
 	uint8_t FID[17];	//firmware ID
@@ -34,8 +34,8 @@ struct fid_t {
 	uint8_t YN;
 	uint8_t pad2;
 	uint8_t cpu[10];	//like "SH705822N", ASCIIz
-	uint8_t field_28[1];	//0x0F
-	uint8_t field_29[14];
+	uint8_t field_2A[1];	//0x0F
+	uint8_t field_2B[14];
 	uint8_t field_39[9];
 	uint8_t pNOP[4];		//&nullfunc
 	uint8_t pF1[4];		//&f1()
@@ -63,7 +63,7 @@ struct fid_t {
 	uint8_t pIVECT2[4];
 } ;
 
-/* large firmware metadata struct; short version (when cpu=705513, maybe others?) */
+/* large firmware metadata struct; short version (when cpu=705513, 705520, ) */
 struct fidshort_t {
 	uint8_t FFtag[2];
 	uint8_t FID[17];	//firmware ID
@@ -73,8 +73,8 @@ struct fidshort_t {
 	uint8_t YN;
 	uint8_t pad2;
 	uint8_t cpu[10];	//like "SH705822N", ASCIIz
-	uint8_t field_28[1];	//0x0F
-	uint8_t field_29[14];
+	uint8_t field_2A[1];	//0x0F
+	uint8_t field_2B[14];
 	uint8_t field_39[9];
 	uint8_t pNOP[4];		//&nullfunc
 	uint8_t pF1[4];		//&f1()

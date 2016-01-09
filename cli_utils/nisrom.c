@@ -197,6 +197,8 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
+	printf("loaded %ldk ROM %s.\n", rf.siz / 1024, argv[1]);
+
 	loaderpos=find_loader(&rf);
 	if (loaderpos >= 0) {
 		const char *scpu;
