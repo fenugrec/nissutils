@@ -33,8 +33,8 @@ static Structures_0(id) {
 	AddStrucMember(id,"field_1D",	0X1B,	0x000400,	-1,	1);
 	AddStrucMember(id,"YN",	0X1C,	0x300400,	-1,	1);
 	AddStrucMember(id,"pad2",	0X1D,	0x000400,	-1,	1);
-	AddStrucMember(id,"CPU",	0X1E,	0x50000400,	0x0,	9);
-	AddStrucMember(id,"field_27",	0X27,	0x10000400,	-1,	2);
+	AddStrucMember(id,"CPU",	0X1E,	0x50000400,	0x0,	10);
+	AddStrucMember(id,"field_28",	0X28,	0x10000400,	-1,	1);
 	AddStrucMember(id,"field_29",	0X29,	0x000400,	-1,	14);
 	AddStrucMember(id,"field_39",	0X37,	0x000400,	-1,	7);
 	AddStrucMember(id,"foot_FFFF",	0X3E,	0x10000400,	-1,	2);
