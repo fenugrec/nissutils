@@ -212,15 +212,34 @@ int main(int argc, char *argv[])
 	if (fidpos >= 0) {
 		const char *sfid;
 		const char *scpu;
+		uint32_t pthis, pivect2;
+		int i;
+		
+		rf.p_fid = fidpos;
 		sfid = (const char *) &rf.buf[fidpos + offsetof(struct fid_t, FID)];
 		scpu = (const char *) &rf.buf[fidpos + offsetof(struct fid_t, cpu)];
 		printf("FID: %.*s found @ 0x%lX, ", \
 			sizeof(((struct fid_t *)NULL)->FID), sfid, fidpos);
 		printf("%.*s\n", sizeof(((struct fid_t *)NULL)->cpu), scpu);
+
+		//XXX hax : to deal with various sizes of struct fid; find IVECT2 by finding pTHIS
+		for (i=0; i < 30; i++) {
+			uint32_t tv;
+			pthis = 4*i + fidpos + offsetof(struct fid_t, pRAMjump);
+			tv = reconst_32(&rf.buf[pthis]);
+			if (tv == fidpos) {
+				//found "pTHIS" member; pIVECT2 is right after
+				pivect2 = pthis + 4;
+				printf("IVECT2 = 0x%lX\n", (unsigned long) reconst_32(&rf.buf[pivect2]));
+				break;
+			}
+		}
+		/*
 		printf("short struct IVECT2=0x%lX, long struct IVECT2=0x%lX\n",
 			(unsigned long) reconst_32(&rf.buf[fidpos + offsetof(struct fidshort_t, pIVECT2)]),
 			(unsigned long) reconst_32(&rf.buf[fidpos + offsetof(struct fid_t, pIVECT2)]));
-		rf.p_fid = fidpos;
+		*/
+		
 	}
 
 	if (!checksum_std(rf.buf, rf.siz, &rf.p_cks, &rf.p_ckx)) {
