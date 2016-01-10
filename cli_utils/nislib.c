@@ -93,15 +93,13 @@ int checksum_std(const uint8_t *buf, long siz, long *p_cks, long *p_ckx) {
 // Steps to fix checksums :
 // 1) set p_cs and p_cx to 0
 // 2) calculate actual sum and xor (skipping locs p_cks and p_ckx)
-// 3) determine cs and cx values to bring actual sum and xor to the desired cks and ckx
+// 3) determine correction values to bring actual sum and xor to the desired cks and ckx
 
 void checksum_fix(uint8_t *buf, long siz, long p_cks, long p_ckx, long p_cs, long p_cx, long p_mang) {
 	uint32_t cks, ckx;	//desired sum and xor
 	uint32_t ds, dx;	//actual/delta vals
 	uint32_t a, b, mang;	//correction vals
 	long cur;
-	int bitcur;
-	bool carry;
 	
 	//abort if siz not a multiple of 4, and other problems
 	if (!buf || (siz <= 0) || (siz & 3) ||
@@ -134,65 +132,22 @@ void checksum_fix(uint8_t *buf, long siz, long p_cks, long p_ckx, long p_cs, lon
 	}
 	printf("actual s=%X, x=%X\n", ds, dx);
 	
-	// 3) solve, bit per bit (for lack of a better technique), these equations :
-	//	A: cks = ds + a + b  =>   cks - ds  = a + b
-	//	B: ckx = dx ^ a ^ b => ckx ^ dx = a ^ b
+	//required corrections :
 	ds = cks - ds;
 	dx = ckx ^ dx;
 	printf("corrections ds=%X, dx=%X\n", ds, dx);
+	// 3) solve thus :
+	//	- find 'c' (mang) such that c ^ dx == 0; easy : mang = dx.
+	//	- the new sum correction is now (ds - mang)
+	//	- divide the sum correction by 2 : hence,
+	//		a + b == ds
+	//		a ^ b == 0
+
 	mang = dx;
 	ds -= mang;
-	dx ^= mang;	//this seems to work pretty nicely : start with a mang value that cancels out the xor
-			//and magically, a==b == (ds/2) such that a^b = 0... what is this black magic
-	a = 0;
-	b = 0;
-	carry = 0;
+	a = b = ds / 2;
+	//aaaand... that's it !?
 
-	for (bitcur = 31; bitcur >= 0; bitcur --) {
-		bool an=0, bn=0;	//temp bits
-		bool sn, xn;
-		xn = dx & (1<<bitcur);
-		sn = ds & (1<<bitcur);
-		//determine if (an,bn) should be (1,0) : only possible if xn = 1
-		if (xn) {
-			//xn = 1
-			an = 1;
-			bn = 0;
-			if (carry) {
-				if (sn) {
-					if (!(mang & 0xfffff)) printf("no solution with mang=%X !\n", mang);
-					if (mang == 1) {
-						printf("all done iterating. You're screwed\n");
-						return;
-					}
-					mang -= 1;
-					ds += 1;
-					dx = dx ^ (mang+1) ^ (mang);
-					bitcur = 31;
-					a = 0;
-					b = 0;
-					carry = 0;
-					continue;
-				}
-				carry = 1;
-			} else {
-				//carry == 0
-				carry = ~sn;
-			}
-		} else {
-			//xn = 0, so either (an, bn) is (0,0) or (1,1)
-			//if carry to the previous bits (n+1) was 1, it has to be (1,1)
-			if (carry) {
-				an = bn = 1;
-			} else {
-				an = bn = 0;
-			}
-			//and carry from the next bits (n-1) has to be 1  if sn==1
-			carry = sn;
-		}
-		a |= an << bitcur;
-		b |= bn << bitcur;
-	}	//for bitcur
 	printf("found correction vals a=%X, b=%X, mang=%X\n", a,b,mang);
 	//write correction vals
 	write_32b(a, &buf[p_cs]);
