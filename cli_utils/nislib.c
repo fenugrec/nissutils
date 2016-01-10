@@ -111,6 +111,11 @@ void checksum_fix(uint8_t *buf, long siz, long p_cks, long p_ckx, long p_cs, lon
 	cks = reconst_32(&buf[p_cks]);
 	ckx = reconst_32(&buf[p_ckx]);
 	printf("desired cks=%X, ckx=%X\n", cks, ckx);
+	if ((cks & 1) != (ckx &1)) {
+		//Major problem, since both those bits should *always* match
+		// (bit 0 of an addition is the XOR of all "bit 0"s !! )
+		printf("Warning : unlikely original checksums; unmatched LSBs\n");
+	}
 	
 	// 1) set correction vals to 0
 	write_32b(0, &buf[p_cs]);
@@ -137,19 +142,12 @@ void checksum_fix(uint8_t *buf, long siz, long p_cks, long p_ckx, long p_cs, lon
 	printf("corrections ds=%X, dx=%X\n", ds, dx);
 	mang = dx;
 	ds -= mang;
-	dx ^= mang;
+	dx ^= mang;	//this seems to work pretty nicely : start with a mang value that cancels out the xor
+			//and magically, a==b == (ds/2) such that a^b = 0... what is this black magic
 	a = 0;
 	b = 0;
 	carry = 0;
-	//alternate algo
-	while (0) {
-		b = dx ^ a;
-		if ((a+b) == ds) break;
-		a++;
-		if (!(a & 0xfffff)) printf("no solution with a=%X !\n", a);
-	}// while (a != 0);
-		
-	//while (0) {
+
 	for (bitcur = 31; bitcur >= 0; bitcur --) {
 		bool an=0, bn=0;	//temp bits
 		bool sn, xn;
@@ -162,8 +160,6 @@ void checksum_fix(uint8_t *buf, long siz, long p_cks, long p_ckx, long p_cs, lon
 			bn = 0;
 			if (carry) {
 				if (sn) {
-					printf("no solution? let's not iterate\n");
-					return;
 					if (!(mang & 0xfffff)) printf("no solution with mang=%X !\n", mang);
 					if (mang == 1) {
 						printf("all done iterating. You're screwed\n");
@@ -197,6 +193,7 @@ void checksum_fix(uint8_t *buf, long siz, long p_cks, long p_ckx, long p_cs, lon
 		a |= an << bitcur;
 		b |= bn << bitcur;
 	}	//for bitcur
+	printf("found correction vals a=%X, b=%X, mang=%X\n", a,b,mang);
 	//write correction vals
 	write_32b(a, &buf[p_cs]);
 	write_32b(b, &buf[p_cx]);
@@ -207,7 +204,7 @@ void checksum_fix(uint8_t *buf, long siz, long p_cks, long p_ckx, long p_cs, lon
 	ds = reconst_32(&buf[ocs]);
 	dx = reconst_32(&buf[ocx]);
 	if ((ds == cks) && (dx == ckx)) {
-		printf("found correction vals a=%X, b=%X, mang=%X\n", a,b,mang);
+		printf("checksum fixed !\n");
 	} else {
 		printf("could not fix checksum !!\n");
 	}
