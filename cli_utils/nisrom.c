@@ -223,6 +223,7 @@ int main(int argc, char *argv[])
 		printf("%.*s\n", sizeof(((struct fid_t *)NULL)->cpu), scpu);
 
 		//XXX hax : to deal with various sizes of struct fid; find IVECT2 by finding pTHIS
+		//not super reliable
 		for (i=0; i < 30; i++) {
 			uint32_t tv;
 			pthis = 4*i + fidpos + offsetof(struct fid_t, pRAMjump);
