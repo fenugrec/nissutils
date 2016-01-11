@@ -212,7 +212,7 @@ int main(int argc, char *argv[])
 	if (fidpos >= 0) {
 		const char *sfid;
 		const char *scpu;
-		uint32_t pthis, pivect2;
+		uint32_t pthis, pivect2=0;
 		int i;
 		
 		rf.p_fid = fidpos;
@@ -235,6 +235,13 @@ int main(int argc, char *argv[])
 				break;
 			}
 		}
+		//alt_cks block starts at &pISR_IMI3A, until &FID
+		long acsblock = reconst_32(&rf.buf[pthis-4]);
+		uint32_t acs=0, acx=0;
+		sum32(&rf.buf[acsblock], fidpos - acsblock, &acs, &acx);
+		printf("alt cks block @ 0x%lX; sumt=%lX, xort=%lX\n",
+			(unsigned long) acsblock, acs, acx);
+		
 		/*
 		printf("short struct IVECT2=0x%lX, long struct IVECT2=0x%lX\n",
 			(unsigned long) reconst_32(&rf.buf[fidpos + offsetof(struct fidshort_t, pIVECT2)]),
