@@ -64,6 +64,8 @@ int checksum_std(const uint8_t *buf, long siz, long *p_cks, long *p_ckx) {
 	//try to find cks et ckx in there
 	ckscount=0;
 	ckxcount=0;
+	*p_cks = 0;
+	*p_ckx = 0;
 	for (bufcur=0; bufcur < siz; bufcur += 4) {
 		uint32_t lw;
 		lw = reconst_32(&buf[bufcur]);
@@ -71,11 +73,13 @@ int checksum_std(const uint8_t *buf, long siz, long *p_cks, long *p_ckx) {
 			//printf("cks found @ 0x%0X\n", bufcur);
 			*p_cks = bufcur;
 			ckscount += 1;
+			continue;
 		}
 		if (lw==ckx) {
 			//printf("ckx found @ 0x%0X\n", bufcur);
 			*p_ckx = bufcur;
 			ckxcount += 1;
+			continue;
 		}
 	}
 	
