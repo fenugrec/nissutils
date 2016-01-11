@@ -17,6 +17,12 @@ uint16_t reconst_16(const uint8_t *buf);
 */
 void write_32b(uint32_t val, uint8_t *buf);
 
+/** Sum and xor all u32 values in *buf, read with SH endianness
+ * @param [out] *xor
+ * @param [out] *sum
+ */
+void sum32(const uint8_t *buf, long siz, uint32_t *sum, uint32_t *xor);
+
 /** calculate checksums and find their location
  *
  * @param p_cks : sum location (file offset)
@@ -36,6 +42,7 @@ int checksum_std(const uint8_t *buf, long siz, long *p_cks, long *p_ckx);
  * @param p_b location, in *buf, of second correction value
  * @param p_c location, in *buf, of third correction value
  *
+ * This calculates and sets values a,b,c so that the checksums match the original sum and xor.
  */
 void checksum_fix(uint8_t *buf, long siz, long p_cks, long p_ckx,
 		long p_a, long p_b, long p_c);

@@ -32,6 +32,26 @@ void write_32b(uint32_t val, uint8_t *buf) {
 	return;
 }
 
+/* sum and xor all u32 values in *buf, read with SH endianness */
+void sum32(const uint8_t *buf, long siz, uint32_t *sum, uint32_t *xor) {
+	long bufcur;
+	uint32_t sumt, xort;
+	
+	if (!buf || !sum || !xor) return;
+	sumt=0;
+	xort=0;
+	for (bufcur=0; bufcur < siz; bufcur += 4) {
+		//loop each uint32, but with good endianness (need to reconstruct)
+		uint32_t lw;
+		lw = reconst_32(&buf[bufcur]);
+		sumt += lw;
+		xort ^= lw;
+	}
+	*sum = sumt;
+	*xor = xort;
+	return;
+}
+
 //calculate checksum & locations
 // theory : real ck_sum= sum of all u32 (except ck_sum and ck_xor);
 //	real ck_xor = xor of all u32 (except ck_sum et ck_xor)
@@ -44,28 +64,22 @@ int checksum_std(const uint8_t *buf, long siz, long *p_cks, long *p_ckx) {
 	long bufcur;
 	uint32_t sumt,xort, cks, ckx;
 
-	if (!buf || !p_cks || !p_ckx || (siz <= 0)) {
+	if (!buf || (siz & 0x3) || !p_cks || !p_ckx || (siz <= 0)) {
 		return -1;
 	}
 
-	sumt=0;
-	xort=0;
-	for (bufcur=0; bufcur < siz; bufcur += 4) {
-		//loop each uint32t, but with good endianness (need to reconstruct)
-		uint32_t lw;
-		lw = reconst_32(&buf[bufcur]);
-		sumt += lw;
-		xort ^= lw;
-	}
+	sumt = xort = 0;
+	sum32(buf, siz, &sumt, &xort);
 	
 	cks=xort;
 	ckx= sumt - 2*xort;	//cheat !
-	//printf("sumt=0x%0X; xort=cks=0x%0X; ckx=0x%0X\n",sumt, cks, ckx);
+	printf("sumt=0x%0X; xort=cks=0x%0X; ckx=0x%0X\n",sumt, cks, ckx);
 	//try to find cks et ckx in there
 	ckscount=0;
 	ckxcount=0;
 	*p_cks = 0;
 	*p_ckx = 0;
+
 	for (bufcur=0; bufcur < siz; bufcur += 4) {
 		uint32_t lw;
 		lw = reconst_32(&buf[bufcur]);
@@ -95,20 +109,18 @@ int checksum_std(const uint8_t *buf, long siz, long *p_cks, long *p_ckx) {
 }
 
 // Steps to fix checksums :
-// 1) set p_cs and p_cx to 0
+// 1) set a,b,c to 0
 // 2) calculate actual sum and xor (skipping locs p_cks and p_ckx)
 // 3) determine correction values to bring actual sum and xor to the desired cks and ckx
-
-void checksum_fix(uint8_t *buf, long siz, long p_cks, long p_ckx, long p_cs, long p_cx, long p_mang) {
+void checksum_fix(uint8_t *buf, long siz, long p_cks, long p_ckx, long p_a, long p_b, long p_c) {
 	uint32_t cks, ckx;	//desired sum and xor
 	uint32_t ds, dx;	//actual/delta vals
-	uint32_t a, b, mang;	//correction vals
-	long cur;
+	uint32_t a, b, c;	//correction vals
 	
 	//abort if siz not a multiple of 4, and other problems
 	if (!buf || (siz <= 0) || (siz & 3) ||
 		(p_cks >= siz) || (p_ckx >= siz) ||
-		(p_cs >= siz) || (p_cx >= siz)) return;
+		(p_a >= siz) || (p_b >= siz)) return;
 
 	cks = reconst_32(&buf[p_cks]);
 	ckx = reconst_32(&buf[p_ckx]);
@@ -120,20 +132,17 @@ void checksum_fix(uint8_t *buf, long siz, long p_cks, long p_ckx, long p_cs, lon
 	}
 	
 	// 1) set correction vals to 0
-	write_32b(0, &buf[p_cs]);
-	write_32b(0, &buf[p_cx]);
-	write_32b(0, &buf[p_mang]);
+	write_32b(0, &buf[p_a]);
+	write_32b(0, &buf[p_b]);
+	write_32b(0, &buf[p_c]);
 
 	// 2) calc actual sum & xor
 	ds=0;
 	dx=0;
-	for (cur=0; cur < siz; cur += 4) {
-		uint32_t tw;
-		if ((cur == p_cks) || (cur == p_ckx)) continue;
-		tw = reconst_32(&buf[cur]);
-		ds += tw;
-		dx ^= tw;
-	}
+	sum32(buf, siz, &ds, &dx);
+	// do not count orig cks and ckx
+	ds = ds - (cks + ckx);
+	dx = dx ^ cks ^ ckx;
 	printf("actual s=%X, x=%X\n", ds, dx);
 	
 	//required corrections :
@@ -141,27 +150,27 @@ void checksum_fix(uint8_t *buf, long siz, long p_cks, long p_ckx, long p_cs, lon
 	dx = ckx ^ dx;
 	printf("corrections ds=%X, dx=%X\n", ds, dx);
 	// 3) solve thus :
-	//	- find 'c' (mang) such that c ^ dx == 0; easy : mang = dx.
-	//	- the new sum correction is now (ds - mang)
+	//	- find 'c' such that c ^ dx == 0; easy : c = dx.
+	//	- the new sum correction is now (ds - c)
 	//	- divide the sum correction by 2 : hence,
 	//		a + b == ds
 	//		a ^ b == 0
 
-	mang = dx;
-	ds -= mang;
+	c = dx;
+	ds -= c;
 	a = b = ds / 2;
 	//aaaand... that's it !?
 
-	printf("found correction vals a=%X, b=%X, mang=%X\n", a,b,mang);
+	printf("Correction vals a=%X, b=%X, c=%X\n", a,b,c);
 	//write correction vals
-	write_32b(a, &buf[p_cs]);
-	write_32b(b, &buf[p_cx]);
-	write_32b(mang, &buf[p_mang]);
+	write_32b(a, &buf[p_a]);
+	write_32b(b, &buf[p_b]);
+	write_32b(c, &buf[p_c]);
 	//and verify, just for shits
-	long ocs, ocx;
-	(void) checksum_std(buf, siz, &ocs, &ocx);
-	ds = reconst_32(&buf[ocs]);
-	dx = reconst_32(&buf[ocx]);
+	sum32(buf, siz, &ds, &dx);
+	// do not count orig cks and ckx
+	ds = ds - (cks + ckx);
+	dx = dx ^ cks ^ ckx;
 	if ((ds == cks) && (dx == ckx)) {
 		printf("checksum fixed !\n");
 	} else {
