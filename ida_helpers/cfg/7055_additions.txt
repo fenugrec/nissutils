@@ -14,7 +14,7 @@ area BSS RESERVED  0xFFFFE000:0xFFFFE3FF Reserved area (noramsland)
 area DATA IOREGS  0xFFFFE400:0xFFFFF85F On-chip periph regs
 area BSS RESERVED  0xFFFFF860:0xFFFFFFFF Reserved area
 
-;test of interrupt defs:
+;Interrupt Vector Table (IVT)
 ;interrupt Poweron_Reset 0x00000000 RESET	;should be defined last otherwise name can be overrided
 interrupt Manual_Reset 0x00000008 Manual reset
 interrupt Illegal_instr 0x00000010 General Illegal instruction int
@@ -184,7 +184,7 @@ interrupt Poweron_Reset 0x00000000 RESET
 
 
 
-.SH7055_twinVT
+.SH7055_IVT1000
 ;this one is for some Nissan ECUs (some/all QR25DE ? maybe others) which have only a partial
 ;vector table at 0x0 ; the main reset handler then changes the vbr register to point to a second
 ;vector table at 0x1000. 
@@ -374,4 +374,4 @@ interrupt INT_HCAN1_OVR1	0x00001394 HCAN1_OVR1 interrupt
 interrupt INT_HCAN1_RM1	0x00001398 HCAN1_RM1 interrupt
 interrupt INT_HCAN1_SLE1	0x0000139c HCAN1_SLE1 interrupt
 interrupt alt_Poweron_Reset 0x00001000 RESET
-;***END OF SH7055_twinVT
+;***END OF SH7055_IVT1000
