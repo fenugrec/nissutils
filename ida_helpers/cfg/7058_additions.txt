@@ -559,6 +559,195 @@ interrupt alt_Poweron_Reset 0x00002000 RESET
 ;*** END OF .SH7058_IVT2000
 
 
+.SH7058_IVT20004
+;secondary IVT @ 0x20004 (weird)
+area CODE ROM	0x00000000:0x000FFFFF	Internal ROM area
+area BSS  RESERVED	0x00100000:0xFFFEFFFF	Reserved area (nomemsland)
+area DATA RAM	0xFFFF0000:0xFFFFBFFF	Internal RAM area
+area BSS RESERVED	0xFFFFC000:0xFFFFCFFF	Reserved area (noramsland)
+area DATA IOREGS	0xFFFFD000:0xFFFFF87F	On-chip periph regs
+area BSS RESERVED	0xFFFFF880:0xFFFFFFFF	Reserved area (noramsland)
+
+IVECT1 0x00000000
+;interrupt Poweron_Reset 0x00000000 RESET	;must be defined last otherwise name can be overrided
+interrupt Manual_Reset 0x00000008 Manual reset
+interrupt Illegal_instr 0x00000010 General illegal instruction int
+interrupt Slot_illegal	0x00000018 Slot illegal instruction int
+interrupt CPUaddr_error	0x00000024 CPU addr error
+interrupt DMACaddr_error	0x00000028 DMAC addr error
+interrupt NMI	0x0000002C NMI interrupt
+interrupt usr_break	0x00000030 UBC user break int
+interrupt FPU_excep	0x00000034 FPU exception
+interrupt HUDI_excep	0x00000038 H-UDI exception
+interrupt Poweron_Reset 0x00000000 RESET
+
+;second IVEC
+interrupt alt_Manual_Reset	0x0002000C	Alt. manual reset
+interrupt alt_Illegal_instr	0x00020014	Alt. General Illegal instruction int
+interrupt alt_Slot_illegal	0x0002001C	Alt. Slot illegal instruction int
+interrupt alt_CPUaddr_error	0x00020028	Alt. CPU addr error
+interrupt alt_DMACaddr_error	0x0002002C	Alt. DMAC addr error
+interrupt alt_NMI	0x00020030	Alt. NMI interrupt
+interrupt alt_usr_break	0x00020034	Alt. UBC User break interrupt
+interrupt alt_FPU_excep	0x00020038	Alt. FPU exception
+interrupt alt_HUDI_excep	0x0002003C	Alt. H-UDI exception
+interrupt INT_TRAPA32	0x00020084	User TRAPA 32 interrupt
+interrupt INT_TRAPA33	0x00020088	User TRAPA 33 interrupt
+interrupt INT_TRAPA34 	0x0002008C	User TRAPA 34 interrupt
+interrupt INT_TRAPA35 	0x00020090	User TRAPA 35 interrupt
+interrupt INT_TRAPA36 	0x00020094	User TRAPA 36 interrupt
+interrupt INT_TRAPA37 	0x00020098	User TRAPA 37 interrupt
+interrupt INT_TRAPA38 	0x0002009C	User TRAPA 38 interrupt
+interrupt INT_TRAPA39 	0x000200A0	User TRAPA 39 interrupt
+interrupt INT_TRAPA40 	0x000200A4	User TRAPA 40 interrupt
+interrupt INT_TRAPA41 	0x000200A8	User TRAPA 41 interrupt
+interrupt INT_TRAPA42 	0x000200AC	User TRAPA 42 interrupt
+interrupt INT_TRAPA43 	0x000200B0	User TRAPA 43 interrupt
+interrupt INT_TRAPA44 	0x000200B4	User TRAPA 44 interrupt
+interrupt INT_TRAPA45 	0x000200B8	User TRAPA 45 interrupt
+interrupt INT_TRAPA46 	0x000200BC	User TRAPA 46 interrupt
+interrupt INT_TRAPA47 	0x000200C0	User TRAPA 47 interrupt
+interrupt INT_TRAPA48 	0x000200C4	User TRAPA 48 interrupt
+interrupt INT_TRAPA49 	0x000200C8	User TRAPA 49 interrupt
+interrupt INT_TRAPA50 	0x000200CC	User TRAPA 50 interrupt
+interrupt INT_TRAPA51 	0x000200D0	User TRAPA 51 interrupt
+interrupt INT_TRAPA52 	0x000200D4	User TRAPA 52 interrupt
+interrupt INT_TRAPA53 	0x000200D8	User TRAPA 53 interrupt
+interrupt INT_TRAPA54 	0x000200DC	User TRAPA 54 interrupt
+interrupt INT_TRAPA55 	0x000200E0	User TRAPA 55 interrupt
+interrupt INT_TRAPA56 	0x000200E4	User TRAPA 56 interrupt
+interrupt INT_TRAPA57 	0x000200E8	User TRAPA 57 interrupt
+interrupt INT_TRAPA58 	0x000200EC	User TRAPA 58 interrupt
+interrupt INT_TRAPA59 	0x000200F0	User TRAPA 59 interrupt
+interrupt INT_TRAPA60 	0x000200F4	User TRAPA 60 interrupt
+interrupt INT_TRAPA61 	0x000200F8	User TRAPA 61 interrupt
+interrupt INT_TRAPA62 	0x000200FC	User TRAPA 62 interrupt
+interrupt INT_TRAPA63 	0x00020100	User TRAPA 63 interrupt
+interrupt INT_IRQ0	0x00020104	IRQ0 interrupt
+interrupt INT_IRQ1	0x00020108	IRQ1 interrupt
+interrupt INT_IRQ2	0x0002010C	IRQ2 interrupt
+interrupt INT_IRQ3	0x00020110	IRQ3 interrupt
+interrupt INT_IRQ4	0x00020114	IRQ4 interrupt
+interrupt INT_IRQ5	0x00020118	IRQ5 interrupt
+interrupt INT_IRQ6	0x0002011C	IRQ6 interrupt
+interrupt INT_IRQ7	0x00020120	IRQ7 interrupt
+interrupt INT_DMAC0_DEI0	0x00020124	DMAC0_DEI0 interrupt
+interrupt INT_DMAC1_DEI1	0x0002012C	DMAC1_DEI1 interrupt
+interrupt INT_DMAC2_DEI2	0x00020134	DMAC2_DEI2 interrupt
+interrupt INT_DMAC3_DEI3	0x0002013C	DMAC3_DEI3 interrupt
+interrupt INT_ATU01_ITV	0x00020144	ATU01_ITV interrupt
+interrupt INT_ATU02_ICI0A	0x00020154	ATU02_ICI0A interrupt
+interrupt INT_ATU02_ICI0B	0x0002015C	ATU02_ICI0B interrupt
+interrupt INT_ATU03_ICI0C	0x00020164	ATU03_ICI0C interrupt
+interrupt INT_ATU03_ICI0D	0x0002016C	ATU03_ICI0D interrupt
+interrupt INT_ATU04_OVI0	0x00020174	ATU04_OVI0 interrupt
+interrupt INT_ATU11_IMI1AA	0x00020184	ATU11_IMI1AA interrupt
+interrupt INT_ATU11_IMI1AB	0x00020188	ATU11_IMI1AB interrupt
+interrupt INT_ATU11_IMI1AC	0x0002018C	ATU11_IMI1AC interrupt
+interrupt INT_ATU11_IMI1AD	0x00020190	ATU11_IMI1AD interrupt
+interrupt INT_ATU12_IMI1AE	0x00020194	ATU12_IMI1AE interrupt
+interrupt INT_ATU12_IMI1AF	0x00020198	ATU12_IMI1AF interrupt
+interrupt INT_ATU12_IMI1AG	0x0002019C	ATU12_IMI1AG interrupt
+interrupt INT_ATU12_IMI1AH	0x000201A0	ATU12_IMI1AH interrupt
+interrupt INT_ATU13_OVI1	0x000201A4	ATU13_OVI1 interrupt
+interrupt INT_ATU21_IMI2A	0x000201B4	ATU21_IMI2A interrupt
+interrupt INT_ATU21_IMI2B	0x000201B8	ATU21_IMI2B interrupt
+interrupt INT_ATU21_IMI2C	0x000201BC	ATU21_IMI2C interrupt
+interrupt INT_ATU21_IMI2D	0x000201C0	ATU21_IMI2D interrupt
+interrupt INT_ATU22_IMI2E	0x000201C4	ATU22_IMI2E interrupt
+interrupt INT_ATU22_IMI2F	0x000201C8	ATU22_IMI2F interrupt
+interrupt INT_ATU22_IMI2G	0x000201CC	ATU22_IMI2G interrupt
+interrupt INT_ATU22_IMI2H	0x000201D0	ATU22_IMI2H interrupt
+interrupt INT_ATU23_OVI2	0x000201D4	ATU23_OVI2 interrupt
+interrupt INT_ATU31_IMI3A	0x000201E4	ATU31_IMI3A interrupt
+interrupt INT_ATU31_IMI3B	0x000201E8	ATU31_IMI3B interrupt
+interrupt INT_ATU31_IMI3C	0x000201EC	ATU31_IMI3C interrupt
+interrupt INT_ATU31_IMI3D	0x000201F0	ATU31_IMI3D interrupt
+interrupt INT_ATU32_OVI3	0x000201F4	ATU32_OVI3 interrupt
+interrupt INT_ATU41_IMI4A	0x00020204	ATU41_IMI4A interrupt
+interrupt INT_ATU41_IMI4B	0x00020208	ATU41_IMI4B interrupt
+interrupt INT_ATU41_IMI4C	0x0002020C	ATU41_IMI4C interrupt
+interrupt INT_ATU41_IMI4D	0x00020210	ATU41_IMI4D interrupt
+interrupt INT_ATU42_OVI4	0x00020214	ATU42_OVI4 interrupt
+interrupt INT_ATU51_IMI5A	0x00020224	ATU51_IMI5A interrupt
+interrupt INT_ATU51_IMI5B	0x00020228	ATU51_IMI5B interrupt
+interrupt INT_ATU51_IMI5C	0x0002022C	ATU51_IMI5C interrupt
+interrupt INT_ATU51_IMI5D	0x00020230	ATU51_IMI5D interrupt
+interrupt INT_ATU52_OVI5	0x00020234	ATU52_OVI5 interrupt
+interrupt INT_ATU6_IMI6A	0x00020244	ATU6_IMI6A interrupt
+interrupt INT_ATU6_IMI6B	0x00020248	ATU6_IMI6B interrupt
+interrupt INT_ATU6_IMI6C	0x0002024C	ATU6_IMI6C interrupt
+interrupt INT_ATU6_IMI6D	0x00020250	ATU6_IMI6D interrupt
+interrupt INT_ATU7_IMI7A	0x00020254	ATU7_IMI7A interrupt
+interrupt INT_ATU7_IMI7B	0x00020258	ATU7_IMI7B interrupt
+interrupt INT_ATU7_IMI7C	0x0002025C	ATU7_IMI7C interrupt
+interrupt INT_ATU7_IMI7D	0x00020260	ATU7_IMI7D interrupt
+interrupt INT_ATU81_OSI8A	0x00020264	ATU81_OSI8A interrupt
+interrupt INT_ATU81_OSI8B	0x00020268	ATU81_OSI8B interrupt
+interrupt INT_ATU81_OSI8C	0x0002026C	ATU81_OSI8C interrupt
+interrupt INT_ATU81_OSI8D	0x00020270	ATU81_OSI8D interrupt
+interrupt INT_ATU82_OSI8E	0x00020274	ATU82_OSI8E interrupt
+interrupt INT_ATU82_OSI8F	0x00020278	ATU82_OSI8F interrupt
+interrupt INT_ATU82_OSI8G	0x0002027C	ATU82_OSI8G interrupt
+interrupt INT_ATU82_OSI8H	0x00020280	ATU82_OSI8H interrupt
+interrupt INT_ATU83_OSI8I	0x00020284	ATU83_OSI8I interrupt
+interrupt INT_ATU83_OSI8J	0x00020288	ATU83_OSI8J interrupt
+interrupt INT_ATU83_OSI8K	0x0002028C	ATU83_OSI8K interrupt
+interrupt INT_ATU83_OSI8L	0x00020290	ATU83_OSI8L interrupt
+interrupt INT_ATU84_OSI8M	0x00020294	ATU84_OSI8M interrupt
+interrupt INT_ATU84_OSI8N	0x00020298	ATU84_OSI8N interrupt
+interrupt INT_ATU84_OSI8O	0x0002029C	ATU84_OSI8O interrupt
+interrupt INT_ATU84_OSI8P	0x000202A0	ATU84_OSI8P interrupt
+interrupt INT_ATU91_CMI9A	0x000202A4	ATU91_CMI9A interrupt
+interrupt INT_ATU91_CMI9B	0x000202A8	ATU91_CMI9B interrupt
+interrupt INT_ATU91_CMI9C	0x000202AC	ATU91_CMI9C interrupt
+interrupt INT_ATU91_CMI9D	0x000202B0	ATU91_CMI9D interrupt
+interrupt INT_ATU92_CMI9E	0x000202B4	ATU92_CMI9E interrupt
+interrupt INT_ATU92_CMI9F	0x000202BC	ATU92_CMI9F interrupt
+interrupt INT_ATU101_CMI10A	0x000202C4	ATU101_CMI10A interrupt
+interrupt INT_ATU101_CMI10B	0x000202CC	ATU101_CMI10B interrupt
+interrupt INT_ATU102_IMI10AG	0x000202D4	ATU102_IMI10AG interrupt
+interrupt INT_ATU11_IMI11A	0x000202E4	ATU11_IMI11A interrupt
+interrupt INT_ATU11_IMI11B	0x000202EC	ATU11_IMI11B interrupt
+interrupt INT_ATU11_OVI1	0x000202F0	ATU11_OVI1 interrupt
+interrupt INT_CMT0_CMTI0	0x000202F4	CMT0_CMTI0 interrupt
+interrupt INT_ADI0	0x000202FC	ADI0 interrupt
+interrupt INT_CMT1_CMTI1	0x00020304	CMT1_CMTI1 interrupt
+interrupt INT_AD1_ADI1	0x0002030C	AD1_ADI1 interrupt
+interrupt INT_AD2_ADI2	0x00020314	AD2_ADI2 interrupt
+interrupt INT_SCI0_ERI0	0x00020324	SCI0_ERI0 interrupt
+interrupt INT_SCI0_RXI0	0x00020328	SCI0_RXI0 interrupt
+interrupt INT_SCI0_TXI0	0x0002032C	SCI0_TXI0 interrupt
+interrupt INT_SCI0_TEI0	0x00020330	SCI0_TEI0 interrupt
+interrupt INT_SCI1_ERI1	0x00020334	SCI1_ERI1 interrupt
+interrupt INT_SCI1_RXI1	0x00020338	SCI1_RXI1 interrupt
+interrupt INT_SCI1_TXI1	0x0002033C	SCI1_TXI1 interrupt
+interrupt INT_SCI1_TEI1	0x00020340	SCI1_TEI1 interrupt
+interrupt INT_SCI2_ERI2	0x00020344	SCI2_ERI2 interrupt
+interrupt INT_SCI2_RXI2	0x00020348	SCI2_RXI2 interrupt
+interrupt INT_SCI2_TXI2	0x0002034C	SCI2_TXI2 interrupt
+interrupt INT_SCI2_TEI2	0x00020350	SCI2_TEI2 interrupt
+interrupt INT_SCI3_ERI3	0x00020354	SCI3_ERI3 interrupt
+interrupt INT_SCI3_RXI3	0x00020358	SCI3_RXI3 interrupt
+interrupt INT_SCI3_TXI3	0x0002035C	SCI3_TXI3 interrupt
+interrupt INT_SCI3_TEI3	0x00020360	SCI3_TEI3 interrupt
+interrupt INT_SCI4_ERI4	0x00020364	SCI4_ERI4 interrupt
+interrupt INT_SCI4_RXI4	0x00020368	SCI4_RXI4 interrupt
+interrupt INT_SCI4_TXI4	0x0002036C	SCI4_TXI4 interrupt
+interrupt INT_SCI4_TEI4	0x00020370	SCI4_TEI4 interrupt
+interrupt INT_HCAN0_ERS0	0x00020374	HCAN0_ERS0 interrupt
+interrupt INT_HCAN0_OVR0	0x00020378	HCAN0_OVR0 interrupt
+interrupt INT_HCAN0_RM0	0x0002037C	HCAN0_RM0 interrupt
+interrupt INT_HCAN0_SLE0	0x00020380	HCAN0_SLE0 interrupt
+interrupt INT_WDT_ITI	0x00020384	WDT_ITI interrupt
+interrupt INT_HCAN1_ERS1	0x00020394	HCAN1_ERS1 interrupt
+interrupt INT_HCAN1_OVR1	0x00020398	HCAN1_OVR1 interrupt
+interrupt INT_HCAN1_RM1	0x0002039C	HCAN1_RM1 interrupt
+interrupt INT_HCAN1_SLE1	0x000203A0	HCAN1_SLE1 interrupt
+interrupt alt_Poweron_Reset	0x00020004	RESET
+
+;END OF .SH7058_IVT20004
+
 .SH7058s
 ; TODO -- correct differences in IVT (add SSU interrupts)
 area CODE ROM	0x00000000:0x000FFFFF	Internal ROM area
