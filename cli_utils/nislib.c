@@ -192,6 +192,8 @@ bool check_ivt(const uint8_t *buf) {
 	mr_pc = reconst_32(buf + 8);
 	mr_sp = reconst_32(buf + 12);
 
+	if ((por_pc & 1) || (mr_pc & 1)) return 0;
+	if ((por_sp & 3) || (mr_sp & 3)) return 0;
 	if (por_pc != mr_pc) return 0;
 	if (por_sp != mr_sp) return 0;
 	if (por_pc > 0x00ffffff) return 0;

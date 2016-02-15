@@ -201,6 +201,7 @@ long find_fid(struct romfile *rf) {
 	if (!rf) return -1;
 	if (!(rf->buf)) return -1;
 
+	rf->p_fid = -1;
 	/* look for "DATABASE" */
 	sf = u8memstr(rf->buf, rf->siz, dbstr, 5);
 	if (!sf) {
@@ -274,6 +275,7 @@ long find_ramf(struct romfile *rf) {
 
 	if (!rf) return -1;
 	if (!(rf->buf)) return -1;
+	if (rf->p_fid <= 0) return -1;
 
 	rf->p_ramf = rf->p_fid + rf->sfid_size;
 
@@ -287,8 +289,8 @@ long find_ramf(struct romfile *rf) {
 			//search around, in a pattern like +0, +4, -4, +8, -8, +12.
 			testval = reconst_32(&rf->buf[rf->p_ramf + (sign * ramf_adj)]);
 			if (testval == 0xffff8000) {
-				printf("probable RAMF found @ delta = %d\n", (int) ramf_adj);
-				rf->p_ramf += ramf_adj;
+				printf("probable RAMF found @ delta = %+d\n", (int) (sign * ramf_adj));
+				rf->p_ramf += (sign * ramf_adj);
 				break;
 			}
 			sign = -sign;	//flip sign;
@@ -360,7 +362,7 @@ long find_ramf(struct romfile *rf) {
 		uint32_t acs=0, acx=0;
 		const uint8_t *pacs, *pacx;
 		sum32(&rf->buf[rf->p_acstart], rf->p_acend - rf->p_acstart, &acs, &acx);
-		printf("alt cks block 0x%06lX - 0x%06lX: sumt=%lX, xort=%lX\n",
+		printf("alt cks block 0x%06lX - 0x%06lX: sumt=0x%08lX, xort=0x%08lX\n",
 			(unsigned long) rf->p_acstart, (unsigned long) rf->p_acend,
 				(unsigned long) acs, (unsigned long) acx);
 		pacs = u32memstr(rf->buf, rf->siz, acs);
@@ -369,7 +371,7 @@ long find_ramf(struct romfile *rf) {
 			printf("altcks values not found in ROM, possibly unskipped vals or bad algo\n");
 			//TODO : hax the std checksum finder and assume the altcks vals are within the block.
 		} else {
-			printf("confirmed altcks values found : acs @ %lX, acx @ %lX\n",
+			printf("confirmed altcks values found : acs @ 0x%lX, acx @ 0x%lX\n",
 					(unsigned long) (pacs - rf->buf), (unsigned long) (pacx - rf->buf));
 			//TODO : validate altcks val offsets VS end-of-IVT2, i.e. they seem to be always @
 			// IVT2 + 0x400
@@ -433,6 +435,8 @@ int main(int argc, char *argv[])
 			sizeof(((struct fid_base1_t *)NULL)->FID), sfid, (unsigned long) fidpos);
 		printf("%.*s\n", sizeof(((struct fid_base1_t *)NULL)->cpu), scpu);
 
+	} else {
+		printf("error: no FID struct, nothing more to say...\n");
 	}
 	ramfpos = find_ramf(&rf);
 	if (ramfpos >= 0) {
@@ -445,7 +449,10 @@ int main(int argc, char *argv[])
 			while ((iter + 0x400) < rf.siz) {
 				long new_offs;
 				new_offs = find_ivt(rf.buf + iter, rf.siz - iter);
-				if (new_offs < 0) break;
+				if (new_offs < 0) {
+					printf("\t no IVT2 found.\n");
+					break;
+				}
 				iter += new_offs;
 				printf("\tPossible IVT @ 0x%lX\n",(unsigned long) iter);
 				if (reconst_32(rf.buf + iter + 4) ==0xffff7ffc) {
