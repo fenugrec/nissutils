@@ -36,7 +36,7 @@ void write_32b(uint32_t val, uint8_t *buf) {
 void sum32(const uint8_t *buf, long siz, uint32_t *sum, uint32_t *xor) {
 	long bufcur;
 	uint32_t sumt, xort;
-	
+
 	if (!buf || !sum || !xor) return;
 	sumt=0;
 	xort=0;
@@ -70,10 +70,10 @@ int checksum_std(const uint8_t *buf, long siz, long *p_cks, long *p_ckx) {
 
 	sumt = xort = 0;
 	sum32(buf, siz, &sumt, &xort);
-	
+
 	cks=xort;
 	ckx= sumt - 2*xort;	//cheat !
-	printf("sumt=0x%0X; xort=cks=0x%0X; ckx=0x%0X\n",sumt, cks, ckx);
+	//printf("sumt=0x%0X; xort=cks=0x%0X; ckx=0x%0X\n",sumt, cks, ckx);
 	//try to find cks et ckx in there
 	ckscount=0;
 	ckxcount=0;
@@ -96,16 +96,16 @@ int checksum_std(const uint8_t *buf, long siz, long *p_cks, long *p_ckx) {
 			continue;
 		}
 	}
-	
+
 	if (ckxcount>1 || ckscount>1)
 		printf("warning : more than one set of checksums found ! the real checksums should be close to each other.\n");
 
 	if (ckxcount==0 && ckscount==0) {
-		printf("warning : no checksum found !\n");
+//		printf("warning : no checksum found !\n");
 		return -1;
 	}
-	
-	return 0;	
+
+	return 0;
 }
 
 // Steps to fix checksums :
@@ -116,7 +116,7 @@ void checksum_fix(uint8_t *buf, long siz, long p_cks, long p_ckx, long p_a, long
 	uint32_t cks, ckx;	//desired sum and xor
 	uint32_t ds, dx;	//actual/delta vals
 	uint32_t a, b, c;	//correction vals
-	
+
 	//abort if siz not a multiple of 4, and other problems
 	if (!buf || (siz <= 0) || (siz & 3) ||
 		(p_cks >= siz) || (p_ckx >= siz) ||
@@ -130,7 +130,7 @@ void checksum_fix(uint8_t *buf, long siz, long p_cks, long p_ckx, long p_a, long
 		// (bit 0 of an addition is the XOR of all "bit 0"s !! )
 		printf("Warning : unlikely original checksums; unmatched LSBs\n");
 	}
-	
+
 	// 1) set correction vals to 0
 	write_32b(0, &buf[p_a]);
 	write_32b(0, &buf[p_b]);
@@ -144,7 +144,7 @@ void checksum_fix(uint8_t *buf, long siz, long p_cks, long p_ckx, long p_a, long
 	ds = ds - (cks + ckx);
 	dx = dx ^ cks ^ ckx;
 	printf("actual s=%X, x=%X\n", ds, dx);
-	
+
 	//required corrections :
 	ds = cks - ds;
 	dx = ckx ^ dx;
