@@ -397,16 +397,29 @@ long find_ramf(struct romfile *rf) {
 
 	//display some LOADER80-specific garbage
 	if (rf->loader_v == 80) {
+		//parse ECUREC
 		long pecurec = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, pECUREC)]);
 		//skip leading '1'
 		pecurec += 1;
 		if ((pecurec + 6) <= rf->siz) {
 			printf("probable ECUID : %.*s\n", 5,  &rf->buf[pecurec]);
 		}
+
+		//validate ROM size
 		testval = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, romend)]);
 		if (testval != (rf->siz -1)) {
 			printf("mismatched <romend> field : got %lX\n", (unsigned long) testval);
 		}
+
+        /* Locate RIPEMD-160 magic numbers */
+        if ((u32memstr(rf->buf, rf->siz, 0x67452301) != NULL) &&
+			(u32memstr(rf->buf, rf->siz, 0x98BADCFE) != NULL)) {
+			printf("RIPEMD-160 hash function present.\n");
+		} else {
+			printf("RIPEMD-160 hash function not found ??\n");
+		}
+
+		/* Locate cks_alt2 checksum TODO */
 	}
 
 	return rf->p_ramf;
