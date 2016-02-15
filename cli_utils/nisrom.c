@@ -18,6 +18,8 @@
 #include "nissan_romdefs.h"
 #include "nislib.h"
 
+_Static_assert(sizeof(char) == 1, "HAH ! a non-8bit char system. This may not work.");
+
 // generic ROM struct
 struct romfile {
 	FILE *hf;
@@ -25,9 +27,27 @@ struct romfile {
 	uint8_t *buf;	//copied here
 	//and some metadata
 	long p_loader;	//struct loader
-	long p_fid;	//struct fid
-	long p_cks;	//position of checksum sum
-	long p_ckx;	//position of checksum xor
+	int loader_v;	//version (10, 50, 60 etc)
+
+	long p_fid;	//struct fid_base
+	long sfid_size;	//sizeof correct struct fid_base
+	long p_ramf;	//struct ramf
+
+	/* these point in buf, and so are not necessarily 0-terminated strings */
+	const uint8_t *loader_cpu;	//LOADERxx CPU code
+	const uint8_t *fid;	//firmware ID itself
+	const uint8_t *fid_cpu;	//FID CPU code
+
+	long p_cks;	//position of std_checksum sum
+	long p_ckx;	//position of std_checksum xor
+
+	long p_acs;	//pos of alt_cks sum
+	long p_acx;	//pos of alt_cks xor
+
+	/* real metadata here. Unknown values must be set to -1 */
+	long p_ivt2;	//pos of alt. vector table
+	long p_acstart;	//start of alt_cks block
+	long p_acend;	//end of alt_cks block
 };
 
 // hax, get file length but restore position
@@ -60,7 +80,7 @@ static int open_rom(struct romfile *rf, const char *fname) {
 	if ((fbin=fopen(fname,"rb"))==NULL) {
 		printf("error opening %s.\n", fname);
 		return -1;
-	}	
+	}
 
 	file_len = flen(fbin);
 	if ((file_len <= 0) || (file_len > 1024*1024L)) {
@@ -88,7 +108,7 @@ static int open_rom(struct romfile *rf, const char *fname) {
 
 	fclose(fbin);
 
-	
+
 	if ((file_len != 1024*1024L) && (file_len !=512*1024L)) {
 		printf("warning: not a 512k or 1M ROM !\n");
 	}
@@ -106,11 +126,10 @@ void close_rom(struct romfile *rf) {
 	return;
 }
 
-//search a <buflen> u8 buffer for a <len>-byte long sequence 
+//search a <buflen> u8 buffer for a <len>-byte long sequence
 //ret NULL if not found
 const uint8_t *u8memstr(const uint8_t *buf, long buflen, const uint8_t *needle, long nlen) {
 	long hcur, ncur;
-	_Static_assert(sizeof(char) == 1, "HAH ! a non-8bit char system. This may not work.");
 	if (!buf || !needle || (nlen > buflen)) return NULL;
 
 	for (hcur=0, ncur=0; (hcur < buflen) && (ncur < nlen); hcur++, ncur++) {
@@ -126,14 +145,28 @@ const uint8_t *u8memstr(const uint8_t *buf, long buflen, const uint8_t *needle, 
 	return NULL;
 }
 
-//find offset of LOADER struct
+/** search a <buflen> u8 buffer for a 32-bit aligned u32 value, in SH endianness
+ *
+ * thin wrapper around u8memstr and write_32b
+ */
+const uint8_t *u32memstr(const uint8_t *buf, long buflen, const uint32_t needle) {
+	uint8_t u8val[4];
+	write_32b(needle, u8val);
+
+	return u8memstr(buf, buflen, u8val, 4);
+}
+
+//find offset of LOADER struct, update romfile struct
 //ret -1 if not ok
 long find_loader(struct romfile *rf) {
 	const uint8_t loadstr[]="LOADER";
 	const uint8_t *sl;
+	int loadv;
 
 	if (!rf) return -1;
 	if (!(rf->buf)) return -1;
+
+	rf->loader_v = 0;
 
 	/* look for "LOADER", backtrack to beginning of struct. */
 	sl = u8memstr(rf->buf, rf->siz, loadstr, 6);
@@ -141,16 +174,28 @@ long find_loader(struct romfile *rf) {
 		printf("LOADER not found !\n");
 		return -1;
 	}
+
+	//decode version #
+	if (sscanf((const char *) (sl + 6), "%d", &loadv) == 1) {
+		rf->loader_v = loadv;
+	}
+
 	//convert to file offset
-	return (long) (sl - rf->buf) - offsetof(struct loader_t, loader);
+	rf->p_loader = (long) (sl - rf->buf) - offsetof(struct loader_t, loader);
+
+	// this is the same for all loader verions:
+	rf->loader_cpu = &rf->buf[rf->p_loader + offsetof(struct loader_t, cpu)];
+
+	return rf->p_loader;
 }
 
-//find offset of FID struct
+//find offset of FID struct, parse & update romfile struct
 //ret -1 if not ok
 long find_fid(struct romfile *rf) {
 	const uint8_t dbstr[]="DATAB";
 	const uint8_t loadstr[]="LOADER";
 	const uint8_t *sf;
+	uint16_t fftag;
 	long sf_offset;	//offset in file
 
 	if (!rf) return -1;
@@ -163,7 +208,8 @@ long find_fid(struct romfile *rf) {
 		return -1;
 	}
 	//convert to file offset
-	sf_offset = (sf - rf->buf) - offsetof(struct fid_t, database);
+	//Luckily, the database member is at the same offset for all variants of struct fid.
+	sf_offset = (sf - rf->buf) - offsetof(struct fid_base1_t, database);
 
 	/* check if this was the LOADER database */
 	if (memcmp(sf - offsetof(struct loader_t, database), loadstr, 4) == 0 ) {
@@ -174,11 +220,137 @@ long find_fid(struct romfile *rf) {
 			printf("no FID DATABASE found !\n");
 			return -1;
 		}
+		//convert to file offset again
+		sf_offset = (sf - rf->buf) - offsetof(struct fid_base1_t, database);
 	}
 
-	//convert to file offset again
-	sf_offset = (sf - rf->buf) - offsetof(struct fid_t, database);
+	rf->p_fid = sf_offset;
+
+	//sanity check loader version VS the header tag.
+	fftag = reconst_16(&rf->buf[sf_offset]);
+	if (rf->loader_v == 80) {
+		//these are special, they don't have an "FFFF" tag.
+	} else {
+		if (fftag != 0xffff) {
+			printf("Unusual FID header tag = 0x%04X\n", (unsigned) fftag);
+		}
+	}
+
+	/* independant of loader version : */
+	rf->fid = &rf->buf[sf_offset + offsetof(struct fid_base1_t, FID)];
+	rf->fid_cpu = &rf->buf[sf_offset + offsetof(struct fid_base1_t, cpu)];
+
+	switch (rf->loader_v) {
+	case 80:
+		rf->sfid_size = sizeof(struct fid_base2_t);
+		break;
+	case 10:
+	case 40:
+	case 50:
+	case 60:
+	default:
+		rf->sfid_size = sizeof(struct fid_base1_t);
+		break;
+	}
 	return sf_offset;
+}
+
+/** find & analyze 'struct ramf'
+ *
+ * @return 0 if ok
+ *
+ * it's right after struct fid, easy. the rom must already have
+ * loader and fid structs found (find_loader, find_fid)
+ */
+long find_ramf(struct romfile *rf) {
+	uint32_t testval;
+
+	if (!rf) return -1;
+	if (!(rf->buf)) return -1;
+
+	rf->p_ramf = rf->p_fid + rf->sfid_size;
+
+	//1- sanity check first member, has always been FFFF8000.
+	testval = reconst_32(&rf->buf[rf->p_ramf]);
+	if (testval != 0xffff8000) {
+		printf("Unlikely contents for struct ramf; got 0x%lX\n", (unsigned long) testval);
+	}
+
+	//2- find altcks and IVT2 ; sanity check
+	switch (rf->loader_v) {
+	case 10:
+		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_10, altcks_start)]);
+		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_10, pFID)]);
+		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_10, pIVECT2)]);
+		break;
+	case 40:
+		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_40, altcks_start)]);
+		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_40, pFID)]);
+		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_40, pIVECT2)]);
+		break;
+	case 50:
+	case 60:
+		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_50, altcks_start)]);
+		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_50, pFID)]);
+		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_50, pIVECT2)]);
+		break;
+	case 80:
+		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, altcks_start)]);
+		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, altcks_end)]);
+		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, pIVECT2)]);
+		break;
+	default:
+		rf->p_acstart = -1;
+		rf->p_acend = -1;
+		rf->p_ivt2 = -1;
+		break;
+	}
+	free(rf->buf);
+	if (rf->p_ivt2 >= 0) {
+		if (!check_ivt(&rf->buf[rf->p_ivt2])) {
+			printf("Unlikely IVT2 location 0x%06lX :\n", (unsigned long) rf->p_ivt2);
+			printf("%08lX %08lX %08lX %08lX...\n", (unsigned long) reconst_32(&rf->buf[rf->p_ivt2+0]),
+						(unsigned long) reconst_32(&rf->buf[rf->p_ivt2+4]),
+						(unsigned long) reconst_32(&rf->buf[rf->p_ivt2+8]),
+						(unsigned long) reconst_32(&rf->buf[rf->p_ivt2+12]));
+		}
+	}
+	if (rf->p_acstart >= 0) {
+		/* validate alt_cks block; it's a std algo that skips 2 u32 locs (altcks_s, altcks_x).
+		 * But it seems those locs are always outside the block?
+		 */
+		uint32_t acs=0, acx=0;
+		const uint8_t *pacs, *pacx;
+		sum32(&rf->buf[rf->p_acstart], rf->p_acend - rf->p_acstart, &acs, &acx);
+		printf("alt cks block 0x%06lX - 0x%06lX: sumt=%lX, xort=%lX\n",
+			(unsigned long) rf->p_acstart, (unsigned long) rf->p_acend,
+				(unsigned long) acs, (unsigned long) acx);
+		pacs = u32memstr(rf->buf, rf->siz, acs);
+		pacx = u32memstr(rf->buf, rf->siz, acx);
+		if (!pacs && !pacx) {
+			printf("altcks values not found in ROM, possibly unskipped vals or bad algo\n");
+			//TODO : hax the std checksum finder and assume the altcks vals are within the block.
+		} else {
+			printf("confirmed altcks values found : acs @ %lX, acx @ %lX\n",
+					(unsigned long) (pacs - rf->buf), (unsigned long) (pacx - rf->buf));
+			//TODO : validate altcks val offsets VS end-of-IVT2, i.e. they seem to be always @
+			// IVT2 + 0x400
+		}
+	}
+
+	//display some LOADER80-specific garbage
+	if (rf->loader_v == 80) {
+		long pecurec = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, pECUREC)]);
+		//skip leading '1'
+		pecurec += 1;
+		printf("probable ECUID : %.*s\n", 5,  &rf->buf[pecurec]);
+		testval = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, romend)]);
+		if (testval != (rf->siz -1)) {
+			printf("mismatched <romend> field : got %lX\n", (unsigned long) testval);
+		}
+	}
+
+	return rf->p_ramf;
 }
 
 int main(int argc, char *argv[])
@@ -186,7 +358,8 @@ int main(int argc, char *argv[])
 	struct romfile rf;
 	long loaderpos;
 	long fidpos;
-	
+	long ramfpos;
+
 	if (argc !=2) {
 		printf("%s <ROMFILE> : analyze 512k or 1M ROM.\n",argv[0]);
 		return 0;
@@ -202,56 +375,38 @@ int main(int argc, char *argv[])
 	loaderpos=find_loader(&rf);
 	if (loaderpos >= 0) {
 		const char *scpu;
-		scpu = (const char *) &rf.buf[loaderpos + offsetof(struct loader_t, cpu)];
-		printf("%.*s found @ 0x%lX, ", 8, &rf.buf[loaderpos], loaderpos);
+		scpu = (const char *) rf.loader_cpu;
+		printf("Loader %d found @ 0x%lX, ", rf.loader_v, (unsigned long) loaderpos);
 		printf("%.*s\n", sizeof(((struct loader_t *)NULL)->cpu), scpu);
-		rf.p_loader=loaderpos;
 	}
-	
+
 	fidpos = find_fid(&rf);
 	if (fidpos >= 0) {
 		const char *sfid;
 		const char *scpu;
-		uint32_t pthis, pivect2=0;
-		int i;
-		
-		rf.p_fid = fidpos;
-		sfid = (const char *) &rf.buf[fidpos + offsetof(struct fid_t, FID)];
-		scpu = (const char *) &rf.buf[fidpos + offsetof(struct fid_t, cpu)];
-		printf("FID: %.*s found @ 0x%lX, ", \
-			sizeof(((struct fid_t *)NULL)->FID), sfid, fidpos);
-		printf("%.*s\n", sizeof(((struct fid_t *)NULL)->cpu), scpu);
 
-		//XXX hax : to deal with various sizes of struct fid; find IVECT2 by finding pTHIS
-		//not super reliable
-		for (i=0; i < 30; i++) {
-			uint32_t tv;
-			pthis = 4*i + fidpos + offsetof(struct fid_t, pRAMjump);
-			tv = reconst_32(&rf.buf[pthis]);
-			if (tv == fidpos) {
-				//found "pTHIS" member; pIVECT2 is right after
-				pivect2 = pthis + 4;
-				printf("IVECT2 = 0x%lX\n", (unsigned long) reconst_32(&rf.buf[pivect2]));
-				break;
-			}
+		printf("FID header tag = 0x%04X\n", (unsigned) reconst_16(&rf.buf[rf.p_fid]));
+
+		sfid = (const char *) rf.fid;
+		scpu = (const char *) rf.fid_cpu;
+		printf("FID: %.*s found @ 0x%lX, ", \
+			sizeof(((struct fid_base1_t *)NULL)->FID), sfid, (unsigned long) fidpos);
+		printf("%.*s\n", sizeof(((struct fid_base1_t *)NULL)->cpu), scpu);
+
+	}
+	ramfpos = find_ramf(&rf);
+	if (ramfpos >= 0) {
+		if (rf.p_ivt2 >= 0) {
+			printf("IVECT2 @ 0x%lX\n", (unsigned long) rf.p_ivt2);
+		} else {
+			printf("no IVT2 ?? wtf\n");
 		}
-		//alt_cks block starts at &pISR_IMI3A, until &FID
-		long acsblock = reconst_32(&rf.buf[pthis-4]);
-		uint32_t acs=0, acx=0;
-		sum32(&rf.buf[acsblock], fidpos - acsblock, &acs, &acx);
-		printf("alt cks block @ 0x%lX; sumt=%lX, xort=%lX\n",
-			(unsigned long) acsblock, acs, acx);
-		
-		/*
-		printf("short struct IVECT2=0x%lX, long struct IVECT2=0x%lX\n",
-			(unsigned long) reconst_32(&rf.buf[fidpos + offsetof(struct fidshort_t, pIVECT2)]),
-			(unsigned long) reconst_32(&rf.buf[fidpos + offsetof(struct fid_t, pIVECT2)]));
-		*/
-		
+
 	}
 
 	if (!checksum_std(rf.buf, rf.siz, &rf.p_cks, &rf.p_ckx)) {
-		printf("Standard checksums found @ 0x%lX, 0x%lX\n", rf.p_cks, rf.p_ckx);
+		printf("standard checksum values found : std_cks @ 0x%lX, std_ckx @0x%lX\n",
+				(unsigned long) rf.p_cks, (unsigned long) rf.p_ckx);
 	}
 
 	close_rom(&rf);

@@ -179,3 +179,22 @@ void checksum_fix(uint8_t *buf, long siz, long p_cks, long p_ckx, long p_a, long
 
 	return;
 }
+
+
+ /* Example of a valid IVT : 0000 0104, ffff 7ffc, 0000 0104, ffff 7ffc
+ */
+bool check_ivt(const uint8_t *buf) {
+	uint32_t por_pc, por_sp;
+	uint32_t mr_pc, mr_sp;
+
+	por_pc = reconst_32(buf);
+	por_sp = reconst_32(buf + 4);
+	mr_pc = reconst_32(buf + 8);
+	mr_sp = reconst_32(buf + 12);
+
+	if (por_pc != mr_pc) return 0;
+	if (por_sp != mr_sp) return 0;
+	if (por_sp < 0xffff0000) return 0;
+
+	return 1;
+}

@@ -4,6 +4,7 @@
  */
 
 #include <stdint.h>
+#include <stdbool.h>
 
 /** Read uint32 at *buf with SH endianness
 */
@@ -46,3 +47,15 @@ int checksum_std(const uint8_t *buf, long siz, long *p_cks, long *p_ckx);
  */
 void checksum_fix(uint8_t *buf, long siz, long p_cks, long p_ckx,
 		long p_a, long p_b, long p_c);
+
+
+/** Verify if a vector table (IVT) is sane.
+ * @param ivt : start of vector table
+ * @return true if it's an IVT.
+ *
+ * Uses very basic heuristics : just check if the power-on and manual resets have the same values for PC and SP,
+ * and that SP points in RAM.
+ *
+ * Example of a valid IVT : 0000 0104, ffff 7ffc, 0000 0104, ffff 7ffc
+ */
+bool check_ivt(const uint8_t *buf);
