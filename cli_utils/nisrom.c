@@ -439,7 +439,20 @@ int main(int argc, char *argv[])
 		if (rf.p_ivt2 >= 0) {
 			printf("IVECT2 @ 0x%lX\n", (unsigned long) rf.p_ivt2);
 		} else {
-			printf("no IVT2 ?? wtf\n");
+			long iter;
+			printf("no IVT2 ?? wtf. Last resort, brute force technique:\n");
+			iter = 0x100;	//skip power-on IVT
+			while ((iter + 0x400) < rf.siz) {
+				long new_offs;
+				new_offs = find_ivt(rf.buf + iter, rf.siz - iter);
+				if (new_offs < 0) break;
+				iter += new_offs;
+				printf("\tPossible IVT @ 0x%lX\n",(unsigned long) iter);
+				if (reconst_32(rf.buf + iter + 4) ==0xffff7ffc) {
+					printf("\t\tProbable IVT !\n");
+				}
+				iter += 0x4;
+			}
 		}
 
 	}

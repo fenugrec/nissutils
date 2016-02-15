@@ -194,7 +194,21 @@ bool check_ivt(const uint8_t *buf) {
 
 	if (por_pc != mr_pc) return 0;
 	if (por_sp != mr_sp) return 0;
+	if (por_pc > 0x00ffffff) return 0;
 	if (por_sp < 0xffff0000) return 0;
 
 	return 1;
+}
+
+
+long find_ivt(const uint8_t *buf, long siz) {
+	long offs;
+
+	if (!buf) return -1;
+
+	siz &= ~3;
+	for (offs = 0; siz > 0; siz -= 4, offs += 4) {
+		if (check_ivt(buf + offs)) return offs;
+	}
+	return -1;
 }
