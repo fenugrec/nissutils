@@ -9,7 +9,8 @@
 //#define PACK __attribute__((aligned(1),packed))
 
 /* LOADER versions */
-enum loadvers_t {L_UNK=0, L10=10, L40=40, L50=50, L60=60, L80=80};
+/* 07 is not a "LOADER" but applies to old "sh705507" FIDs. */
+enum loadvers_t {L_UNK=0, L07=07, L10=10, L40=40, L50=50, L60=60, L80=80};
 
 /* struct LOADER -- this must be packed, i.e. no padding between members */
 struct loader_t {
@@ -75,6 +76,27 @@ struct fid_base2_t {
 * different verions of "struct RAMF", always found after struct FID.
 * Apparently every LOADERxx version has a slightly different format for this
 */
+
+//version for loader-less ROMs, with FIDCPU=705507, checked on
+//AM604
+// Note : most members are probably invalid, except altcks start/end and pIVECT2
+struct ramf_07 {
+	uint8_t pRAM1[4];		//rxbuf?
+	uint8_t pRAMexec2[4];	//RAMexec?
+	uint8_t pRAM_unk1[4];
+	uint8_t pRAM_unk1b[4];		//unk1....unk1b = zone
+	uint8_t pRAM_28a4_1[4];
+	uint8_t pRAM_28a4_2[4];		//another zone
+	uint8_t pRAMjump[4];
+	uint8_t pRAM_DLAmax[4];	//end of RAM dl area ? ex ffff8438...DLAmax
+	uint8_t field_20[4];
+	uint8_t field_24[4];
+	uint8_t pRAMinit[4];	//array of data for ram initialization ? see 8U92A
+	uint8_t pRAM_unk2[4][4];	//4x same, sometimes first member is different
+	uint8_t altcks_start[4];
+	uint8_t altcks_end[4];
+	uint8_t pIVECT2[4];
+};
 
 //LOADER10, checked on
 //CD002, 8U92A, AC011

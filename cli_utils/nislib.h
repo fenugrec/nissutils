@@ -55,8 +55,8 @@ void checksum_fix(uint8_t *buf, long siz, long p_cks, long p_ckx,
  *
  * Uses very basic heuristics :
  * - check if the power-on and manual resets have the same values for PC and SP
- * - PC points in bottom 16MB
- * - SP points in RAM
+ * - PC points in bottom 16MB, aligned on 2-byte boundary
+ * - SP points in RAM, aligned on 4-byte boundary
  *
  * Example of a valid IVT : 0000 0104, ffff 7ffc, 0000 0104, ffff 7ffc
  */

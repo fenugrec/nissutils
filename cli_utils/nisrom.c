@@ -248,10 +248,22 @@ long find_fid(struct romfile *rf) {
 	rf->fid = &rf->buf[sf_offset + offsetof(struct fid_base1_t, FID)];
 	rf->fid_cpu = &rf->buf[sf_offset + offsetof(struct fid_base1_t, cpu)];
 
+	/* special case for LOADER-less ROMs that have CPU=705507. */
+	if (rf->loader_v == 0) {
+		const uint8_t load07[] = "705507";
+		if (memcmp(rf->fid_cpu + 2, load07, 6) == 0) {
+			printf("Looks like a loader-less \"07\" ROM.\n");
+			rf->loader_v = 7;
+		} else {
+			printf("Unknown loader version / FID type !!\n");
+		}
+	}
+
 	switch (rf->loader_v) {
 	case 80:
 		rf->sfid_size = sizeof(struct fid_base2_t);
 		break;
+	case 07:
 	case 10:
 	case 40:
 	case 50:
@@ -300,6 +312,11 @@ long find_ramf(struct romfile *rf) {
 
 	//2- find altcks and IVT2 ; sanity check
 	switch (rf->loader_v) {
+	case 07:
+		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_07, altcks_start)]);
+		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_07, altcks_end)]);
+		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_07, pIVECT2)]);
+		break;
 	case 10:
 		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_10, altcks_start)]);
 		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_10, pFID)]);
