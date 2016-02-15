@@ -59,17 +59,28 @@ void sum32(const uint8_t *buf, long siz, uint32_t *sum, uint32_t *xor) {
 //		this gives xort=ckx ^ ckx ^ cks = cks (so we found the real ck_sum)
 //	B) we can SUM everything (including cks and ckx), we get sumt=cks(real sum) + cks + ckx = 2*cks + ckx.
 //	so we get ckx= sumt - 2*ckx, and then we try to locate cks and ckx in the ROM.
-int checksum_std(const uint8_t *buf, long siz, long *p_cks, long *p_ckx) {
+int checksum_alt2(const uint8_t *buf, long siz, long *p_ack_s, long *p_ack_x,
+				long p_skip1, long p_skip2) {
 	int ckscount, ckxcount;	//count number of found instances
 	long bufcur;
 	uint32_t sumt,xort, cks, ckx;
 
-	if (!buf || (siz & 0x3) || !p_cks || !p_ckx || (siz <= 0)) {
+	if (!buf || (siz & 0x3) || !p_ack_s || !p_ack_x || (siz <= 0)) {
 		return -1;
 	}
 
 	sumt = xort = 0;
 	sum32(buf, siz, &sumt, &xort);
+	/* Optionally skip 2 extra locations by compensating sumt and xort */
+	if (p_skip1 >= 0) {
+		sumt -= reconst_32(buf + p_skip1);
+		xort ^= reconst_32(buf + p_skip1);
+	}
+	if (p_skip2 >= 0) {
+		sumt -= reconst_32(buf + p_skip2);
+		xort ^= reconst_32(buf + p_skip2);
+	}
+
 
 	cks=xort;
 	ckx= sumt - 2*xort;	//cheat !
@@ -77,21 +88,21 @@ int checksum_std(const uint8_t *buf, long siz, long *p_cks, long *p_ckx) {
 	//try to find cks et ckx in there
 	ckscount=0;
 	ckxcount=0;
-	*p_cks = 0;
-	*p_ckx = 0;
+	*p_ack_s = 0;
+	*p_ack_x = 0;
 
 	for (bufcur=0; bufcur < siz; bufcur += 4) {
 		uint32_t lw;
 		lw = reconst_32(&buf[bufcur]);
 		if (lw==cks) {
 			//printf("cks found @ 0x%0X\n", bufcur);
-			*p_cks = bufcur;
+			*p_ack_s = bufcur;
 			ckscount += 1;
 			continue;
 		}
 		if (lw==ckx) {
 			//printf("ckx found @ 0x%0X\n", bufcur);
-			*p_ckx = bufcur;
+			*p_ack_x = bufcur;
 			ckxcount += 1;
 			continue;
 		}
@@ -107,6 +118,12 @@ int checksum_std(const uint8_t *buf, long siz, long *p_cks, long *p_ckx) {
 
 	return 0;
 }
+
+//Thin wrapper around more generic checksum_alt2
+int checksum_std(const uint8_t *buf, long siz, long *p_cks, long *p_ckx) {
+	return checksum_alt2(buf, siz, p_cks, p_ckx, -1, -1);
+}
+
 
 // Steps to fix checksums :
 // 1) set a,b,c to 0

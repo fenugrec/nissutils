@@ -26,13 +26,30 @@ void sum32(const uint8_t *buf, long siz, uint32_t *sum, uint32_t *xor);
 
 /** calculate checksums and find their location
  *
- * @param p_cks : sum location (file offset)
- * @param p_ckx : xor location (file offset)
+ * @param siz : size of *buf in bytes
+ * @param p_cks : sum location (offset in buf)
+ * @param p_ckx : xor location (offset in buf)
  * @return 0 if ok
  *
  * Uses "standard" algo
  */
 int checksum_std(const uint8_t *buf, long siz, long *p_cks, long *p_ckx);
+
+/** calculate alt2 checksum and find its location
+ *
+ * @param siz : size of *buf in bytes
+ * @param p_ack_s : sum location (offset in buf)
+ * @param p_ack_x : xor location (offset in buf)
+ * @param p_skip1 : if >= 0: first location to skip (offset in buf)
+ * @param p_skip2 : if >= 0: second location to skip (offset in buf)
+ *
+ * @return 0 if ok
+ *
+ * This is the same algo as "std checksum", but assumes a loop that
+ * skips 4 locations (sum,xor, skip1, skip2).
+ */
+int checksum_alt2(const uint8_t *buf, long siz, long *p_ack_s, long *p_ack_x,
+				long p_skip1, long p_skip2);
 
 /** Calculate correction values to give a known checksum
  *

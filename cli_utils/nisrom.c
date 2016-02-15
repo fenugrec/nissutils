@@ -399,10 +399,9 @@ long find_ramf(struct romfile *rf) {
 	if (rf->loader_v == 80) {
 		//parse ECUREC
 		long pecurec = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, pECUREC)]);
-		//skip leading '1'
-		pecurec += 1;
 		if ((pecurec + 6) <= rf->siz) {
-			printf("probable ECUID : %.*s\n", 5,  &rf->buf[pecurec]);
+			//skip leading '1'
+			printf("probable ECUID : %.*s\n", 5,  &rf->buf[pecurec + 1]);
 		}
 
 		//validate ROM size
@@ -419,7 +418,18 @@ long find_ramf(struct romfile *rf) {
 			printf("RIPEMD-160 hash function not found ??\n");
 		}
 
-		/* Locate cks_alt2 checksum TODO */
+		/* Locate cks_alt2 checksum */
+		long p_as = 0, p_ax = 0;
+		long p_skip1, p_skip2;
+		p_skip1 = (pecurec - 4) - pecurec;
+		p_skip2 = (rf->p_ivt2 - 4) - pecurec;
+		if (checksum_alt2(&rf->buf[pecurec], rf->siz - pecurec, &p_as, &p_ax, p_skip1, p_skip2) == 0) {
+			printf("alt2 checksum found; sum @ 0x%lX, xor @ 0x%lX\n",
+					(unsigned long) p_as, (unsigned long) p_ax);
+		} else {
+			printf("alt2 checksum not found ?? Bad algo, bad skip, or other problem...\n");
+		}
+
 	}
 
 	return rf->p_ramf;
