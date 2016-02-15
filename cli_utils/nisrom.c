@@ -214,14 +214,21 @@ long find_fid(struct romfile *rf) {
 	/* check if this was the LOADER database */
 	if (memcmp(sf - offsetof(struct loader_t, database), loadstr, 4) == 0 ) {
 		//search again, skipping the first instance
-		//TODO bounds check
-		sf = u8memstr(&rf->buf[sf_offset + sizeof(struct loader_t)], rf->siz - sf_offset - 1 , dbstr, 5);
+		if ((sf_offset + 6) < rf->siz) {
+			sf = u8memstr(&rf->buf[sf_offset + sizeof(struct loader_t)], rf->siz - sf_offset - 1 , dbstr, 5);
+		}
 		if (!sf) {
 			printf("no FID DATABASE found !\n");
 			return -1;
 		}
 		//convert to file offset again
 		sf_offset = (sf - rf->buf) - offsetof(struct fid_base1_t, database);
+	}
+
+	//bounds check
+	if ((sf_offset + FID_MAXSIZE) >= rf->siz) {
+		printf("Possibly incomplete / bad dump ? FID too close to end of ROM\n");
+		return -1;
 	}
 
 	rf->p_fid = sf_offset;
@@ -259,7 +266,7 @@ long find_fid(struct romfile *rf) {
  *
  * @return 0 if ok
  *
- * it's right after struct fid, easy. the rom must already have
+ * it's right after struct fid, easy. The rom must already have
  * loader and fid structs found (find_loader, find_fid)
  */
 long find_ramf(struct romfile *rf) {
@@ -273,7 +280,20 @@ long find_ramf(struct romfile *rf) {
 	//1- sanity check first member, has always been FFFF8000.
 	testval = reconst_32(&rf->buf[rf->p_ramf]);
 	if (testval != 0xffff8000) {
-		printf("Unlikely contents for struct ramf; got 0x%lX\n", (unsigned long) testval);
+		long ramf_adj = 0;
+		long sign = 1;
+		printf("Unlikely contents for struct ramf; got 0x%lX. Trying to readjust:\n", (unsigned long) testval);
+		while (ramf_adj != 12) {
+			//search around, in a pattern like +0, +4, -4, +8, -8, +12.
+			testval = reconst_32(&rf->buf[rf->p_ramf + (sign * ramf_adj)]);
+			if (testval == 0xffff8000) {
+				printf("probable RAMF found @ delta = %d\n", (int) ramf_adj);
+				rf->p_ramf += ramf_adj;
+				break;
+			}
+			sign = -sign;	//flip sign;
+			if (sign == 1) ramf_adj += 4;
+		}
 	}
 
 	//2- find altcks and IVT2 ; sanity check
@@ -306,6 +326,15 @@ long find_ramf(struct romfile *rf) {
 		break;
 	}
 	free(rf->buf);
+	if ((rf->p_acstart >= rf->siz) ||
+		(rf->p_acend >= rf->siz) ||
+		(rf->p_ivt2 >= rf->siz)) {
+		printf("warning : altcks / IVT2 values out of bounds, probably due to unusual RAMF structure.\n");
+		rf->p_acstart = -1;
+		rf->p_acend = -1;
+		rf->p_ivt2 = -1;
+	}
+
 	if (rf->p_ivt2 >= 0) {
 		if (!check_ivt(&rf->buf[rf->p_ivt2])) {
 			printf("Unlikely IVT2 location 0x%06lX :\n", (unsigned long) rf->p_ivt2);
@@ -315,6 +344,15 @@ long find_ramf(struct romfile *rf) {
 						(unsigned long) reconst_32(&rf->buf[rf->p_ivt2+12]));
 		}
 	}
+
+
+	if (rf->p_acstart >= rf->p_acend) {
+		printf("bad/reversed alt cks bounds; 0x%lX - 0x%lX\n",
+				(unsigned long) rf->p_acstart, (unsigned long) rf->p_acend);
+		rf->p_acstart = -1;
+		rf->p_acend = -1;
+	}
+
 	if (rf->p_acstart >= 0) {
 		/* validate alt_cks block; it's a std algo that skips 2 u32 locs (altcks_s, altcks_x).
 		 * But it seems those locs are always outside the block?
@@ -343,7 +381,9 @@ long find_ramf(struct romfile *rf) {
 		long pecurec = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, pECUREC)]);
 		//skip leading '1'
 		pecurec += 1;
-		printf("probable ECUID : %.*s\n", 5,  &rf->buf[pecurec]);
+		if ((pecurec + 6) <= rf->siz) {
+			printf("probable ECUID : %.*s\n", 5,  &rf->buf[pecurec]);
+		}
 		testval = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, romend)]);
 		if (testval != (rf->siz -1)) {
 			printf("mismatched <romend> field : got %lX\n", (unsigned long) testval);
@@ -409,6 +449,7 @@ int main(int argc, char *argv[])
 				(unsigned long) rf.p_cks, (unsigned long) rf.p_ckx);
 	}
 
+	printf("\n");
 	close_rom(&rf);
 	return 0;
 }
