@@ -202,9 +202,7 @@ long find_s27k(struct romfile *rf) {
 		kp_h = u8memstr(rf->buf + kph_cur, rf->siz - kph_cur, ckh, 2);
 		kp_l = u8memstr(rf->buf + kpl_cur, rf->siz - kpl_cur, ckl, 2);
 		if ((kp_h == NULL) ||
-			(kp_l == NULL) ||
-			((kp_h - rf->buf) & 1) ||
-			((kp_l - rf->buf) & 1)) {
+			(kp_l == NULL)) {
 			//try next keyset
 			kph_cur = 0;
 			kpl_cur = 0;
@@ -214,15 +212,18 @@ long find_s27k(struct romfile *rf) {
 
 		//how far
 		dist = kp_h - kp_l;
-
-		if (dist > SPLITKEY_MAXDIST) {
-			//dubious match, values are too far.
+		//if kp_l is misaligned, or too far behind (much lower offset in buf) : find next occurence
+		if ((dist > SPLITKEY_MAXDIST)  ||
+			((kp_l - rf->buf) & 1)) {
+			//dubious match
 			//Find next kp_l, skip current occurence
 			kpl_cur = 1 + kp_l - rf->buf;
 			continue;
 		}
-		if (dist < -SPLITKEY_MAXDIST) {
-			//dubious match, values are too far.
+		//same idea for kp_h
+		if ((dist < -SPLITKEY_MAXDIST) ||
+			((kp_h - rf->buf) & 1)) {
+			//dubious match
 			//Find next kp_h, skip current occurence
 			kph_cur = 1 + kp_h - rf->buf;
 			continue;
