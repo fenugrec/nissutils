@@ -1,8 +1,6 @@
-/* WIP, this gathers generic ROM functionality
- * for the moment, guess as much information as possible from a ROM dump
+/* (c) fenugrec 2015-2016
+ * Gather information about a ROM, from metadata and heuristics
  *
- *
- * needs a compiler with C11. Compile with nislib.c
  *
  * usage:
  * nisrom <romfile>
@@ -154,6 +152,91 @@ const uint8_t *u32memstr(const uint8_t *buf, long buflen, const uint32_t needle)
 	write_32b(needle, u8val);
 
 	return u8memstr(buf, buflen, u8val, 4);
+}
+
+/** find sid 27 key
+ * @return offset in buf if succesful, < 0 otherwise
+ */
+long find_s27k(struct romfile *rf) {
+	int keyset=0;
+
+	if (!rf) return -1;
+	if (!(rf->buf)) return -1;
+
+	/* first method : search for every known key, it
+	 * seems a limited number of keysets exist.
+	 */
+	while (known_keys[keyset].s27k != 0) {
+		const uint8_t *keypos;
+		uint32_t curkey;
+		curkey = known_keys[keyset].s27k;
+
+		/* test 1 : search as a contig 32 bit word. Usually works */
+		keypos = u32memstr(rf->buf, rf->siz, curkey);
+		if (keypos != NULL) {
+			long key_offs = keypos - rf->buf;
+			printf("Keyset %lX found @ 0x%lX !\n", (unsigned long) curkey, (unsigned long) key_offs);
+			return key_offs;
+		}
+
+		keyset += 1;
+	}
+
+	/* test 2 : search as two 16bit halves close by
+	 * this is slower so only tried if required. TODO :
+	 * this can replace totally "test 1" actually.
+	 */
+	keyset = 0;
+	long kpl_cur = 0;
+	long kph_cur = 0;
+	while (known_keys[keyset].s27k != 0) {
+		const uint8_t *kp_h, *kp_l;
+		int dist;
+		uint32_t curkey;
+		uint8_t ckh[2], ckl[2];
+		curkey = known_keys[keyset].s27k;
+		ckh[0] = curkey >> 24;
+		ckh[1] = curkey >> 16;
+		ckl[0] = curkey >> 8;
+		ckl[1] = curkey >> 0;
+
+		/* find a match for both 16 bit halves*/
+		kp_h = u8memstr(rf->buf + kph_cur, rf->siz - kph_cur, ckh, 2);
+		kp_l = u8memstr(rf->buf + kpl_cur, rf->siz - kpl_cur, ckl, 2);
+		if ((kp_h == NULL) ||
+			(kp_l == NULL) ||
+			((kp_h - rf->buf) & 1) ||
+			((kp_l - rf->buf) & 1)) {
+			//try next keyset
+			kph_cur = 0;
+			kpl_cur = 0;
+			keyset += 1;
+			continue;
+		}
+
+		//how far
+		dist = kp_h - kp_l;
+
+		if (dist > 8) {
+			//dubious match, values are too far.
+			//Find next kp_l, skip current occurence
+			kpl_cur = 1 + kp_l - rf->buf;
+			continue;
+		}
+		if (dist < -8) {
+			//dubious match, values are too far.
+			//Find next kp_h, skip current occurence
+			kph_cur = 1 + kp_h - rf->buf;
+			continue;
+		}
+
+		long key_offs = kp_h - rf->buf;
+		printf("Split keyset %lX found near 0x%lX !\n", (unsigned long) curkey, (unsigned long) key_offs);
+		return key_offs;
+	}
+
+	printf("No keyset found, different heuristics / manual analysis needed.\n");
+	return -1;
 }
 
 //find offset of LOADER struct, update romfile struct
@@ -508,6 +591,8 @@ int main(int argc, char *argv[])
 		printf("standard checksum values found : std_cks @ 0x%lX, std_ckx @0x%lX\n",
 				(unsigned long) rf.p_cks, (unsigned long) rf.p_ckx);
 	}
+
+	find_s27k(&rf);
 
 	printf("\n");
 	close_rom(&rf);

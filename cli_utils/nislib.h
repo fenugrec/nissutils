@@ -18,6 +18,17 @@ uint16_t reconst_16(const uint8_t *buf);
 */
 void write_32b(uint32_t val, uint8_t *buf);
 
+
+/* key stuff */
+struct keyset_t {
+	uint32_t s27k;
+	uint32_t s36k1;
+	uint32_t s36k2;
+	};
+
+extern const struct keyset_t known_keys[];
+
+
 /** Sum and xor all u32 values in *buf, read with SH endianness
  * @param [out] *xor
  * @param [out] *sum
