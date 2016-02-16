@@ -331,6 +331,42 @@ long find_fid(struct romfile *rf) {
 	return sf_offset;
 }
 
+/** validate alt cks block in pre-parsed romfile
+ *
+ * @return 0 if ok
+ */
+int validate_altcks(struct romfile *rf) {
+	/* validate alt_cks block; it's a std algo that skips 2 u32 locs (altcks_s, altcks_x).
+	 * But it seems those locs are always outside the block?
+	 */
+	uint32_t acs=0, acx=0;
+	const uint8_t *pacs, *pacx;
+
+	if (!rf) return -1;
+	if (!(rf->buf)) return -1;
+	if ((rf->p_acstart < 0) ||
+		(rf->p_acend < 0) ||
+		(rf->p_acstart >= rf->p_acend)) {
+		return -1;
+	}
+
+	sum32(&rf->buf[rf->p_acstart], rf->p_acend - rf->p_acstart, &acs, &acx);
+	printf("alt cks block 0x%06lX - 0x%06lX: sumt=0x%08lX, xort=0x%08lX\n",
+		(unsigned long) rf->p_acstart, (unsigned long) rf->p_acend,
+			(unsigned long) acs, (unsigned long) acx);
+	pacs = u32memstr(rf->buf, rf->siz, acs);
+	pacx = u32memstr(rf->buf, rf->siz, acx);
+	if (!pacs && !pacx) {
+		printf("altcks values not found in ROM, possibly unskipped vals or bad algo\n");
+		return -1;
+	} else {
+		printf("confirmed altcks values found : acs @ 0x%lX, acx @ 0x%lX\n",
+				(unsigned long) (pacs - rf->buf), (unsigned long) (pacx - rf->buf));
+		//TODO : validate altcks val offsets VS end-of-IVT2, i.e. they seem to be always @
+		// IVT2 + 0x400
+	}
+	return 0;
+}
 /** find & analyze 'struct ramf'
  *
  * @return 0 if ok
@@ -429,26 +465,7 @@ long find_ramf(struct romfile *rf) {
 	}
 
 	if (rf->p_acstart >= 0) {
-		/* validate alt_cks block; it's a std algo that skips 2 u32 locs (altcks_s, altcks_x).
-		 * But it seems those locs are always outside the block?
-		 */
-		uint32_t acs=0, acx=0;
-		const uint8_t *pacs, *pacx;
-		sum32(&rf->buf[rf->p_acstart], rf->p_acend - rf->p_acstart, &acs, &acx);
-		printf("alt cks block 0x%06lX - 0x%06lX: sumt=0x%08lX, xort=0x%08lX\n",
-			(unsigned long) rf->p_acstart, (unsigned long) rf->p_acend,
-				(unsigned long) acs, (unsigned long) acx);
-		pacs = u32memstr(rf->buf, rf->siz, acs);
-		pacx = u32memstr(rf->buf, rf->siz, acx);
-		if (!pacs && !pacx) {
-			printf("altcks values not found in ROM, possibly unskipped vals or bad algo\n");
-			//TODO : hax the std checksum finder and assume the altcks vals are within the block.
-		} else {
-			printf("confirmed altcks values found : acs @ 0x%lX, acx @ 0x%lX\n",
-					(unsigned long) (pacs - rf->buf), (unsigned long) (pacx - rf->buf));
-			//TODO : validate altcks val offsets VS end-of-IVT2, i.e. they seem to be always @
-			// IVT2 + 0x400
-		}
+		(void) validate_altcks(rf);
 	}
 
 	//display some LOADER80-specific garbage
