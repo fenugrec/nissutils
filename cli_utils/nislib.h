@@ -18,6 +18,21 @@ uint16_t reconst_16(const uint8_t *buf);
 */
 void write_32b(uint32_t val, uint8_t *buf);
 
+/** search a <buflen> u8 buffer for a <len>-byte long sequence.
+ *
+ * @param buflen size in bytes of *buf
+ * @param needle pattern to search
+ * @param nlen size of "needle" pattern
+ * @return NULL if not found
+ *
+ * Painfully unoptimized, because it's easy to get it wrong
+ */
+const uint8_t *u8memstr(const uint8_t *buf, long buflen, const uint8_t *needle, long nlen);
+
+/** search a <buflen> u8 buffer for a 32-bit aligned u32 value, in SH endianness
+ *
+ */
+const uint8_t *u32memstr(const uint8_t *buf, long buflen, const uint32_t needle);
 
 /* key stuff */
 struct keyset_t {

@@ -124,32 +124,6 @@ void close_rom(struct romfile *rf) {
 	return;
 }
 
-//search a <buflen> u8 buffer for a <len>-byte long sequence.
-//Painfully unoptimized, because it's easy to get it wrong
-//ret NULL if not found
-const uint8_t *u8memstr(const uint8_t *buf, long buflen, const uint8_t *needle, long nlen) {
-	long hcur;
-	if (!buf || !needle || (nlen > buflen)) return NULL;
-
-	for (hcur=0; hcur < (buflen - nlen); hcur++) {
-		if (memcmp(buf + hcur, needle, nlen)==0) {
-			return &buf[hcur];
-		}
-	}
-
-	return NULL;
-}
-
-/** search a <buflen> u8 buffer for a 32-bit aligned u32 value, in SH endianness
- *
- * thin wrapper around u8memstr and write_32b
- */
-const uint8_t *u32memstr(const uint8_t *buf, long buflen, const uint32_t needle) {
-	uint8_t u8val[4];
-	write_32b(needle, u8val);
-
-	return u8memstr(buf, buflen, u8val, 4);
-}
 
 /** find sid 27 key
  * @return offset in buf if succesful, < 0 otherwise

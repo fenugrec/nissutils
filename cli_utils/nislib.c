@@ -5,6 +5,7 @@
 
 #include <stdint.h>
 #include <stdio.h>	//for printf(); probably can go away someday
+#include <string.h>
 #include <stdbool.h>
 #include "nislib.h"
 
@@ -32,6 +33,30 @@ void write_32b(uint32_t val, uint8_t *buf) {
 
 	return;
 }
+
+
+//Painfully unoptimized, because it's easy to get it wrong
+const uint8_t *u8memstr(const uint8_t *buf, long buflen, const uint8_t *needle, long nlen) {
+	long hcur;
+	if (!buf || !needle || (nlen > buflen)) return NULL;
+
+	for (hcur=0; hcur < (buflen - nlen); hcur++) {
+		if (memcmp(buf + hcur, needle, nlen)==0) {
+			return &buf[hcur];
+		}
+	}
+
+	return NULL;
+}
+
+/* thin wrapper around u8memstr and write_32b */
+const uint8_t *u32memstr(const uint8_t *buf, long buflen, const uint32_t needle) {
+	uint8_t u8val[4];
+	write_32b(needle, u8val);
+
+	return u8memstr(buf, buflen, u8val, 4);
+}
+
 
 const struct keyset_t known_keys[] = {
 	{0x0E7D44A9, 0x7A4D91C3, 0x0},
