@@ -124,22 +124,19 @@ void close_rom(struct romfile *rf) {
 	return;
 }
 
-//search a <buflen> u8 buffer for a <len>-byte long sequence
+//search a <buflen> u8 buffer for a <len>-byte long sequence.
+//Painfully unoptimized, because it's easy to get it wrong
 //ret NULL if not found
 const uint8_t *u8memstr(const uint8_t *buf, long buflen, const uint8_t *needle, long nlen) {
-	long hcur, ncur;
+	long hcur;
 	if (!buf || !needle || (nlen > buflen)) return NULL;
 
-	for (hcur=0, ncur=0; (hcur < buflen) && (ncur < nlen); hcur++, ncur++) {
-		if (buf[hcur] != needle[ncur]) {
-			//no match : reset needle ptr
-			ncur = 0;
+	for (hcur=0; hcur < (buflen - nlen); hcur++) {
+		if (memcmp(buf + hcur, needle, nlen)==0) {
+			return &buf[hcur];
 		}
 	}
-	if (ncur == nlen) {
-		//match !
-		return &buf[hcur - ncur];
-	}
+
 	return NULL;
 }
 
@@ -189,6 +186,7 @@ long find_s27k(struct romfile *rf) {
 	keyset = 0;
 	long kpl_cur = 0;
 	long kph_cur = 0;
+	#define SPLITKEY_MAXDIST	12
 	while (known_keys[keyset].s27k != 0) {
 		const uint8_t *kp_h, *kp_l;
 		int dist;
@@ -217,13 +215,13 @@ long find_s27k(struct romfile *rf) {
 		//how far
 		dist = kp_h - kp_l;
 
-		if (dist > 8) {
+		if (dist > SPLITKEY_MAXDIST) {
 			//dubious match, values are too far.
 			//Find next kp_l, skip current occurence
 			kpl_cur = 1 + kp_l - rf->buf;
 			continue;
 		}
-		if (dist < -8) {
+		if (dist < -SPLITKEY_MAXDIST) {
 			//dubious match, values are too far.
 			//Find next kp_h, skip current occurence
 			kph_cur = 1 + kp_h - rf->buf;
