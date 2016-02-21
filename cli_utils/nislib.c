@@ -35,6 +35,85 @@ void write_32b(uint32_t val, uint8_t *buf) {
 }
 
 
+// used only in enc1(), dec1()
+static inline uint16_t mess1(const uint16_t a, const uint16_t b, const uint16_t x) {
+	//orig : a = r4= u16 *, b=r5 = u16 *, x = [ffff8416]
+	//sub 15FB2 in 8U92A
+	uint16_t var2,var2b, var6;
+	uint32_t var3;
+
+	var2 = (x + b);	// & 0xFFFF;
+	var3 = var2 << 2;
+	var6 = (var3 >>16);
+
+	var2b = var6 + var2 + var3 -1;
+
+	return var2b ^ a;
+
+}
+// used only in enc1(), dec1()
+static inline uint16_t mess2(const uint16_t a, const uint16_t b, const uint16_t x) {
+	//orig : sub 15FDE
+	uint16_t var0,var2, var3;
+	uint32_t var1, var2b;
+
+	var0 = (x + b) ;
+	var1 = var0 << 1;
+
+	var2 = (var1 >>16) + var0 + var1 -1;
+	var2b = var2 << 4;
+	var3 = var2b + (var2b >>16);
+	return a ^ var3 ^ var2;
+
+}
+
+// "encode" u32 data with key 'scode'
+uint32_t enc1(uint32_t data, uint32_t scode) {
+	//m: scrambling code (hardcoded in ECU firmware)
+	uint16_t mH,mL, sH, sL;
+	uint16_t kL, kH;	//temp words
+
+	mL = scode & 0xFFFF;
+	mH= scode >> 16;
+	sL = data & 0xFFFF;
+	sH = data >> 16;
+
+
+	kL = mess1(sH, sL, mH);
+
+	kH = mess2(sL, kL, mL);
+
+	return (kH << 16) | kL;
+}
+
+//decrypt 4 bytes in <data> with firmware's key <scode>
+uint32_t dec1(uint32_t data, uint32_t scode) {
+	//based on sub 15F18, ugly rewrite
+	uint16_t scH, scL;
+	uint16_t dH, dL;
+	uint16_t t0, t1, tx; //temp vars
+
+	//split in 16b words
+	scH = scode >> 16;
+	scL = scode;
+	dH = data >> 16;
+	dL = data;
+
+	t0 = dH;
+	t1 = dL;
+	t0 = mess2(t0, t1, scL);
+	//printf("mess1 returns %0#x\n", t0);
+	tx=t0;
+	t0=t1;	//swap t0,t1
+	t1=tx;
+
+	t0 = mess1(t0, t1, scH);
+	//printf("mess2 returns %0#x\n", t0);
+	//printf("local_0: %0#X\tlocal_1: %0#X\n", t0, t1);
+	return (t0 << 16) | t1;
+}
+
+
 //Painfully unoptimized, because it's easy to get it wrong
 const uint8_t *u8memstr(const uint8_t *buf, long buflen, const uint8_t *needle, long nlen) {
 	long hcur;

@@ -34,6 +34,20 @@ const uint8_t *u8memstr(const uint8_t *buf, long buflen, const uint8_t *needle, 
  */
 const uint8_t *u32memstr(const uint8_t *buf, long buflen, const uint32_t needle);
 
+/* "security" algorithms */
+
+/** Encode u32 data, algo 1
+ * @param data u32 value to encode
+ * @param scode key to use
+ */
+uint32_t enc1(uint32_t data, uint32_t scode);
+
+/** Decode u32 data, algo 1
+ * @param data u32 value to decode
+ * @param scode key to use
+ */
+uint32_t dec1(uint32_t data, uint32_t scode);
+
 /* key stuff */
 struct keyset_t {
 	uint32_t s27k;
