@@ -37,7 +37,7 @@ void nis_decrypt1(FILE *ifh, FILE *ofh, uint32_t scode) {
 			uint32_t data;	//decrypted
 
 			block = reconst_32(icur);
-			data = dec1(scode, block);
+			data = dec1(block, scode);
 			write_32b(data, ocur);
 			icur += 4;
 			ocur += 4;
