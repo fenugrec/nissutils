@@ -411,18 +411,18 @@ long find_ramf(struct romfile *rf) {
 		break;
 	case 10:
 		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_10, altcks_start)]);
-		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_10, pFID)]);
+		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_10, altcks_end)]);
 		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_10, pIVECT2)]);
 		break;
 	case 40:
 		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_40, altcks_start)]);
-		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_40, pFID)]);
+		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_40, altcks_end)]);
 		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_40, pIVECT2)]);
 		break;
 	case 50:
 	case 60:
 		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_50, altcks_start)]);
-		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_50, pFID)]);
+		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_50, altcks_end)]);
 		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_50, pIVECT2)]);
 		break;
 	case 80:

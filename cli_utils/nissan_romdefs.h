@@ -114,7 +114,7 @@ struct ramf_10 {
 	uint8_t pRAMinit[4];	//array of data for ram initialization ? see 8U92A
 	uint8_t pRAM_unk2[4][4];	//4x same, sometimes first member is different
 	uint8_t altcks_start[4];
-	uint8_t pFID[4];	//probably rather "altcks_end"
+	uint8_t altcks_end[4];
 	uint8_t pIVECT2[4];
 };
 
@@ -136,7 +136,7 @@ struct ramf_40 {
 	uint8_t pRAMinit[4];	//array of data for ram initialization ?
 	uint8_t pRAM_unk2[4][4];	//4x same, sometimes first member is different
 	uint8_t altcks_start[4];
-	uint8_t pFID[4];	//probably rather "altcks_end"
+	uint8_t altcks_end[4];
 	uint8_t pIVECT2[4];
 };
 
@@ -160,7 +160,7 @@ struct ramf_50 {
 	uint8_t pRAMinit[4];	//array of data for ram initialization ?
 	uint8_t pRAM_unk2[4][4];	//4x same, sometimes first member is different
 	uint8_t altcks_start[4];
-	uint8_t pFID[4];	//probably rather "altcks_end"
+	uint8_t altcks_end[4];
 	uint8_t pIVECT2[4];
 };
 
@@ -185,7 +185,7 @@ struct ramf_60 {
 	uint8_t pRAMinit[4];	//array of data for ram initialization ?
 	uint8_t pRAM_unk2[4][4];	//4x same, sometimes first member is different
 	uint8_t altcks_start[4];
-	uint8_t pFID[4];	//probably rather "altcks_end"
+	uint8_t altcks_end[4];
 	uint8_t pIVECT2[4];
 };
 
