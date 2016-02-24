@@ -41,8 +41,10 @@ uint16_t nis_encrypt1(FILE *ifh, FILE *ofh, uint32_t scode) {
 			plaint = reconst_32(icur);
 			data = enc1(plaint, scode);
 			write_32b(data, ocur);
-			cks += (data >> 16);
-			cks += data;
+			cks += (plaint >> 24) & 0xff;
+			cks += (plaint >> 16) & 0xff;
+			cks += (plaint >> 8) & 0xff;
+			cks += (plaint >> 0) & 0xff;
 			icur += 4;
 			ocur += 4;
 		}
@@ -50,6 +52,9 @@ uint16_t nis_encrypt1(FILE *ifh, FILE *ofh, uint32_t scode) {
 		if (count) {
 			printf("warning : block size is not multiple of 4; dropping extra bytes.\n");
 			realbs &= ~0x03;
+		}
+		if (realbs & 0x1F) {
+			printf("warning : payload not a multiple of 32 bytes; reported cks16 may be wrong.\n");
 		}
 		// obuf is filled with decrypted data; write that block to output file.
 		if (fwrite(obuf, 1, realbs, ofh) != realbs) {
@@ -101,7 +106,7 @@ int main(int argc, char * argv[]) {
 	rewind(i_file);
 
 	cks16 = nis_encrypt1(i_file,o_file,scode);
-	printf("encrypted payload cks16 = 0x%04X\n", (unsigned int) cks16);
+	printf("decrypted payload cks16 = 0x%04X\n", (unsigned int) cks16);
 	fclose(i_file);
 	fclose(o_file);
 
