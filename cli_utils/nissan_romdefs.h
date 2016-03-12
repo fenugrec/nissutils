@@ -216,3 +216,14 @@ struct ramf_80 {
 	uint8_t romend[4];		// == ROMSIZE - 1
 	uint8_t pIVECT2[4];
 };
+
+
+/**** "preload" info struct filled before calling RAMjump *****/
+struct rj_preload {
+	uint16_t flag0;	// ?
+	uint16_t wdt_pin;	//  pin # mask for PxDR
+	uint16_t s36k2_H;
+	uint16_t s36k2_L;
+	uint16_t wdt_portH;	//&PxDR>>16
+	uint16_t wdt_portL;	//&PxDR & 0xFFFF
+};
