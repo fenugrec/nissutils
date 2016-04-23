@@ -27,9 +27,9 @@ struct romfile {
 	long p_loader;	//struct loader
 	int loader_v;	//version (10, 50, 60 etc)
 
-	long p_fid;	//struct fid_base
+	long p_fid;	//location of struct fid_base
 	long sfid_size;	//sizeof correct struct fid_base
-	long p_ramf;	//struct ramf
+	long p_ramf;	//location of struct ramf
 
 	/* these point in buf, and so are not necessarily 0-terminated strings */
 	const uint8_t *loader_cpu;	//LOADERxx CPU code
@@ -46,6 +46,8 @@ struct romfile {
 	long p_ivt2;	//pos of alt. vector table
 	long p_acstart;	//start of alt_cks block
 	long p_acend;	//end of alt_cks block
+
+	struct ramf_unified ramf;
 };
 
 // hax, get file length but restore position
@@ -245,6 +247,58 @@ long find_loader(struct romfile *rf) {
 	return rf->p_loader;
 }
 
+//parse second part of FID struct and fill altcks + ivt2 + rf->ramf-> stuff
+static void parse_ramf(struct romfile *rf) {
+	assert(rf);
+
+	//2- find altcks and IVT2 ; sanity check
+	switch (rf->loader_v) {
+	case 07:
+		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_07, altcks_start)]);
+		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_07, altcks_end)]);
+		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_07, pIVECT2)]);
+		rf->ramf.pRAMjump = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_07, pRAMjump)]);
+		rf->ramf.pRAM_DLAmax = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_07, pRAM_DLAmax)]);
+		break;
+	case 10:
+		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_10, altcks_start)]);
+		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_10, altcks_end)]);
+		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_10, pIVECT2)]);
+		rf->ramf.pRAMjump = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_10, pRAMjump)]);
+		rf->ramf.pRAM_DLAmax = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_10, pRAM_DLAmax)]);
+		break;
+	case 40:
+		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_40, altcks_start)]);
+		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_40, altcks_end)]);
+		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_40, pIVECT2)]);
+		rf->ramf.pRAMjump = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_40, pRAMjump)]);
+		rf->ramf.pRAM_DLAmax = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_40, pRAM_DLAmax)]);
+		break;
+	case 50:
+	case 60:
+		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_50, altcks_start)]);
+		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_50, altcks_end)]);
+		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_50, pIVECT2)]);
+		rf->ramf.pRAMjump = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_50, pRAMjump)]);
+		rf->ramf.pRAM_DLAmax = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_50, pRAM_DLAmax)]);
+		break;
+	case 80:
+		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, altcks_start)]);
+		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, altcks_end)]);
+		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, pIVECT2)]);
+		rf->ramf.pRAMjump = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, pRAMjump)]);
+		rf->ramf.pRAM_DLAmax = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, pRAM_DLAmax)]);
+		break;
+	default:
+		rf->p_acstart = -1;
+		rf->p_acend = -1;
+		rf->p_ivt2 = -1;
+		break;
+	}
+	return;
+}
+
+
 //find offset of FID struct, parse & update romfile struct
 //ret -1 if not ok
 long find_fid(struct romfile *rf) {
@@ -367,6 +421,8 @@ int validate_altcks(struct romfile *rf) {
 	}
 	return 0;
 }
+
+
 /** find & analyze 'struct ramf'
  *
  * @return 0 if ok
@@ -402,40 +458,8 @@ long find_ramf(struct romfile *rf) {
 		}
 	}
 
-	//2- find altcks and IVT2 ; sanity check
-	switch (rf->loader_v) {
-	case 07:
-		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_07, altcks_start)]);
-		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_07, altcks_end)]);
-		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_07, pIVECT2)]);
-		break;
-	case 10:
-		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_10, altcks_start)]);
-		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_10, altcks_end)]);
-		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_10, pIVECT2)]);
-		break;
-	case 40:
-		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_40, altcks_start)]);
-		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_40, altcks_end)]);
-		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_40, pIVECT2)]);
-		break;
-	case 50:
-	case 60:
-		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_50, altcks_start)]);
-		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_50, altcks_end)]);
-		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_50, pIVECT2)]);
-		break;
-	case 80:
-		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, altcks_start)]);
-		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, altcks_end)]);
-		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, pIVECT2)]);
-		break;
-	default:
-		rf->p_acstart = -1;
-		rf->p_acend = -1;
-		rf->p_ivt2 = -1;
-		break;
-	}
+	parse_ramf(rf);
+
 	free(rf->buf);
 	if ((rf->p_acstart >= rf->siz) ||
 		(rf->p_acend >= rf->siz) ||
@@ -553,6 +577,7 @@ int main(int argc, char *argv[])
 	}
 	ramfpos = find_ramf(&rf);
 	if (ramfpos >= 0) {
+		printf("RAMjump : 0x%08X - 0x%08X\n", rf.ramf.pRAMjump, rf.ramf.pRAM_DLAmax);
 		if (rf.p_ivt2 >= 0) {
 			printf("IVECT2 @ 0x%lX\n", (unsigned long) rf.p_ivt2);
 		} else {

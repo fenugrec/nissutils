@@ -218,6 +218,14 @@ struct ramf_80 {
 };
 
 
+/* hold data in a single format once the specific structure is parsed,
+ * this is not found in any ROM but is useful for comparing metadata
+ */
+struct ramf_unified {
+	uint32_t pRAMjump;
+	uint32_t pRAM_DLAmax;
+};
+
 /**** "preload" info struct filled before calling RAMjump *****/
 struct rj_preload {
 	uint16_t flag0;	// ?
