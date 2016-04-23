@@ -105,10 +105,10 @@ struct ramf_10 {
 	uint8_t pRAMexec2[4];	//RAMexec?
 	uint8_t pRAM_unk1[4];
 	uint8_t pRAM_unk1b[4];		//unk1....unk1b = zone
-	uint8_t pRAM_28a4_1[4];
-	uint8_t pRAM_28a4_2[4];		//another zone
 	uint8_t pRAMjump[4];
 	uint8_t pRAM_DLAmax[4];	//end of RAM dl area ? ex ffff8438...DLAmax
+	uint8_t pRAM_28a4_1[4];
+	uint8_t pRAM_28a4_2[4];		//another zone
 	uint8_t field_20[4];
 	uint8_t field_24[4];
 	uint8_t pRAMinit[4];	//array of data for ram initialization ? see 8U92A
