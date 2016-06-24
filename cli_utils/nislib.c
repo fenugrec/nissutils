@@ -662,35 +662,33 @@ static uint16_t fs27_bt_immload(const uint8_t *buf, long min, long start,
 		}
 
 		// 3) no recursion : try to find load_immediate.
+		// "mov #imm8, R<regno>"	[E<regno> <i>]
 		// "mov.w @(disp, PC), R<regno> 	[9<regno> <disp/2>]
 		// "mov.l @(disp, PC), R<regno> 	[D<regno> <disp/4>]
-		bool found_imm = 0;
-		bool addr_long = 0;
 		uint8_t ic_top = (opc & 0xFF00) >> 8;
+		uint32_t imloc = start; //location of mov instruction
 		if (ic_top == (0xD0 | regno)) {
-			addr_long = 1;
-			found_imm = 1;
-		}
-		if (ic_top == (0x90 | regno)) {
-			found_imm = 1;
-		}
-		if (found_imm) {
-			/* Done deal: compute PC offset, get imm16 */
-			uint32_t imloc = start;	//location of "mov.x" instr
-			if (addr_long) {
-				imloc += ((opc & 0xFF) * 4) + 4;
-				/* essential : align 4 !!! */
-				imloc &= ~0x03;
-				//printf("retrieve &er() from 0x%0X\n", jackpot);
-				imloc = reconst_32(&buf[imloc]);
-				imloc = shlr ? imloc >> 16 : imloc & 0xFFFF;
-			} else {
-				imloc += ((opc & 0xFF) * 2) + 4;
-				//printf("retrieve &er() from 0x%0X\n", jackpot);
-				imloc = reconst_16(&buf[imloc]);
-			}
+			//imm32 with possible shift16
+			imloc += ((opc & 0xFF) * 4) + 4;
+			/* essential : align 4 !!! */
+			imloc &= ~0x03;
+			//printf("retrieve &er() from 0x%0X\n", jackpot);
+			imloc = reconst_32(&buf[imloc]);
+			imloc = shlr ? imloc >> 16 : imloc & 0xFFFF;
 			return imloc;
 		}
+		if (ic_top == (0x90 | regno)) {
+			//imm16
+			imloc += ((opc & 0xFF) * 2) + 4;
+			//printf("retrieve &er() from 0x%0X\n", jackpot);
+			imloc = reconst_16(&buf[imloc]);
+			return imloc;
+		}
+		if (ic_top == (0xE0 | regno)) {
+			//imm8
+			return (opc & 0xFF);
+		}
+
 		
 		start -= 2;
 
