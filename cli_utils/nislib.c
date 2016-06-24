@@ -613,30 +613,30 @@ static uint32_t find_pattern(const uint8_t *buf, long siz, int patlen,
  * regno : n from "Rn"
  * min : don't backtrack further than buf[min]
  * 
- * @return 0 if failed
+ * @return 0 if failed; 16-bit immediate otherwise
  */
 
-static uint32_t fs27_bt_immload(const uint8_t *buf, long min, long start,
+static uint16_t fs27_bt_immload(const uint8_t *buf, long min, long start,
 				int regno) {
 	uint16_t opc;
 	while (start >= min) {
 		int new_regno;
 		opc = reconst_16(&buf[start]);
 		
-		// 1) limit search to function head
-		if (opc == 0x4F22) return 0;
+		// 1) limit search to function head. Problem : sometimes this opcode is not at the head of the function !
+		//if (opc == 0x4F22) return 0;
 
 		// 2) if we're copying from another reg, we need to recurse. opc format :
 		// mov Rm, R(regno) [6n m3]
 		if ((opc & 0xFF0F) == (0x6003 | (regno << 8))) {
-			uint32_t new_bt;
+			uint16_t new_bt;
 			start -= 2;
 			new_regno = (opc & 0xF0) >> 4;
 			new_bt = fs27_bt_immload(buf, min, start, new_regno);
 			
 			if (new_bt) {
 				//Suxxess : found literal
-				printf("root literal @ %lX\n", (unsigned long) new_bt);
+				//printf("root literal @ %X\n", new_bt);
 				return new_bt;
 			}
 			// recurse failed; probably loaded from arglist or some other shit
@@ -687,48 +687,59 @@ static uint32_t fs27_bt_immload(const uint8_t *buf, long min, long start,
  *	mov.w Rm, @Rn	[<2n> <m1>]
  *
  * For each occurence, backtrack recursively (until function header) to find what immediate value is stored to mem.
+ * this assumes that the lower 16bit half-key gets loaded at a higher RAM address than the other half
  */
 #define S27_IMM_MAXBT	0x70	//max # of bytes to backtrack
 static uint32_t fs27_bt_stmem(const uint8_t *buf, long siz, long bsr_offs) {
 	const long min = bsr_offs - S27_IMM_MAXBT;
 	int occ = 0;
+	int occ_dist[2] = {0,0}; //find out which 16-bit key half is loaded at a lower RAM address
+	uint32_t key = 0;
+	uint16_t h[2];	//halfkeys
 
 	uint32_t cur = bsr_offs;
-	while (cur >= min) {
+	while ((cur >= min) && (occ < 2)) {
 		uint16_t opc;
 		int regno;
 		opc = reconst_16(&buf[cur]);
 	
-		if ((opc & 0xFF00) == 0xC100) {
+		if (	((opc & 0xFF00) == 0xC100) ||
+			((opc & 0xFF00) == 0x8100)) {
 			regno = 0;
-			uint32_t rv;
+			uint16_t rv;
 			rv = fs27_bt_immload(buf, min, cur - 2, regno);
 			if (rv) {
-				printf("imm->mem(gbr) store #%d @ %lX\n", occ, (unsigned long) rv);
-				occ += 1;
-			}
-		}
-		if ((opc & 0xFF00) == 0x8100) {
-			regno = 0;
-			uint32_t rv;
-			rv = fs27_bt_immload(buf, min, cur - 2, regno);
-			if (rv) {
-				printf("imm->mem(Rn) store #%d @ %lX\n", occ, (unsigned long) rv);
+				printf("imm->mem(gbr) store %d : %X\n", occ, rv);
+				occ_dist[occ] = opc & 0xFF;
+				h[occ] = rv;
 				occ += 1;
 			}
 		}
 		if ((opc & 0xF00F) == 0x2001) {
 			regno = (opc & 0xF0) >> 4;
-			uint32_t rv;
+			uint16_t rv;
 			rv = fs27_bt_immload(buf, min, cur - 2, regno);
 			if (rv) {
-				printf("imm->mem(Rn) store #%d @ %lX\n", occ, (unsigned long) rv);
+				printf("imm->mem(Rn) store #%d : %X\n", occ, rv);
+				occ_dist[occ] = 0;
+				h[occ] = rv;
 				occ += 1;
 			}
 		}
 		cur -= 2;
 	}
-	return 0;
+	if (occ != 2) {
+		fprintf(dbg_stream, "couldn't find two imm->mem stores ?\n");
+		return 0;
+	}
+	/* rebuild key from halves : */
+	if (occ_dist[0] < occ_dist[1]) {
+		key = h[1] | (h[0] << 16);
+	} else {
+		key = h[0] | (h[1] << 16);
+	}
+	printf("key : %lX\n", (unsigned long) key);
+	return key;
 }
 
 /* Strategy :
@@ -751,7 +762,7 @@ uint32_t find_s27_hardcore(const uint8_t *buf, long siz) {
 		if (patpos == -1) break;
 		patpos += swapf_cur;	//re-adjust !
 		swapf_instances +=1 ;
-		printf("got 1 swapf @ %0lX;\n", patpos + 0UL);
+		//printf("got 1 swapf @ %0lX;\n", patpos + 0UL);
 
 		/* Find xrefs (bsr) to  this swapf instance.
 		 * bsr opcode : 1011 dddd dddd dddd
@@ -768,7 +779,7 @@ uint32_t find_s27_hardcore(const uint8_t *buf, long siz) {
 			opc = reconst_16(&buf[bsr_offs]);
 			// is it a "bsr" with the correct offset ?
 			if (opc == (0xB000 | ((sign * disp / 2) & 0xFFF))) {
-				printf("good bsr @ %lX\n", (unsigned long) bsr_offs);
+				fprintf(dbg_stream, "good bsr swapf@ %lX\n", (unsigned long) bsr_offs);
 				swapf_xrefs += 1;
 				/* now, backtrack to find constants */
 				fs27_bt_stmem(buf, siz, bsr_offs);
