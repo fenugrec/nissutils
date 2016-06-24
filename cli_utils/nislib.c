@@ -383,36 +383,49 @@ long find_ivt(const uint8_t *buf, long siz) {
 /* check if the code at offset "func" inside the buffer looks like an eeprom read function.
  * ret 1 if good.
  *
- * assumes "func" is 16-bit aligned. Note : the bounds may be only valid for 7055, 7058, 7059
+ * assumes "func" is 16-bit aligned. Note : the bounds are valid for 7051, 7055, 7058, 7059
  */
 #define EEPREAD_GETIOREG 30	//check only the first N opcodes
-//these are too specific maybe ? covers 7055, 7058, 7058
-#define EEPREAD_IOBOUND_L 0xF720
-#define EEPREAD_IOBOUND_H 0xF789	//IO reg will be within [L,H] bounds
+static const struct t_eep_iobound {
+	uint16_t L;
+	uint16_t H;} eep_iobounds[] = {
+		{0xF720, 0xF789},	//bounds for 7055/7058/7059 IO regs
+		{0x8380, 0x83B7},	//bounds for 7051 IO regs
+		{0, 0}
+	};
 
 static bool analyze_eepread(const uint8_t *buf, long siz, uint32_t func) {
 	/* algo : look for a mov.w (), Rn that loads an IO register address. This should cover both
 	 * bit-bang SPI  and SCI-based code.
 	 */
 	uint32_t fcur;
+	bool good = 0;
 	
 	for (fcur = 0;fcur < EEPREAD_GETIOREG; fcur += 1) {
 		uint16_t opc;
 		uint32_t litofs;
 		uint16_t literal;
+		int idx;
+
 		if ((func + fcur * 2) >= siz) return 0;
 
 		opc = reconst_16(&buf[func + fcur * 2]);
 		if ((opc & 0xF000) != 0x9000) continue;
+
 		// so we do have a mov.w (@x, PC), Rn opcode.
 		litofs = (func + fcur * 2) + 4;	//PC;
 		litofs += (opc & 0xFF) * 2;	//PC + disp*2
 		literal = reconst_16(&buf[litofs]);
-		if (literal > EEPREAD_IOBOUND_H) continue;
-		if (literal < EEPREAD_IOBOUND_L) continue;
-		return 1;
+
+		for (idx = 0; eep_iobounds[idx].L ; idx ++) {
+			if (literal > eep_iobounds[idx].H) continue;
+			if (literal < eep_iobounds[idx].L) continue;
+			good = 1;
+			goto exit;
+		}
 	}
-	return 0;
+exit:
+	return good;
 }
 
 
@@ -537,7 +550,7 @@ uint32_t find_eepread(const uint8_t *buf, long siz) {
 		/* last test : follow inside eep_read() to see if we access IO registers pretty soon */
 		if (analyze_eepread(buf, siz, jackpot)) {
 			occurences += 1;
-			//printf("Occurence %d @ 0x%0X : &eep_read() = 0x%0X\n", occurences, cur + window * 2, jackpot);
+			fprintf(dbg_stream, "Occurence %d @ 0x%0X : &eep_read() = 0x%0X\n", occurences, cur + window * 2, jackpot);
 		} else {
 			fprintf(dbg_stream, "didn't recognize &eep_read()\n");
 		}
