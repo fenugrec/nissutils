@@ -132,6 +132,7 @@ void close_rom(struct romfile *rf) {
 /** find sid 27 key
  * @return offset in buf if succesful, < 0 otherwise
  */
+// XXX TODO : have a "optimistic" option to stop searching on the first hit
 long find_s27k(struct romfile *rf) {
 	int keyset=0;
 
@@ -141,6 +142,7 @@ long find_s27k(struct romfile *rf) {
 	/* first method : search for every known key, it
 	 * seems a limited number of keysets exist.
 	 */
+	#if 0
 	while (known_keys[keyset].s27k != 0) {
 		const uint8_t *keypos;
 		uint32_t curkey;
@@ -156,14 +158,19 @@ long find_s27k(struct romfile *rf) {
 
 		keyset += 1;
 	}
+	
 
 	/* test 2 : search as two 16bit halves close by
 	 * this is slower so only tried if required. TODO :
 	 * this can replace totally "test 1" actually.
 	 */
+	#endif
+
 	keyset = 0;
 	long kpl_cur = 0;
 	long kph_cur = 0;
+	long key_offs;
+	int occurences = 0;
 	#define SPLITKEY_MAXDIST	12
 	while (known_keys[keyset].s27k != 0) {
 		const uint8_t *kp_h, *kp_l;
@@ -207,13 +214,23 @@ long find_s27k(struct romfile *rf) {
 			continue;
 		}
 
-		long key_offs = kp_h - rf->buf;
+		key_offs = kp_h - rf->buf;
 		fprintf(dbg_stream, "Split keyset %lX found near 0x%lX !\n", (unsigned long) curkey, (unsigned long) key_offs);
-		return key_offs;
-	}
+		occurences += 1;
+		kph_cur = 0;
+		kpl_cur = 0;
+		keyset += 1;
 
-	fprintf(dbg_stream, "No keyset found, different heuristics / manual analysis needed.\n");
-	return -1;
+	}	//while
+	if (!occurences) {
+		fprintf(dbg_stream, "No keyset found, different heuristics / manual analysis needed.\n");
+		return -1;
+	}
+	if (occurences > 1) {
+		fprintf(dbg_stream, "warning : multiple keysets found !?\n");
+	}
+	return key_offs;
+
 }
 
 //find offset of LOADER struct, update romfile struct

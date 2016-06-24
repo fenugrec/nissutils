@@ -421,6 +421,8 @@ static bool analyze_eepread(const uint8_t *buf, long siz, uint32_t func) {
 			if (literal > eep_iobounds[idx].H) continue;
 			if (literal < eep_iobounds[idx].L) continue;
 			good = 1;
+			/* Bonus : identify the port register */
+			fprintf(dbg_stream, "EEPROM Port reg : 0xFFFF%04X\n", literal);
 			goto exit;
 		}
 	}
@@ -438,7 +440,8 @@ exit:
 uint32_t find_eepread(const uint8_t *buf, long siz) {
 	int occurences = 0;
 	uint32_t cur = 0;
-	uint32_t jackpot = 9;
+	uint32_t jackpot = 0;
+	uint32_t real_jackpot = 0;
 	
 	siz &= ~1;
 
@@ -550,6 +553,7 @@ uint32_t find_eepread(const uint8_t *buf, long siz) {
 		/* last test : follow inside eep_read() to see if we access IO registers pretty soon */
 		if (analyze_eepread(buf, siz, jackpot)) {
 			occurences += 1;
+			real_jackpot = jackpot;
 			fprintf(dbg_stream, "Occurence %d @ 0x%0X : &eep_read() = 0x%0X\n", occurences, cur + window * 2, jackpot);
 		} else {
 			fprintf(dbg_stream, "didn't recognize &eep_read()\n");
@@ -561,16 +565,16 @@ uint32_t find_eepread(const uint8_t *buf, long siz) {
 	switch (occurences) {
 	case 0:
 		fprintf(dbg_stream, "eep_read() not found ! Needs better heuristics\n");
-		jackpot = 0;
+		real_jackpot = 0;
 		break;
 	case 1:
 		//normal result
 		break;
 	default:
 		fprintf(dbg_stream, "more than one likely eep_read() found ! Needs better heuristics\n");
-		jackpot = 0;
+		real_jackpot = 0;
 		break;
 	}
-	return jackpot;
+	return real_jackpot;
 }
 
