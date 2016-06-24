@@ -705,6 +705,8 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, long siz, long bsr_offs) {
 	
 		if (	((opc & 0xFF00) == 0xC100) ||
 			((opc & 0xFF00) == 0x8100)) {
+			// but skip anything related to r15
+			if ((opc & 0xFFF0) == 0x81F0) goto next;
 			regno = 0;
 			uint16_t rv;
 			rv = fs27_bt_immload(buf, min, cur - 2, regno);
@@ -716,6 +718,8 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, long siz, long bsr_offs) {
 			}
 		}
 		if ((opc & 0xF00F) == 0x2001) {
+			//"mov.w Rm, @Rn" form. skip if @r15
+			if ((opc & 0xFF00) == 0x2F00) goto next;
 			regno = (opc & 0xF0) >> 4;
 			uint16_t rv;
 			rv = fs27_bt_immload(buf, min, cur - 2, regno);
@@ -726,6 +730,7 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, long siz, long bsr_offs) {
 				occ += 1;
 			}
 		}
+	next:
 		cur -= 2;
 	}
 	if (occ != 2) {
