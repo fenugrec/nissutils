@@ -17,6 +17,7 @@
 #include "nislib.h"
 
 _Static_assert(sizeof(char) == 1, "HAH ! a non-8bit char system. This may not work.");
+FILE *dbg_stream;
 
 // generic ROM struct
 struct romfile {
@@ -536,7 +537,10 @@ long find_ramf(struct romfile *rf) {
 
 
 void find_eep(struct romfile *rf) {
-	find_eepread(rf->buf, rf->siz);
+	uint32_t eepread = find_eepread(rf->buf, rf->siz);
+	if (eepread > 0) {
+		printf("found eep_read() @ 0x%0X\n", eepread);
+	}
 }
 
 int main(int argc, char *argv[])
@@ -550,6 +554,8 @@ int main(int argc, char *argv[])
 		printf("%s <ROMFILE> : analyze 512k or 1M ROM.\n",argv[0]);
 		return 0;
 	}
+
+	dbg_stream = stdout;
 
 	if (open_rom(&rf, argv[1])) {
 		printf("Trouble in open_rom()\n");

@@ -6,6 +6,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+extern FILE *dbg_stream;	//such as as stdout or stderr
+
 /** Read uint32 at *buf with SH endianness
 */
 uint32_t reconst_32(const uint8_t *buf);

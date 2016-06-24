@@ -150,6 +150,7 @@ const struct keyset_t known_keys[] = {
 	{0x4D38FE64, 0x35084C7E, 0x0},
 	{0x5414CDA6, 0xE303BF23, 0x0},
 	{0x634D157A, 0x4B1D6294, 0x403EFEBB},
+	{0x6BD9175D, 0x02581327, 0x0},
 	{0x705A2287, 0x582A6FA1, 0x4D4B0DC8},
 	{0x7B472BD1, 0x8F7577FC, 0x0},
 	{0x7C672F93, 0x64377BAE, 0x0},
@@ -164,6 +165,7 @@ const struct keyset_t known_keys[] = {
 	{0xAD12D93F, 0x10E12659, 0x0},
 	{0xAE9961C5, 0x9669ADE0, 0x0},
 	{0xBAA56CD1, 0xA275B9EB, 0x97955714},
+	{0xBE8298AC, 0x560F4925, 0x0},
 	{0xC02E6CB2, 0x57AC677B, 0x0},
 	{0xC6E19CF0, 0x685BFBBA, 0x124DCA1B},
 	{0xCAB57DE1, 0xB285C9FC, 0x0},
@@ -254,7 +256,7 @@ int checksum_alt2(const uint8_t *buf, long siz, long *p_ack_s, long *p_ack_x,
 	}
 
 	if (ckxcount>1 || ckscount>1)
-		printf("warning : more than one set of checksums found ! the real checksums should be close to each other.\n");
+		fprintf(dbg_stream, "warning : more than one set of checksums found ! the real checksums should be close to each other.\n");
 
 	if (ckxcount==0 && ckscount==0) {
 //		printf("warning : no checksum found !\n");
@@ -476,8 +478,7 @@ uint32_t find_eepread(const uint8_t *buf, long siz) {
 		}
 		if (!found_seq) {
 			//unusual; algo should be tweaked if this happens
-			continue;
-			printf("Occurence %d : jumpreg setting not found near 0x%x \n",
+			fprintf(dbg_stream, "Occurence %d : jumpreg setting not found near 0x%x \n",
 				occurences, cur);
 			continue;
 		}
@@ -498,9 +499,8 @@ uint32_t find_eepread(const uint8_t *buf, long siz) {
 		}
 		/* discard out-of-ROM addresses */
 		if (jackpot > (1024 * 1024 * 1024UL)) {
-			continue;
-			printf("Occurence %d @ 0x%0X: bad; &eep_read() out of bounds (0x%0X)\n",
-				occurences, cur + window * 2, jackpot);
+			//printf("Occurence %d @ 0x%0X: bad; &eep_read() out of bounds (0x%0X)\n",
+			//	occurences, cur + window * 2, jackpot);
 			continue;
 		}
 		
@@ -517,8 +517,7 @@ uint32_t find_eepread(const uint8_t *buf, long siz) {
 			if (sign == 1) window += 1;
 		}
 		if (other_jsrs < EEPREAD_MINJ) {
-			continue;
-			printf("Occurence %d @ 0x%0X : Unlikely, not enough identical 'jsr's\n", occurences, cur + window * 2);
+			//printf("Occurence %d @ 0x%0X : Unlikely, not enough identical 'jsr's\n", occurences, cur + window * 2);
 			continue;
 		}
 		found_seq = 0;
@@ -532,13 +531,13 @@ uint32_t find_eepread(const uint8_t *buf, long siz) {
 		}
 		if (!found_seq) {
 			continue;
-			printf("Occurence %d @ 0x%0X : no 7C nearby\n", occurences, cur + window * 2);
+			//printf("Occurence %d @ 0x%0X : no 7C nearby\n", occurences, cur + window * 2);
 		}
 		
 		/* last test : follow inside eep_read() to see if we access IO registers pretty soon */
 		if (analyze_eepread(buf, siz, jackpot)) {
 			occurences += 1;
-			printf("Occurence %d @ 0x%0X : &eep_read() = 0x%0X\n", occurences, cur + window * 2, jackpot);
+			//printf("Occurence %d @ 0x%0X : &eep_read() = 0x%0X\n", occurences, cur + window * 2, jackpot);
 		} else {
 			//printf("didn't recognize &eep_read()\n");
 		}
@@ -546,8 +545,18 @@ uint32_t find_eepread(const uint8_t *buf, long siz) {
 
 	}	//for
 	//return last occurence.
-	if (occurences == 0) {
-		printf("eep_read() not found ! Needs better heuristics\n");
+	switch (occurences) {
+	case 0:
+		fprintf(dbg_stream, "eep_read() not found ! Needs better heuristics\n");
+		jackpot = 0;
+		break;
+	case 1:
+		//normal result
+		break;
+	default:
+		fprintf(dbg_stream, "more than one likely eep_read() found ! Needs better heuristics\n");
+		jackpot = 0;
+		break;
 	}
 	return jackpot;
 }
