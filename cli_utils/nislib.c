@@ -578,3 +578,207 @@ uint32_t find_eepread(const uint8_t *buf, long siz) {
 	return real_jackpot;
 }
 
+/** Find opcode pattern... bleh
+ * "patlen" is # of opcodes
+ */
+static uint32_t find_pattern(const uint8_t *buf, long siz, int patlen,
+			const uint16_t *pat, const uint16_t *mask) {
+	long bcur = 0;	//base cursor for start of pattern
+	long hcur = 0;	//iterating cursor
+	int patcur = 0;	//cursor within pattern
+
+	while (hcur < (siz - patlen * 2)) {
+		uint16_t val;
+		val = reconst_16(&buf[hcur + patcur * 2]);
+		if ((val & mask[patcur]) == pat[patcur]) {
+			if (patcur == 0) bcur = hcur;
+			patcur += 1;
+			if (patcur == patlen) {
+				//complete match !
+				return bcur;
+			}
+			continue;
+		}
+		//no match : continue where we started
+		patcur = 0;
+		//hcur = bcur;
+		hcur += 2;
+	}
+	//no match : ret -1 (illegal val)
+	return -1;
+}
+
+/* recursive backtrack inside function to find a "mov imm16, Rn" or "mov imm32, Rn" instruction.
+ *
+ * regno : n from "Rn"
+ * min : don't backtrack further than buf[min]
+ * 
+ * @return 0 if failed
+ */
+
+static uint32_t fs27_bt_immload(const uint8_t *buf, long min, long start,
+				int regno) {
+	uint16_t opc;
+	while (start >= min) {
+		int new_regno;
+		opc = reconst_16(&buf[start]);
+		
+		// 1) limit search to function head
+		if (opc == 0x4F22) return 0;
+
+		// 2) if we're copying from another reg, we need to recurse. opc format :
+		// mov Rm, R(regno) [6n m3]
+		if ((opc & 0xFF0F) == (0x6003 | (regno << 8))) {
+			uint32_t new_bt;
+			start -= 2;
+			new_regno = (opc & 0xF0) >> 4;
+			new_bt = fs27_bt_immload(buf, min, start, new_regno);
+			
+			if (new_bt) {
+				//Suxxess : found literal
+				printf("root literal @ %lX\n", (unsigned long) new_bt);
+				return new_bt;
+			}
+			// recurse failed; probably loaded from arglist or some other shit
+			return 0;
+		}
+
+		// 3) no recursion : try to find load_immediate.
+		// "mov.w @(disp, PC), R<regno> 	[9<regno> <disp/2>]
+		// "mov.l @(disp, PC), R<regno> 	[D<regno> <disp/4>]
+		bool found_imm = 0;
+		bool addr_long = 0;
+		uint8_t ic_top = (opc & 0xFF00) >> 8;
+		if (ic_top == (0xD0 | regno)) {
+			addr_long = 1;
+			found_imm = 1;
+		}
+		if (ic_top == (0x90 | regno)) {
+			found_imm = 1;
+		}
+		if (found_imm) {
+			/* Done deal: compute PC offset, get imm16 */
+			uint32_t imloc = start;	//location of "mov.x" instr
+			if (addr_long) {
+				imloc += ((opc & 0xFF) * 4) + 4;
+				/* essential : align 4 !!! */
+				imloc &= ~0x03;
+				//printf("retrieve &er() from 0x%0X\n", jackpot);
+				imloc = reconst_32(&buf[imloc]);
+				imloc &= 0xFFFF;
+			} else {
+				imloc += ((opc & 0xFF) * 2) + 4;
+				//printf("retrieve &er() from 0x%0X\n", jackpot);
+				imloc = reconst_16(&buf[imloc]);
+			}
+			return imloc;
+		}
+		
+		start -= 2;
+
+	}	//while
+	return 0;
+}
+
+/* backtrack inside function (the one with "bsr swapf") to find key constant store-to-mem;
+ * this will match
+ *	mov.w R0, @(disp, gbr)	[C1 <dd>]
+ *	mov.w R0, @(disp, Rn)	[81 <nd>]
+ *	mov.w Rm, @Rn	[<2n> <m1>]
+ *
+ * For each occurence, backtrack recursively (until function header) to find what immediate value is stored to mem.
+ */
+#define S27_IMM_MAXBT	0x70	//max # of bytes to backtrack
+static uint32_t fs27_bt_stmem(const uint8_t *buf, long siz, long bsr_offs) {
+	const long min = bsr_offs - S27_IMM_MAXBT;
+	int occ = 0;
+
+	uint32_t cur = bsr_offs;
+	while (cur >= min) {
+		uint16_t opc;
+		int regno;
+		opc = reconst_16(&buf[cur]);
+	
+		if ((opc & 0xFF00) == 0xC100) {
+			regno = 0;
+			uint32_t rv;
+			rv = fs27_bt_immload(buf, min, cur - 2, regno);
+			if (rv) {
+				printf("imm->mem(gbr) store #%d @ %lX\n", occ, (unsigned long) rv);
+				occ += 1;
+			}
+		}
+		if ((opc & 0xFF00) == 0x8100) {
+			regno = 0;
+			uint32_t rv;
+			rv = fs27_bt_immload(buf, min, cur - 2, regno);
+			if (rv) {
+				printf("imm->mem(Rn) store #%d @ %lX\n", occ, (unsigned long) rv);
+				occ += 1;
+			}
+		}
+		if ((opc & 0xF00F) == 0x2001) {
+			regno = (opc & 0xF0) >> 4;
+			uint32_t rv;
+			rv = fs27_bt_immload(buf, min, cur - 2, regno);
+			if (rv) {
+				printf("imm->mem(Rn) store #%d @ %lX\n", occ, (unsigned long) rv);
+				occ += 1;
+			}
+		}
+		cur -= 2;
+	}
+	return 0;
+}
+
+/* Strategy :
+ - find "swapf" function used by both encr / decryption
+ - find xrefs to "swapf" (exactly 2)
+ - follow xref (
+*/
+
+#define S27_SPF_PATLEN 5
+static const uint16_t spf_pattern[]={0x6001, 0x6001, 0x2001, 0x000b, 0x2001};
+static const uint16_t spf_mask[]={0xf00f, 0xf00f, 0xf00f, 0xffff, 0xf00f};
+
+uint32_t find_s27_hardcore(const uint8_t *buf, long siz) {
+	uint32_t swapf_cur = 0;
+	int swapf_instances = 0;
+	while ( swapf_cur < siz ) {
+		uint32_t patpos;
+		patpos = find_pattern(&buf[swapf_cur], siz - swapf_cur,
+			S27_SPF_PATLEN, spf_pattern, spf_mask);
+		if (patpos == -1) break;
+		patpos += swapf_cur;	//re-adjust !
+		swapf_instances +=1 ;
+		printf("got 1 swapf @ %0lX;\n", patpos + 0UL);
+
+		/* Find xrefs (bsr) to  this swapf instance.
+		 * bsr opcode : 1011 dddd dddd dddd
+		 * displacement range = 2*disp == [-4096, +4094] + PC
+		 *
+		 */
+		int sign = 1;
+		int disp = 0;
+		int swapf_xrefs = 0;
+		/* iterate, starting at the position where the opcode "B0 00" would jump to "swapf". */
+		while ((sign * disp) != -4096) {
+			uint16_t opc;
+			uint32_t bsr_offs = patpos - 4 - (sign * disp);
+			opc = reconst_16(&buf[bsr_offs]);
+			// is it a "bsr" with the correct offset ?
+			if (opc == (0xB000 | ((sign * disp / 2) & 0xFFF))) {
+				printf("good bsr @ %lX\n", (unsigned long) bsr_offs);
+				swapf_xrefs += 1;
+				/* now, backtrack to find constants */
+				fs27_bt_stmem(buf, siz, bsr_offs);
+			}
+			sign = -sign;
+			if (sign == 1) disp +=2 ;
+		}
+		swapf_cur = patpos + 2;
+		
+	}
+	return 0;
+
+}

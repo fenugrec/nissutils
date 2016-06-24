@@ -132,8 +132,7 @@ void close_rom(struct romfile *rf) {
 /** find sid 27 key
  * @return offset in buf if succesful, < 0 otherwise
  */
-// XXX TODO : have a "optimistic" option to stop searching on the first hit
-long find_s27k(struct romfile *rf) {
+long find_s27k(struct romfile *rf, bool thorough) {
 	int keyset=0;
 
 	if (!rf) return -1;
@@ -217,9 +216,13 @@ long find_s27k(struct romfile *rf) {
 		key_offs = kp_h - rf->buf;
 		fprintf(dbg_stream, "Split keyset %lX found near 0x%lX !\n", (unsigned long) curkey, (unsigned long) key_offs);
 		occurences += 1;
-		kph_cur = 0;
-		kpl_cur = 0;
-		keyset += 1;
+		if (thorough) {
+			kph_cur = 0;
+			kpl_cur = 0;
+			keyset += 1;
+			continue;
+		}
+		break;
 
 	}	//while
 	if (!occurences) {
@@ -638,7 +641,8 @@ int main(int argc, char *argv[])
 				(unsigned long) rf.p_cks, (unsigned long) rf.p_ckx);
 	}
 
-	find_s27k(&rf);
+	find_s27k(&rf, 0);
+	find_s27_hardcore(rf.buf, rf.siz);
 	find_eep(&rf);
 
 	printf("\n");

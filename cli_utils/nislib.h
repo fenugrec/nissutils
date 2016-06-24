@@ -130,3 +130,6 @@ long find_ivt(const uint8_t *buf, long siz);
 
 /** find EEPROM read_byte(addr, &dest) function address */
 uint32_t find_eepread(const uint8_t *buf, long siz);
+
+/** try to find sid27 key through code analysis */
+uint32_t find_s27_hardcore(const uint8_t *buf, long siz);
