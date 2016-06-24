@@ -376,3 +376,129 @@ long find_ivt(const uint8_t *buf, long siz) {
 	}
 	return -1;
 }
+
+#define EEPREAD_POSTJSR	6	//search for "jsr" within [-1, +POSTJSR] instructions of "mov 7B"
+#define EEPREAD_MAXBT 25	//max backtrack to locate the mov that loads the function address
+#define EEPREAD_MINJ 1		//min # of identical, nearby calls to eepread()
+#define EEPREAD_JSRWINDOW 10	//search within a radius of _JSRWINDOW for identical jsr opcodes
+/* XXX todo : bounds check vs "siz" for the iterations within */
+
+uint32_t find_eepread(const uint8_t *buf, long siz) {
+	int occurences = 0;
+	uint32_t cur = 0;
+	uint32_t jackpot = 9;
+	
+	siz &= ~1;
+
+	for (cur = 0; cur < siz; cur += 2) {
+		/* find E4 7B opcode, for every occurence check if the pattern is credible */
+		bool addr_long = 0;	//if addr is loaded with "mov.l"
+		uint16_t opc;
+		int jumpreg;
+		int window;
+		bool found_seq;
+		uint32_t jsr_loc;	//offset of jsr instr
+		uint32_t jsr_opcode;	//copy of opcode
+
+		opc = reconst_16(&buf[cur]);
+		if (opc != 0xE47B) continue;
+		/* We found a "mov 0x7B, r4"  :
+		 * see if there's a jsr just before, or within [POSTJSR] instructions
+		*/
+		found_seq = 0;
+		for (window = -1; window <= EEPREAD_POSTJSR; window ++) {
+			opc = reconst_16(&buf[cur + window * 2]);
+			if ((opc & 0xF0FF) != 0x400B) continue;
+			//printf("found a mov + jsr sequence;");
+			jsr_loc = (cur + window * 2);
+			occurences += 1;
+			found_seq = 1;
+			break;
+		}
+		if (!found_seq) continue;
+		/* here, we found a new mov + jsr sequence. Get jsr register # :*/
+		jumpreg = (opc & 0x0F00) >> 8;
+		/* backtrack to  find a "mov.x ..., Rn" */
+		found_seq = 0;
+		for (window -= 1; (window + EEPREAD_MAXBT) > 0; window--) {
+			opc = reconst_16(&buf[cur + window * 2]);
+			if (opc == 0x4F22) break;	// "sts.l pr, @-r15"  :function entry; abort.
+
+			//2 possible opcodes : -  mov.w @(i, pc), Rn  : (0x9n 0xii) , or
+			//  mov.l @(i, pc), Rn : (0xDn 0xii)
+			jsr_opcode = opc;
+			uint8_t jc_top = (opc & 0xFF00) >> 8;
+			if (jc_top == (0xD0 | jumpreg)) {
+				addr_long = 1;
+				found_seq = 1;
+				break;
+			}
+			if (jc_top == (0x90 | jumpreg)) {
+				found_seq = 1;
+				break;
+			}
+		}
+		if (!found_seq) {
+			//unusual; algo should be tweaked if this happens
+			printf("Occurence %d : jumpreg setting not found near 0x%x \n",
+				occurences, cur);
+			continue;
+		}
+		/* looking good : found the instruction that loads the function address.
+		 * Compute PC offset, retrieve addr
+		*/
+		jackpot = (cur + window * 2);	//location of "mov.x" instr
+		if (addr_long) {
+			jackpot += ((opc & 0xFF) * 4) + 4;
+			/* essential : align 4 !!! */
+			jackpot &= ~0x03;
+			//printf("retrieve &er() from 0x%0X\n", jackpot);
+			jackpot = reconst_32(&buf[jackpot]);
+		} else {
+			jackpot += ((opc & 0xFF) * 2) + 4;
+			//printf("retrieve &er() from 0x%0X\n", jackpot);
+			jackpot = reconst_16(&buf[jackpot]);
+		}
+		/* discard out-of-ROM addresses */
+		if (jackpot > (1024 * 1024 * 1024UL)) {
+			printf("Occurence %d @ 0x%0X: bad; &eep_read() out of bounds (0x%0X)\n",
+				occurences, cur + window * 2, jackpot);
+			continue;
+		}
+		
+		/* improve confidence level : there should really be 2-3 identical "jsr" opcodes nearby */
+		int other_jsrs = 0;
+		int sign = 1;
+		window = 0;
+		while (window != EEPREAD_JSRWINDOW) {
+			opc = reconst_16(&buf[jsr_loc + window * 2 * sign]);
+			if (opc == jsr_opcode) {
+				other_jsrs += 1;
+			}
+			sign = -sign;
+			if (sign == 1) window += 1;
+		}
+		if (other_jsrs < EEPREAD_MINJ) {
+			printf("Occurence %d @ 0x%0X : Unlikely, not enough identical 'jsr's\n", occurences, cur + window * 2);
+			continue;
+		}
+		found_seq = 0;
+		/* improve moar : there should be another call with "mov 0x7C, r4" */
+		for (window = -10; window <= 10; window ++ ) {
+			opc = reconst_16(&buf[jsr_loc + window * 2]);
+			if (opc == 0xE47C) {
+				found_seq = 1;
+				break;
+			}
+		}
+		if (found_seq) {
+			printf("Occurence %d @ 0x%0X : &eep_read() = 0x%0X\n", occurences, cur + window * 2, jackpot);
+		} else {
+			printf("Occurence %d @ 0x%0X : no 7C nearby\n", occurences, cur + window * 2);
+		}
+
+	}	//for
+	//return last occurence.
+	return jackpot;
+}
+

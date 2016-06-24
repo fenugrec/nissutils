@@ -124,3 +124,7 @@ bool check_ivt(const uint8_t *buf);
  * @return offset of IVT if successful, -1 otherwise
  */
 long find_ivt(const uint8_t *buf, long siz);
+
+
+/** find EEPROM read_byte(addr, &dest) function address */
+uint32_t find_eepread(const uint8_t *buf, long siz);

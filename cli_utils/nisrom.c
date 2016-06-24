@@ -430,6 +430,7 @@ int validate_altcks(struct romfile *rf) {
  * it's right after struct fid, easy. The rom must already have
  * loader and fid structs found (find_loader, find_fid)
  */
+
 long find_ramf(struct romfile *rf) {
 	uint32_t testval;
 
@@ -532,6 +533,12 @@ long find_ramf(struct romfile *rf) {
 	return rf->p_ramf;
 }
 
+
+
+void find_eep(struct romfile *rf) {
+	find_eepread(rf->buf, rf->siz);
+}
+
 int main(int argc, char *argv[])
 {
 	struct romfile rf;
@@ -608,6 +615,7 @@ int main(int argc, char *argv[])
 	}
 
 	find_s27k(&rf);
+	find_eep(&rf);
 
 	printf("\n");
 	close_rom(&rf);
