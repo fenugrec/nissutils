@@ -84,8 +84,9 @@ static int open_rom(struct romfile *rf, const char *fname) {
 	}
 
 	file_len = flen(fbin);
-	if ((file_len <= 0) || (file_len > 1024*1024L)) {
-		printf("bad file length %ld, wtf\n", file_len);
+	if ((file_len <= 0) || (file_len > 2024*1024L)) {
+		/* TODO : add "-f" flag ? */
+		printf("huge file (length %ld)\n", file_len);
 		fclose(fbin);
 		return -1;
 	}
