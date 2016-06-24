@@ -110,8 +110,9 @@ static int open_rom(struct romfile *rf, const char *fname) {
 	fclose(fbin);
 
 
-	if ((file_len != 1024*1024L) && (file_len !=512*1024L)) {
-		printf("warning: not a 512k or 1M ROM !\n");
+	if ((file_len != 1024*1024L) && (file_len !=512*1024L)
+		&& (file_len != 256 * 1024L)) {
+		printf("warning: not a 256k/512k/1M ROM !\n");
 	}
 
 	return 0;
@@ -149,7 +150,7 @@ long find_s27k(struct romfile *rf) {
 		keypos = u32memstr(rf->buf, rf->siz, curkey);
 		if (keypos != NULL) {
 			long key_offs = keypos - rf->buf;
-			printf("Keyset %lX found @ 0x%lX !\n", (unsigned long) curkey, (unsigned long) key_offs);
+			fprintf(dbg_stream, "Keyset %lX found @ 0x%lX !\n", (unsigned long) curkey, (unsigned long) key_offs);
 			return key_offs;
 		}
 
@@ -207,11 +208,11 @@ long find_s27k(struct romfile *rf) {
 		}
 
 		long key_offs = kp_h - rf->buf;
-		printf("Split keyset %lX found near 0x%lX !\n", (unsigned long) curkey, (unsigned long) key_offs);
+		fprintf(dbg_stream, "Split keyset %lX found near 0x%lX !\n", (unsigned long) curkey, (unsigned long) key_offs);
 		return key_offs;
 	}
 
-	printf("No keyset found, different heuristics / manual analysis needed.\n");
+	fprintf(dbg_stream, "No keyset found, different heuristics / manual analysis needed.\n");
 	return -1;
 }
 
@@ -230,7 +231,7 @@ long find_loader(struct romfile *rf) {
 	/* look for "LOADER", backtrack to beginning of struct. */
 	sl = u8memstr(rf->buf, rf->siz, loadstr, 6);
 	if (!sl) {
-		printf("LOADER not found !\n");
+		fprintf(dbg_stream, "LOADER not found !\n");
 		return -1;
 	}
 
@@ -316,7 +317,7 @@ long find_fid(struct romfile *rf) {
 	/* look for "DATABASE" */
 	sf = u8memstr(rf->buf, rf->siz, dbstr, 5);
 	if (!sf) {
-		printf("no DATABASE found !?\n");
+		fprintf(dbg_stream, "no DATABASE found !?\n");
 		return -1;
 	}
 	//convert to file offset
@@ -330,7 +331,7 @@ long find_fid(struct romfile *rf) {
 			sf = u8memstr(&rf->buf[sf_offset + sizeof(struct loader_t)], rf->siz - sf_offset - 1 , dbstr, 5);
 		}
 		if (!sf) {
-			printf("no FID DATABASE found !\n");
+			fprintf(dbg_stream, "no FID DATABASE found !\n");
 			return -1;
 		}
 		//convert to file offset again
@@ -339,7 +340,7 @@ long find_fid(struct romfile *rf) {
 
 	//bounds check
 	if ((sf_offset + FID_MAXSIZE) >= rf->siz) {
-		printf("Possibly incomplete / bad dump ? FID too close to end of ROM\n");
+		fprintf(dbg_stream, "Possibly incomplete / bad dump ? FID too close to end of ROM\n");
 		return -1;
 	}
 
@@ -351,7 +352,7 @@ long find_fid(struct romfile *rf) {
 		//these are special, they don't have an "FFFF" tag.
 	} else {
 		if (fftag != 0xffff) {
-			printf("Unusual FID header tag = 0x%04X\n", (unsigned) fftag);
+			fprintf(dbg_stream, "Unusual FID header tag = 0x%04X\n", (unsigned) fftag);
 		}
 	}
 
@@ -363,10 +364,10 @@ long find_fid(struct romfile *rf) {
 	if (rf->loader_v == 0) {
 		const uint8_t load07[] = "705507";
 		if (memcmp(rf->fid_cpu + 2, load07, 6) == 0) {
-			printf("Looks like a loader-less \"07\" ROM.\n");
+			fprintf(dbg_stream, "Looks like a loader-less \"07\" ROM.\n");
 			rf->loader_v = 7;
 		} else {
-			printf("Unknown loader version / FID type !!\n");
+			fprintf(dbg_stream, "Unknown loader version / FID type !!\n");
 		}
 	}
 
@@ -406,16 +407,16 @@ int validate_altcks(struct romfile *rf) {
 	}
 
 	sum32(&rf->buf[rf->p_acstart], rf->p_acend - rf->p_acstart, &acs, &acx);
-	printf("alt cks block 0x%06lX - 0x%06lX: sumt=0x%08lX, xort=0x%08lX\n",
+	fprintf(dbg_stream, "alt cks block 0x%06lX - 0x%06lX: sumt=0x%08lX, xort=0x%08lX\n",
 		(unsigned long) rf->p_acstart, (unsigned long) rf->p_acend,
 			(unsigned long) acs, (unsigned long) acx);
 	pacs = u32memstr(rf->buf, rf->siz, acs);
 	pacx = u32memstr(rf->buf, rf->siz, acx);
 	if (!pacs && !pacx) {
-		printf("altcks values not found in ROM, possibly unskipped vals or bad algo\n");
+		fprintf(dbg_stream, "altcks values not found in ROM, possibly unskipped vals or bad algo\n");
 		return -1;
 	} else {
-		printf("confirmed altcks values found : acs @ 0x%lX, acx @ 0x%lX\n",
+		fprintf(dbg_stream, "confirmed altcks values found : acs @ 0x%lX, acx @ 0x%lX\n",
 				(unsigned long) (pacs - rf->buf), (unsigned long) (pacx - rf->buf));
 		//TODO : validate altcks val offsets VS end-of-IVT2, i.e. they seem to be always @
 		// IVT2 + 0x400
@@ -446,12 +447,12 @@ long find_ramf(struct romfile *rf) {
 	if (testval != 0xffff8000) {
 		long ramf_adj = 0;
 		long sign = 1;
-		printf("Unlikely contents for struct ramf; got 0x%lX. Trying to readjust:\n", (unsigned long) testval);
+		fprintf(dbg_stream, "Unlikely contents for struct ramf; got 0x%lX.\n", (unsigned long) testval);
 		while (ramf_adj != 12) {
 			//search around, in a pattern like +0, +4, -4, +8, -8, +12.
 			testval = reconst_32(&rf->buf[rf->p_ramf + (sign * ramf_adj)]);
 			if (testval == 0xffff8000) {
-				printf("probable RAMF found @ delta = %+d\n", (int) (sign * ramf_adj));
+				fprintf(dbg_stream, "probable RAMF found @ delta = %+d\n", (int) (sign * ramf_adj));
 				rf->p_ramf += (sign * ramf_adj);
 				break;
 			}
@@ -466,7 +467,7 @@ long find_ramf(struct romfile *rf) {
 	if ((rf->p_acstart >= rf->siz) ||
 		(rf->p_acend >= rf->siz) ||
 		(rf->p_ivt2 >= rf->siz)) {
-		printf("warning : altcks / IVT2 values out of bounds, probably due to unusual RAMF structure.\n");
+		fprintf(dbg_stream, "warning : altcks / IVT2 values out of bounds, probably due to unusual RAMF structure.\n");
 		rf->p_acstart = -1;
 		rf->p_acend = -1;
 		rf->p_ivt2 = -1;
@@ -474,8 +475,8 @@ long find_ramf(struct romfile *rf) {
 
 	if (rf->p_ivt2 >= 0) {
 		if (!check_ivt(&rf->buf[rf->p_ivt2])) {
-			printf("Unlikely IVT2 location 0x%06lX :\n", (unsigned long) rf->p_ivt2);
-			printf("%08lX %08lX %08lX %08lX...\n", (unsigned long) reconst_32(&rf->buf[rf->p_ivt2+0]),
+			fprintf(dbg_stream, "Unlikely IVT2 location 0x%06lX :\n", (unsigned long) rf->p_ivt2);
+			fprintf(dbg_stream, "%08lX %08lX %08lX %08lX...\n", (unsigned long) reconst_32(&rf->buf[rf->p_ivt2+0]),
 						(unsigned long) reconst_32(&rf->buf[rf->p_ivt2+4]),
 						(unsigned long) reconst_32(&rf->buf[rf->p_ivt2+8]),
 						(unsigned long) reconst_32(&rf->buf[rf->p_ivt2+12]));
@@ -484,7 +485,7 @@ long find_ramf(struct romfile *rf) {
 
 
 	if (rf->p_acstart >= rf->p_acend) {
-		printf("bad/reversed alt cks bounds; 0x%lX - 0x%lX\n",
+		fprintf(dbg_stream, "bad/reversed alt cks bounds; 0x%lX - 0x%lX\n",
 				(unsigned long) rf->p_acstart, (unsigned long) rf->p_acend);
 		rf->p_acstart = -1;
 		rf->p_acend = -1;
@@ -500,21 +501,21 @@ long find_ramf(struct romfile *rf) {
 		long pecurec = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, pECUREC)]);
 		if ((pecurec + 6) <= rf->siz) {
 			//skip leading '1'
-			printf("probable ECUID : %.*s\n", 5,  &rf->buf[pecurec + 1]);
+			fprintf(dbg_stream, "probable ECUID : %.*s\n", 5,  &rf->buf[pecurec + 1]);
 		}
 
 		//validate ROM size
 		testval = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, romend)]);
 		if (testval != (rf->siz -1)) {
-			printf("mismatched <romend> field : got %lX\n", (unsigned long) testval);
+			fprintf(dbg_stream, "mismatched <romend> field : got %lX\n", (unsigned long) testval);
 		}
 
         /* Locate RIPEMD-160 magic numbers */
         if ((u32memstr(rf->buf, rf->siz, 0x67452301) != NULL) &&
 			(u32memstr(rf->buf, rf->siz, 0x98BADCFE) != NULL)) {
-			printf("RIPEMD-160 hash function present.\n");
+			fprintf(dbg_stream, "RIPEMD-160 hash function present.\n");
 		} else {
-			printf("RIPEMD-160 hash function not found ??\n");
+			fprintf(dbg_stream, "RIPEMD-160 hash function not found ??\n");
 		}
 
 		/* Locate cks_alt2 checksum */
@@ -523,10 +524,10 @@ long find_ramf(struct romfile *rf) {
 		p_skip1 = (pecurec - 4) - pecurec;
 		p_skip2 = (rf->p_ivt2 - 4) - pecurec;
 		if (checksum_alt2(&rf->buf[pecurec], rf->siz - pecurec, &p_as, &p_ax, p_skip1, p_skip2) == 0) {
-			printf("alt2 checksum found; sum @ 0x%lX, xor @ 0x%lX\n",
+			fprintf(dbg_stream, "alt2 checksum found; sum @ 0x%lX, xor @ 0x%lX\n",
 					(unsigned long) p_as, (unsigned long) p_ax);
 		} else {
-			printf("alt2 checksum not found ?? Bad algo, bad skip, or other problem...\n");
+			fprintf(dbg_stream, "alt2 checksum not found ?? Bad algo, bad skip, or other problem...\n");
 		}
 
 	}
@@ -539,7 +540,7 @@ long find_ramf(struct romfile *rf) {
 void find_eep(struct romfile *rf) {
 	uint32_t eepread = find_eepread(rf->buf, rf->siz);
 	if (eepread > 0) {
-		printf("found eep_read() @ 0x%0X\n", eepread);
+		fprintf(dbg_stream, "found eep_read() @ 0x%0X\n", eepread);
 	}
 }
 
@@ -568,8 +569,8 @@ int main(int argc, char *argv[])
 	if (loaderpos >= 0) {
 		const char *scpu;
 		scpu = (const char *) rf.loader_cpu;
-		printf("Loader %d found @ 0x%lX, ", rf.loader_v, (unsigned long) loaderpos);
-		printf("%.*s\n", sizeof(((struct loader_t *)NULL)->cpu), scpu);
+		fprintf(dbg_stream, "Loader %d found @ 0x%lX, ", rf.loader_v, (unsigned long) loaderpos);
+		fprintf(dbg_stream, "%.*s\n", sizeof(((struct loader_t *)NULL)->cpu), scpu);
 	}
 
 	fidpos = find_fid(&rf);
@@ -577,37 +578,37 @@ int main(int argc, char *argv[])
 		const char *sfid;
 		const char *scpu;
 
-		printf("FID header tag = 0x%04X\n", (unsigned) reconst_16(&rf.buf[rf.p_fid]));
+		fprintf(dbg_stream, "FID header tag = 0x%04X\n", (unsigned) reconst_16(&rf.buf[rf.p_fid]));
 
 		sfid = (const char *) rf.fid;
 		scpu = (const char *) rf.fid_cpu;
-		printf("FID: %.*s found @ 0x%lX, ", \
+		fprintf(dbg_stream, "FID: %.*s found @ 0x%lX, ", \
 			sizeof(((struct fid_base1_t *)NULL)->FID), sfid, (unsigned long) fidpos);
-		printf("%.*s\n", sizeof(((struct fid_base1_t *)NULL)->cpu), scpu);
+		fprintf(dbg_stream, "%.*s\n", sizeof(((struct fid_base1_t *)NULL)->cpu), scpu);
 
 	} else {
-		printf("error: no FID struct, nothing more to say...\n");
+		fprintf(dbg_stream, "error: no FID struct, nothing more to say...\n");
 	}
 	ramfpos = find_ramf(&rf);
 	if (ramfpos >= 0) {
-		printf("RAMjump : 0x%08X - 0x%08X\n", rf.ramf.pRAMjump, rf.ramf.pRAM_DLAmax);
+		fprintf(dbg_stream, "RAMjump : 0x%08X - 0x%08X\n", rf.ramf.pRAMjump, rf.ramf.pRAM_DLAmax);
 		if (rf.p_ivt2 >= 0) {
-			printf("IVECT2 @ 0x%lX\n", (unsigned long) rf.p_ivt2);
+			fprintf(dbg_stream, "IVECT2 @ 0x%lX\n", (unsigned long) rf.p_ivt2);
 		} else {
 			long iter;
-			printf("no IVT2 ?? wtf. Last resort, brute force technique:\n");
+			fprintf(dbg_stream, "no IVT2 ?? wtf. Last resort, brute force technique:\n");
 			iter = 0x100;	//skip power-on IVT
 			while ((iter + 0x400) < rf.siz) {
 				long new_offs;
 				new_offs = find_ivt(rf.buf + iter, rf.siz - iter);
 				if (new_offs < 0) {
-					printf("\t no IVT2 found.\n");
+					fprintf(dbg_stream, "\t no IVT2 found.\n");
 					break;
 				}
 				iter += new_offs;
-				printf("\tPossible IVT @ 0x%lX\n",(unsigned long) iter);
+				fprintf(dbg_stream, "\tPossible IVT @ 0x%lX\n",(unsigned long) iter);
 				if (reconst_32(rf.buf + iter + 4) ==0xffff7ffc) {
-					printf("\t\tProbable IVT !\n");
+					fprintf(dbg_stream, "\t\tProbable IVT !\n");
 				}
 				iter += 0x4;
 			}
@@ -616,7 +617,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (!checksum_std(rf.buf, rf.siz, &rf.p_cks, &rf.p_ckx)) {
-		printf("standard checksum values found : std_cks @ 0x%lX, std_ckx @0x%lX\n",
+		fprintf(dbg_stream, "standard checksum values found : std_cks @ 0x%lX, std_ckx @0x%lX\n",
 				(unsigned long) rf.p_cks, (unsigned long) rf.p_ckx);
 	}
 

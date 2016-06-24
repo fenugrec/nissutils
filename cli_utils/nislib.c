@@ -539,7 +539,7 @@ uint32_t find_eepread(const uint8_t *buf, long siz) {
 			occurences += 1;
 			//printf("Occurence %d @ 0x%0X : &eep_read() = 0x%0X\n", occurences, cur + window * 2, jackpot);
 		} else {
-			//printf("didn't recognize &eep_read()\n");
+			fprintf(dbg_stream, "didn't recognize &eep_read()\n");
 		}
 		
 
