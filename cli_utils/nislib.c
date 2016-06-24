@@ -377,6 +377,43 @@ long find_ivt(const uint8_t *buf, long siz) {
 	return -1;
 }
 
+
+/* check if the code at offset "func" inside the buffer looks like an eeprom read function.
+ * ret 1 if good.
+ *
+ * assumes "func" is 16-bit aligned. Note : the bounds may be only valid for 7055, 7058, 7059
+ */
+#define EEPREAD_GETIOREG 30	//check only the first N opcodes
+//these are too specific maybe ? covers 7055, 7058, 7058
+#define EEPREAD_IOBOUND_L 0xF720
+#define EEPREAD_IOBOUND_H 0xF789	//IO reg will be within [L,H] bounds
+
+static bool analyze_eepread(const uint8_t *buf, long siz, uint32_t func) {
+	/* algo : look for a mov.w (), Rn that loads an IO register address. This should cover both
+	 * bit-bang SPI  and SCI-based code.
+	 */
+	uint32_t fcur;
+	
+	for (fcur = 0;fcur < EEPREAD_GETIOREG; fcur += 1) {
+		uint16_t opc;
+		uint32_t litofs;
+		uint16_t literal;
+		if ((func + fcur * 2) >= siz) return 0;
+
+		opc = reconst_16(&buf[func + fcur * 2]);
+		if ((opc & 0xF000) != 0x9000) continue;
+		// so we do have a mov.w (@x, PC), Rn opcode.
+		litofs = (func + fcur * 2) + 4;	//PC;
+		litofs += (opc & 0xFF) * 2;	//PC + disp*2
+		literal = reconst_16(&buf[litofs]);
+		if (literal > EEPREAD_IOBOUND_H) continue;
+		if (literal < EEPREAD_IOBOUND_L) continue;
+		return 1;
+	}
+	return 0;
+}
+
+
 #define EEPREAD_POSTJSR	6	//search for "jsr" within [-1, +POSTJSR] instructions of "mov 7B"
 #define EEPREAD_MAXBT 25	//max backtrack to locate the mov that loads the function address
 #define EEPREAD_MINJ 1		//min # of identical, nearby calls to eepread()
@@ -411,7 +448,6 @@ uint32_t find_eepread(const uint8_t *buf, long siz) {
 			if ((opc & 0xF0FF) != 0x400B) continue;
 			//printf("found a mov + jsr sequence;");
 			jsr_loc = (cur + window * 2);
-			occurences += 1;
 			found_seq = 1;
 			break;
 		}
@@ -440,6 +476,7 @@ uint32_t find_eepread(const uint8_t *buf, long siz) {
 		}
 		if (!found_seq) {
 			//unusual; algo should be tweaked if this happens
+			continue;
 			printf("Occurence %d : jumpreg setting not found near 0x%x \n",
 				occurences, cur);
 			continue;
@@ -461,6 +498,7 @@ uint32_t find_eepread(const uint8_t *buf, long siz) {
 		}
 		/* discard out-of-ROM addresses */
 		if (jackpot > (1024 * 1024 * 1024UL)) {
+			continue;
 			printf("Occurence %d @ 0x%0X: bad; &eep_read() out of bounds (0x%0X)\n",
 				occurences, cur + window * 2, jackpot);
 			continue;
@@ -479,6 +517,7 @@ uint32_t find_eepread(const uint8_t *buf, long siz) {
 			if (sign == 1) window += 1;
 		}
 		if (other_jsrs < EEPREAD_MINJ) {
+			continue;
 			printf("Occurence %d @ 0x%0X : Unlikely, not enough identical 'jsr's\n", occurences, cur + window * 2);
 			continue;
 		}
@@ -491,14 +530,25 @@ uint32_t find_eepread(const uint8_t *buf, long siz) {
 				break;
 			}
 		}
-		if (found_seq) {
-			printf("Occurence %d @ 0x%0X : &eep_read() = 0x%0X\n", occurences, cur + window * 2, jackpot);
-		} else {
+		if (!found_seq) {
+			continue;
 			printf("Occurence %d @ 0x%0X : no 7C nearby\n", occurences, cur + window * 2);
 		}
+		
+		/* last test : follow inside eep_read() to see if we access IO registers pretty soon */
+		if (analyze_eepread(buf, siz, jackpot)) {
+			occurences += 1;
+			printf("Occurence %d @ 0x%0X : &eep_read() = 0x%0X\n", occurences, cur + window * 2, jackpot);
+		} else {
+			//printf("didn't recognize &eep_read()\n");
+		}
+		
 
 	}	//for
 	//return last occurence.
+	if (occurences == 0) {
+		printf("eep_read() not found ! Needs better heuristics\n");
+	}
 	return jackpot;
 }
 
