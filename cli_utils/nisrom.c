@@ -214,7 +214,7 @@ long find_s27k(struct romfile *rf, bool thorough) {
 		}
 
 		key_offs = kp_h - rf->buf;
-		fprintf(dbg_stream, "Split keyset %lX found near 0x%lX !\n", (unsigned long) curkey, (unsigned long) key_offs);
+		fprintf(dbg_stream, "Keyset %lX found near 0x%lX !\n", (unsigned long) curkey, (unsigned long) key_offs);
 		occurences += 1;
 		if (thorough) {
 			kph_cur = 0;

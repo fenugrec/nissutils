@@ -727,7 +727,7 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, long siz, long bsr_offs) {
 			uint16_t rv;
 			rv = fs27_bt_immload(buf, min, cur - 2, regno, 0);
 			if (rv) {
-				printf("imm->mem(gbr) store %d : %X\n", occ, rv);
+				//printf("imm->mem(gbr) store %d : %X\n", occ, rv);
 				occ_dist[occ] = opc & 0xFF;
 				h[occ] = rv;
 				occ += 1;
@@ -740,7 +740,7 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, long siz, long bsr_offs) {
 			uint16_t rv;
 			rv = fs27_bt_immload(buf, min, cur - 2, regno, 0);
 			if (rv) {
-				printf("imm->mem(Rn) store #%d : %X\n", occ, rv);
+				//printf("imm->mem(Rn) store #%d : %X\n", occ, rv);
 				occ_dist[occ] = 0;
 				h[occ] = rv;
 				occ += 1;
@@ -759,7 +759,7 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, long siz, long bsr_offs) {
 	} else {
 		key = h[0] | (h[1] << 16);
 	}
-	printf("key : %lX\n", (unsigned long) key);
+	fprintf(stderr, "key : %lX\n", (unsigned long) key);
 	return key;
 }
 
