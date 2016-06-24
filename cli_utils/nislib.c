@@ -612,12 +612,15 @@ static uint32_t find_pattern(const uint8_t *buf, long siz, int patlen,
  *
  * regno : n from "Rn"
  * min : don't backtrack further than buf[min]
+ * shlr : if set, take the upper 16bits of immediate (set to 0; only used within recursion)
  * 
  * @return 0 if failed; 16-bit immediate otherwise
+ * 
+ * handles multiple-mov sequences, and "shlr16" too.
  */
 
 static uint16_t fs27_bt_immload(const uint8_t *buf, long min, long start,
-				int regno) {
+				int regno, bool shlr) {
 	uint16_t opc;
 	while (start >= min) {
 		int new_regno;
@@ -632,8 +635,23 @@ static uint16_t fs27_bt_immload(const uint8_t *buf, long min, long start,
 			uint16_t new_bt;
 			start -= 2;
 			new_regno = (opc & 0xF0) >> 4;
-			new_bt = fs27_bt_immload(buf, min, start, new_regno);
+			new_bt = fs27_bt_immload(buf, min, start, new_regno, shlr);
 			
+			if (new_bt) {
+				//Suxxess : found literal
+				//printf("root literal @ %X\n", new_bt);
+				return new_bt;
+			}
+			// recurse failed; probably loaded from arglist or some other shit
+			return 0;
+		}
+		
+		// 2b) if we had a "shlr16" into regno, recurse too and shift immediate before returning.
+		if (opc == (0x4029 | (regno << 8))) {
+			uint16_t new_bt;
+			start -= 2;
+			new_bt = fs27_bt_immload(buf, min, start, regno, 1);
+
 			if (new_bt) {
 				//Suxxess : found literal
 				//printf("root literal @ %X\n", new_bt);
@@ -665,7 +683,7 @@ static uint16_t fs27_bt_immload(const uint8_t *buf, long min, long start,
 				imloc &= ~0x03;
 				//printf("retrieve &er() from 0x%0X\n", jackpot);
 				imloc = reconst_32(&buf[imloc]);
-				imloc &= 0xFFFF;
+				imloc = shlr ? imloc >> 16 : imloc & 0xFFFF;
 			} else {
 				imloc += ((opc & 0xFF) * 2) + 4;
 				//printf("retrieve &er() from 0x%0X\n", jackpot);
@@ -709,7 +727,7 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, long siz, long bsr_offs) {
 			if ((opc & 0xFFF0) == 0x81F0) goto next;
 			regno = 0;
 			uint16_t rv;
-			rv = fs27_bt_immload(buf, min, cur - 2, regno);
+			rv = fs27_bt_immload(buf, min, cur - 2, regno, 0);
 			if (rv) {
 				printf("imm->mem(gbr) store %d : %X\n", occ, rv);
 				occ_dist[occ] = opc & 0xFF;
@@ -722,7 +740,7 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, long siz, long bsr_offs) {
 			if ((opc & 0xFF00) == 0x2F00) goto next;
 			regno = (opc & 0xF0) >> 4;
 			uint16_t rv;
-			rv = fs27_bt_immload(buf, min, cur - 2, regno);
+			rv = fs27_bt_immload(buf, min, cur - 2, regno, 0);
 			if (rv) {
 				printf("imm->mem(Rn) store #%d : %X\n", occ, rv);
 				occ_dist[occ] = 0;
