@@ -312,6 +312,13 @@ static void parse_ramf(struct romfile *rf) {
 		rf->ramf.pRAMjump = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, pRAMjump)]);
 		rf->ramf.pRAM_DLAmax = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, pRAM_DLAmax)]);
 		break;
+	case L81:
+		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80b, altcks_start)]);
+		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80b, altcks_end)]);
+		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80b, pIVECT2)]);
+		rf->ramf.pRAMjump = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80b, pRAMjump)]);
+		rf->ramf.pRAM_DLAmax = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80b, pRAM_DLAmax)]);
+		break;
 	default:
 		rf->p_acstart = -1;
 		rf->p_acend = -1;
@@ -483,6 +490,14 @@ long find_ramf(struct romfile *rf) {
 	}
 
 	parse_ramf(rf);
+	if (rf->loader_v == L80) {
+		testval = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, romend)]);
+		if (testval != (rf->siz -1)) {
+			//maybe type 80b:
+			rf->loader_v = L81;
+			parse_ramf(rf);
+		}
+	}
 
 	free(rf->buf);
 	if ((rf->p_acstart >= rf->siz) ||
@@ -516,10 +531,18 @@ long find_ramf(struct romfile *rf) {
 		(void) validate_altcks(rf);
 	}
 
+	long pecurec;
 	//display some LOADER80-specific garbage
 	if (rf->loader_v == 80) {
+		pecurec = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, pECUREC)]);
+		testval = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, romend)]);
+	} else if (rf->loader_v == L81) {
+		pecurec = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80b, pECUREC)]);
+		testval = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80b, romend)]);
+	}
+
+	if ((rf->loader_v == 80) || (rf->loader_v == L81)) {
 		//parse ECUREC
-		long pecurec = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, pECUREC)]);
 		if (pecurec < 0) {
 			fprintf(dbg_stream, "unlikely pecurec = %lX\n", (unsigned long) pecurec);
 		} else if ((pecurec + 6) <= rf->siz) {
@@ -528,13 +551,12 @@ long find_ramf(struct romfile *rf) {
 		}
 
 		//validate ROM size
-		testval = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, romend)]);
 		if (testval != (rf->siz -1)) {
 			fprintf(dbg_stream, "mismatched <romend> field : got %lX\n", (unsigned long) testval);
 		}
 
-        /* Locate RIPEMD-160 magic numbers */
-        if ((u32memstr(rf->buf, rf->siz, 0x67452301) != NULL) &&
+		/* Locate RIPEMD-160 magic numbers */
+		if ((u32memstr(rf->buf, rf->siz, 0x67452301) != NULL) &&
 			(u32memstr(rf->buf, rf->siz, 0x98BADCFE) != NULL)) {
 			fprintf(dbg_stream, "RIPEMD-160 hash function present.\n");
 		} else {

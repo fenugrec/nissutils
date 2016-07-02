@@ -8,9 +8,14 @@
 
 //#define PACK __attribute__((aligned(1),packed))
 
-/* LOADER versions */
-/* 07 is not a "LOADER" but applies to old "sh705507" FIDs. */
-enum loadvers_t {L_UNK=0, L07=07, L10=10, L40=40, L50=50, L60=60, L80=80};
+/* LOADER versions
+ * 07 is not a "LOADER" but applies to old "sh705507" FIDs ;
+ * L81 is for the alternate (more recent?) variant of LOADER80.
+ * Actually the correlation between loader version and type of FID struct
+ * is tenuous at best. TODO: check if the FID IC string ("705519" etc)
+ * is more reliable ?
+ */
+enum loadvers_t {L_UNK=0, L07=07, L10=10, L40=40, L50=50, L60=60, L80=80, L81=81};
 
 /* struct LOADER -- this must be packed, i.e. no padding between members */
 struct loader_t {
@@ -67,7 +72,7 @@ struct fid_base2_t {
 	uint8_t pF2[4];		//&f2()
 	uint8_t MSTCR_1[2];
 	uint8_t MSTCR_2[2];
-	uint8_t wtf[4];
+	uint8_t wtf[4];		//not in EM62B !
 } ;
 
 
@@ -191,6 +196,7 @@ struct ramf_60 {
 
 //LOADER80, checked on
 //1KA6A, 9HA7D
+// BUT invalid on EM62B and others... wtf
 struct ramf_80 {
 	uint8_t pRAM1[4];		//rxbuf?
 	uint8_t pRAMexec2[4];	//RAMexec?
@@ -208,6 +214,29 @@ struct ramf_80 {
 	uint8_t field_34[4];
 	uint8_t field_38[4];
 	uint8_t field_3C[4];
+	uint8_t pRAMinit[4];	//array of data for ram initialization ?
+	uint8_t pRAM_unk2[4][4];	//4x same, sometimes first member is different
+	uint8_t altcks_start[4];
+	uint8_t altcks_end[4];
+	uint8_t pECUREC[4];
+	uint8_t romend[4];		// == ROMSIZE - 1
+	uint8_t pIVECT2[4];
+};
+
+//LOADER80 for EM62B and other oddballs... wtf
+struct ramf_80b {
+	uint8_t pRAM1[4];		//rxbuf?
+	uint8_t pRAMexec2[4];	//RAMexec?
+	uint8_t pRAM_unk1[4];
+	uint8_t pRAM_unk1b[4];		//unk1....unk1b = zone
+	uint8_t pRAMjump[4];
+	uint8_t pRAM_DLAmax[4];	//end of RAM dl area ? ex ffff8438...DLAmax
+	uint8_t field_18[4];
+	uint8_t field_1C[4];
+	uint8_t field_20[4];
+	uint8_t field_24[4];
+	uint8_t field_28[4];
+	uint8_t field_2C[4];
 	uint8_t pRAMinit[4];	//array of data for ram initialization ?
 	uint8_t pRAM_unk2[4][4];	//4x same, sometimes first member is different
 	uint8_t altcks_start[4];
