@@ -473,11 +473,11 @@ long find_ramf(struct romfile *rf) {
 	//1- sanity check first member, has always been FFFF8000.
 	testval = reconst_32(&rf->buf[rf->p_ramf]);
 	if (testval != 0xffff8000) {
-		long ramf_adj = 0;
+		long ramf_adj = 4;
 		long sign = 1;
 		fprintf(dbg_stream, "Unlikely contents for struct ramf; got 0x%lX.\n", (unsigned long) testval);
 		while (ramf_adj != 12) {
-			//search around, in a pattern like +0, +4, -4, +8, -8, +12.
+			//search around, in a pattern like +4, -4, +8, -8, +12 etc
 			testval = reconst_32(&rf->buf[rf->p_ramf + (sign * ramf_adj)]);
 			if (testval == 0xffff8000) {
 				fprintf(dbg_stream, "probable RAMF found @ delta = %+d\n", (int) (sign * ramf_adj));
