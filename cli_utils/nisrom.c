@@ -520,7 +520,9 @@ long find_ramf(struct romfile *rf) {
 	if (rf->loader_v == 80) {
 		//parse ECUREC
 		long pecurec = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, pECUREC)]);
-		if ((pecurec + 6) <= rf->siz) {
+		if (pecurec < 0) {
+			fprintf(dbg_stream, "unlikely pecurec = %lX\n", (unsigned long) pecurec);
+		} else if ((pecurec + 6) <= rf->siz) {
 			//skip leading '1'
 			fprintf(dbg_stream, "probable ECUID : %.*s\n", 5,  &rf->buf[pecurec + 1]);
 		}
@@ -538,6 +540,7 @@ long find_ramf(struct romfile *rf) {
 		} else {
 			fprintf(dbg_stream, "RIPEMD-160 hash function not found ??\n");
 		}
+		if ((pecurec < 0) || (pecurec >= rf->siz)) goto no_ripemd;
 
 		/* Locate cks_alt2 checksum */
 		long p_as = 0, p_ax = 0;
@@ -552,6 +555,7 @@ long find_ramf(struct romfile *rf) {
 		}
 
 	}
+no_ripemd:
 
 	return rf->p_ramf;
 }
@@ -619,10 +623,12 @@ int main(int argc, char *argv[])
 			long iter;
 			fprintf(dbg_stream, "no IVT2 ?? wtf. Last resort, brute force technique:\n");
 			iter = 0x100;	//skip power-on IVT
+			bool ivtfound = 0;
 			while ((iter + 0x400) < rf.siz) {
 				long new_offs;
 				new_offs = find_ivt(rf.buf + iter, rf.siz - iter);
 				if (new_offs < 0) {
+					if (ivtfound) break;
 					fprintf(dbg_stream, "\t no IVT2 found.\n");
 					break;
 				}
@@ -630,6 +636,7 @@ int main(int argc, char *argv[])
 				fprintf(dbg_stream, "\tPossible IVT @ 0x%lX\n",(unsigned long) iter);
 				if (reconst_32(rf.buf + iter + 4) ==0xffff7ffc) {
 					fprintf(dbg_stream, "\t\tProbable IVT !\n");
+					ivtfound = 1;
 				}
 				iter += 0x4;
 			}
