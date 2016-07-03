@@ -492,12 +492,17 @@ long find_ramf(struct romfile *rf) {
 	parse_ramf(rf);
 	if (rf->loader_v == L80) {
 		testval = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, romend)]);
-		if (testval != (rf->siz -1)) {
-			//maybe type 80b:
+		if (testval == (rf->siz -1)) goto good_romend;
+
+		//maybe type 80b:
+		testval = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80b, romend)]);
+		if (testval == (rf->siz -1)) {
+			fprintf(dbg_stream, "Using alternate LOADER 80b def.\n");
 			rf->loader_v = L81;
 			parse_ramf(rf);
 		}
 	}
+good_romend:
 
 	free(rf->buf);
 	if ((rf->p_acstart >= rf->siz) ||
