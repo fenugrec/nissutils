@@ -810,15 +810,16 @@ bool find_s27_hardcore(const uint8_t *buf, long siz, uint32_t *s27k, uint32_t *s
 				fprintf(dbg_stream, "good bsr swapf@ %lX\n", (unsigned long) bsr_offs);
 				swapf_xrefs += 1;
 				/* now, backtrack to find constants */
-				/* TODO : determine if the key is for sid27 or sid36 */
+				/* TODO : determine if the key is for sid27 or sid36; this just assumes that the first key we find
+				 * is the s36 one. This has been true for a lot of ROMs, but is just lucky. */
 				uint32_t key;
 				key = fs27_bt_stmem(buf, siz, bsr_offs);
-				if (key && s27_found) {
-					*s36k = key;
-					s36_found = 1;
-				} else if (key) {
+				if (key && s36_found) {
 					*s27k = key;
 					s27_found = 1;
+				} else if (key) {
+					*s36k = key;
+					s36_found = 1;
 				}
 			}
 			sign = -sign;

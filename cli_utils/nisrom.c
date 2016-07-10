@@ -154,13 +154,14 @@ void close_rom(struct romfile *rf) {
 bool find_s27k(struct romfile *rf, int *key_idx, bool thorough) {
 	int keyset=0;
 
-	if (!rf) return -1;
-	if (!(rf->buf)) return -1;
+	if (!rf) return 0;
+	if (!(rf->buf)) return 0;
 
 	/* first method : search for every known key, it
 	 * seems a limited number of keysets exist.
 	 */
 	#if 0
+	check retval
 	while (known_keys[keyset].s27k != 0) {
 		const uint8_t *keypos;
 		uint32_t curkey;
@@ -247,12 +248,12 @@ bool find_s27k(struct romfile *rf, int *key_idx, bool thorough) {
 	}	//while
 	if (!occurences) {
 		fprintf(dbg_stream, "No keyset found, different heuristics / manual analysis needed.\n");
-		return -1;
+		return 0;
 	}
 	if (occurences > 1) {
 		fprintf(dbg_stream, "warning : multiple keysets found !?\n");
 	}
-	return key_offs;
+	return 1;
 
 }
 
@@ -679,7 +680,7 @@ int main(int argc, char *argv[])
 		printf("%0d\t0x%lX\t", rf.loader_v, (unsigned long) loaderpos);
 		printf( "%.6s\t%.2s\t", scpu, scpu + 6);
 	} else {
-		printf("N/A\tN/A\tN/A\tN/A\tN/A\t");
+		printf("N/A\tN/A\tN/A\tN/A\t");
 	}
 
 	fidpos = find_fid(&rf);
@@ -693,7 +694,7 @@ int main(int argc, char *argv[])
 
 	} else {
 		fprintf(dbg_stream, "error: no FID struct !?\n");
-		printf("N/A\tN/A\tN/A\tN/A\t");
+		printf("N/A\tN/A\tN/A\tN/A\tN/A\t");
 	}
 
 	//"RAMF_off\tRAMjump entry\tIVT2\tIVT2 confidence\t"
@@ -767,8 +768,8 @@ int main(int argc, char *argv[])
 	//known s27k s36k guessed s27k s36k
 	int key_idx;
 	if (find_s27k(&rf, &key_idx, 0)) {
-		printf("1\t0x%08X\t0x%08X\t",
-			known_keys[key_idx].s27k, known_keys[key_idx].s36k1);
+		printf("1\t0x%08lX\t0x%08lX\t",
+			(unsigned long) known_keys[key_idx].s27k, (unsigned long) known_keys[key_idx].s36k1);
 	} else {
 		printf("0\tN/A\tN/A\t");
 	}
