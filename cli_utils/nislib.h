@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+/* this needs to be valid; debugging output is written to this.*/
 extern FILE *dbg_stream;	//such as as stdout or stderr
 
 /** Read uint32 at *buf with SH endianness
@@ -128,8 +129,11 @@ bool check_ivt(const uint8_t *buf);
 long find_ivt(const uint8_t *buf, long siz);
 
 
-/** find EEPROM read_byte(addr, &dest) function address */
-uint32_t find_eepread(const uint8_t *buf, long siz);
+/** find EEPROM read_byte(addr, &dest) function address and IO port used */
+uint32_t find_eepread(const uint8_t *buf, long siz, uint32_t *real_portreg);
 
-/** try to find sid27 key through code analysis */
-uint32_t find_s27_hardcore(const uint8_t *buf, long siz);
+/** try to find sid27 key through code analysis
+ * @param s27k : output
+ * @param s36k : output
+ */
+bool find_s27_hardcore(const uint8_t *buf, long siz, uint32_t *s27k, uint32_t *s36k);

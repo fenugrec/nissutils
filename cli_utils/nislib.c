@@ -394,7 +394,7 @@ static const struct t_eep_iobound {
 		{0, 0}
 	};
 
-static bool analyze_eepread(const uint8_t *buf, long siz, uint32_t func) {
+static bool analyze_eepread(const uint8_t *buf, long siz, uint32_t func, uint32_t *portreg) {
 	/* algo : look for a mov.w (), Rn that loads an IO register address. This should cover both
 	 * bit-bang SPI  and SCI-based code.
 	 */
@@ -422,6 +422,7 @@ static bool analyze_eepread(const uint8_t *buf, long siz, uint32_t func) {
 			if (literal < eep_iobounds[idx].L) continue;
 			good = 1;
 			/* Bonus : identify the port register */
+			*portreg = literal;
 			fprintf(dbg_stream, "EEPROM Port reg : 0xFFFF%04X\n", literal);
 			goto exit;
 		}
@@ -437,11 +438,12 @@ exit:
 #define EEPREAD_JSRWINDOW 10	//search within a radius of _JSRWINDOW for identical jsr opcodes
 /* XXX todo : bounds check vs "siz" for the iterations within */
 
-uint32_t find_eepread(const uint8_t *buf, long siz) {
+uint32_t find_eepread(const uint8_t *buf, long siz, uint32_t *real_portreg) {
 	int occurences = 0;
 	uint32_t cur = 0;
 	uint32_t jackpot = 0;
 	uint32_t real_jackpot = 0;
+	uint32_t portreg = 0;
 	
 	siz &= ~1;
 
@@ -551,9 +553,10 @@ uint32_t find_eepread(const uint8_t *buf, long siz) {
 		}
 		
 		/* last test : follow inside eep_read() to see if we access IO registers pretty soon */
-		if (analyze_eepread(buf, siz, jackpot)) {
+		if (analyze_eepread(buf, siz, jackpot, &portreg)) {
 			occurences += 1;
 			real_jackpot = jackpot;
+			*real_portreg = 0xFFFF0000 | portreg;
 			fprintf(dbg_stream, "Occurence %d @ 0x%0X : &eep_read() = 0x%0X\n", occurences, cur + window * 2, jackpot);
 		} else {
 			fprintf(dbg_stream, "didn't recognize &eep_read()\n");
@@ -704,6 +707,8 @@ static uint16_t fs27_bt_immload(const uint8_t *buf, long min, long start,
  *
  * For each occurence, backtrack recursively (until function header) to find what immediate value is stored to mem.
  * this assumes that the lower 16bit half-key gets loaded at a higher RAM address than the other half
+ *
+ * @return the key if found, 0 otherwise
  */
 #define S27_IMM_MAXBT	0x70	//max # of bytes to backtrack
 static uint32_t fs27_bt_stmem(const uint8_t *buf, long siz, long bsr_offs) {
@@ -759,7 +764,7 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, long siz, long bsr_offs) {
 	} else {
 		key = h[0] | (h[1] << 16);
 	}
-	fprintf(stderr, "key : %lX\n", (unsigned long) key);
+	fprintf(dbg_stream, "key : %lX\n", (unsigned long) key);
 	return key;
 }
 
@@ -773,9 +778,11 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, long siz, long bsr_offs) {
 static const uint16_t spf_pattern[]={0x6001, 0x6001, 0x2001, 0x000b, 0x2001};
 static const uint16_t spf_mask[]={0xf00f, 0xf00f, 0xf00f, 0xffff, 0xf00f};
 
-uint32_t find_s27_hardcore(const uint8_t *buf, long siz) {
+bool find_s27_hardcore(const uint8_t *buf, long siz, uint32_t *s27k, uint32_t *s36k) {
 	uint32_t swapf_cur = 0;
 	int swapf_instances = 0;
+	bool s27_found = 0;
+	bool s36_found = 0;
 	while ( swapf_cur < siz ) {
 		uint32_t patpos;
 		patpos = find_pattern(&buf[swapf_cur], siz - swapf_cur,
@@ -803,7 +810,16 @@ uint32_t find_s27_hardcore(const uint8_t *buf, long siz) {
 				fprintf(dbg_stream, "good bsr swapf@ %lX\n", (unsigned long) bsr_offs);
 				swapf_xrefs += 1;
 				/* now, backtrack to find constants */
-				fs27_bt_stmem(buf, siz, bsr_offs);
+				/* TODO : determine if the key is for sid27 or sid36 */
+				uint32_t key;
+				key = fs27_bt_stmem(buf, siz, bsr_offs);
+				if (key && s27_found) {
+					*s36k = key;
+					s36_found = 1;
+				} else if (key) {
+					*s27k = key;
+					s27_found = 1;
+				}
 			}
 			sign = -sign;
 			if (sign == 1) disp +=2 ;
@@ -811,6 +827,7 @@ uint32_t find_s27_hardcore(const uint8_t *buf, long siz) {
 		swapf_cur = patpos + 2;
 		
 	}
+	if (s27_found && s36_found) return 1;
 	return 0;
 
 }

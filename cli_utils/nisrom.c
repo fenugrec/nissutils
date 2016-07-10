@@ -16,6 +16,8 @@
 #include "nissan_romdefs.h"
 #include "nislib.h"
 
+#define DBG_OUTFILE	"nisrom_dbg.log"	//default log file
+
 _Static_assert(sizeof(char) == 1, "HAH ! a non-8bit char system. This may not work.");
 FILE *dbg_stream;
 
@@ -29,6 +31,7 @@ struct romfile {
 	int loader_v;	//version (10, 50, 60 etc)
 
 	long p_fid;	//location of struct fid_base
+	uint16_t fftag;	//FID header tag
 	long sfid_size;	//sizeof correct struct fid_base
 	long p_ramf;	//location of struct ramf
 
@@ -42,13 +45,27 @@ struct romfile {
 
 	long p_acs;	//pos of alt_cks sum
 	long p_acx;	//pos of alt_cks xor
+	
+	long p_a2cs;
+	long p_a2cx;	//pos of alt2 cks sum, xor
 
 	/* real metadata here. Unknown values must be set to -1 */
 	long p_ivt2;	//pos of alt. vector table
 	long p_acstart;	//start of alt_cks block
 	long p_acend;	//end of alt_cks block
 
-	struct ramf_unified ramf;
+
+	long	p_eepread;	//address of eeprom_read() func
+	uint32_t	eep_port;	//PORT reg used for EEPROM pins
+
+	/* some flags */
+	bool	cks_alt_good;	//alt cks found + valid
+	bool	cks_alt2_good;	//alt2 cks found + valid
+	bool	has_rm160;	//RIPEMD160 hash found
+	bool	ramf_offset;	//RAMF struct wasn't found where expected (offset != 0)
+	
+
+	struct ramf_unified ramf;	//not useful atm
 };
 
 // hax, get file length but restore position
@@ -131,9 +148,10 @@ void close_rom(struct romfile *rf) {
 
 
 /** find sid 27 key
- * @return offset in buf if succesful, < 0 otherwise
+ * @param key_idx : index in known key db
+ * @return sets *key_idx if succesful
  */
-long find_s27k(struct romfile *rf, bool thorough) {
+bool find_s27k(struct romfile *rf, int *key_idx, bool thorough) {
 	int keyset=0;
 
 	if (!rf) return -1;
@@ -215,6 +233,7 @@ long find_s27k(struct romfile *rf, bool thorough) {
 		}
 
 		key_offs = kp_h - rf->buf;
+		*key_idx = keyset;
 		fprintf(dbg_stream, "Keyset %lX found near 0x%lX !\n", (unsigned long) curkey, (unsigned long) key_offs);
 		occurences += 1;
 		if (thorough) {
@@ -376,6 +395,7 @@ long find_fid(struct romfile *rf) {
 
 	//sanity check loader version VS the header tag.
 	fftag = reconst_16(&rf->buf[sf_offset]);
+	rf->fftag = fftag;
 	if (rf->loader_v == 80) {
 		//these are special, they don't have an "FFFF" tag.
 	} else {
@@ -393,21 +413,22 @@ long find_fid(struct romfile *rf) {
 		const uint8_t load07[] = "705507";
 		if (memcmp(rf->fid_cpu + 2, load07, 6) == 0) {
 			fprintf(dbg_stream, "Looks like a loader-less \"07\" ROM.\n");
-			rf->loader_v = 7;
+			rf->loader_v = L07;
 		} else {
 			fprintf(dbg_stream, "Unknown loader version / FID type !!\n");
 		}
 	}
 
 	switch (rf->loader_v) {
-	case 80:
+	case L81:
+	case L80:
 		rf->sfid_size = sizeof(struct fid_base2_t);
 		break;
-	case 07:
-	case 10:
-	case 40:
-	case 50:
-	case 60:
+	case L07:
+	case L10:
+	case L40:
+	case L50:
+	case L60:
 	default:
 		rf->sfid_size = sizeof(struct fid_base1_t);
 		break;
@@ -444,8 +465,11 @@ int validate_altcks(struct romfile *rf) {
 		fprintf(dbg_stream, "altcks values not found in ROM, possibly unskipped vals or bad algo\n");
 		return -1;
 	} else {
+		rf->p_acs = (unsigned long) (pacs - rf->buf);
+		rf->p_acx = (unsigned long) (pacx - rf->buf);
 		fprintf(dbg_stream, "confirmed altcks values found : acs @ 0x%lX, acx @ 0x%lX\n",
-				(unsigned long) (pacs - rf->buf), (unsigned long) (pacx - rf->buf));
+				rf->p_acs, rf->p_acx);
+		rf->cks_alt_good = 1;
 		//TODO : validate altcks val offsets VS end-of-IVT2, i.e. they seem to be always @
 		// IVT2 + 0x400
 	}
@@ -482,6 +506,7 @@ long find_ramf(struct romfile *rf) {
 			if (testval == 0xffff8000) {
 				fprintf(dbg_stream, "probable RAMF found @ delta = %+d\n", (int) (sign * ramf_adj));
 				rf->p_ramf += (sign * ramf_adj);
+				rf->ramf_offset = 1;
 				break;
 			}
 			sign = -sign;	//flip sign;
@@ -536,7 +561,7 @@ good_romend:
 		(void) validate_altcks(rf);
 	}
 
-	long pecurec;
+	long pecurec = 0;
 	//display some LOADER80-specific garbage
 	if (rf->loader_v == 80) {
 		pecurec = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, pECUREC)]);
@@ -563,6 +588,7 @@ good_romend:
 		/* Locate RIPEMD-160 magic numbers */
 		if ((u32memstr(rf->buf, rf->siz, 0x67452301) != NULL) &&
 			(u32memstr(rf->buf, rf->siz, 0x98BADCFE) != NULL)) {
+			rf->has_rm160 = 1;
 			fprintf(dbg_stream, "RIPEMD-160 hash function present.\n");
 		} else {
 			fprintf(dbg_stream, "RIPEMD-160 hash function not found ??\n");
@@ -577,6 +603,9 @@ good_romend:
 		if (checksum_alt2(&rf->buf[pecurec], rf->siz - pecurec, &p_as, &p_ax, p_skip1, p_skip2) == 0) {
 			fprintf(dbg_stream, "alt2 checksum found; sum @ 0x%lX, xor @ 0x%lX\n",
 					(unsigned long) p_as, (unsigned long) p_ax);
+			rf->cks_alt2_good = 1;
+			rf->p_a2cs = p_as;
+			rf->p_a2cx = p_ax;
 		} else {
 			fprintf(dbg_stream, "alt2 checksum not found ?? Bad algo, bad skip, or other problem...\n");
 		}
@@ -590,15 +619,19 @@ no_ripemd:
 
 
 void find_eep(struct romfile *rf) {
-	uint32_t eepread = find_eepread(rf->buf, rf->siz);
+	uint32_t port;
+	uint32_t eepread = find_eepread(rf->buf, rf->siz, &port);
 	if (eepread > 0) {
 		fprintf(dbg_stream, "found eep_read() @ 0x%0X\n", eepread);
 	}
+	rf->p_eepread = eepread;
+	rf->eep_port = port;
 }
 
 int main(int argc, char *argv[])
 {
-	struct romfile rf;
+	bool	dbg_file;	//flag if dbgstream is a real file
+	struct romfile rf = {0};
 	long loaderpos;
 	long fidpos;
 	long ramfpos;
@@ -608,44 +641,68 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	dbg_stream = stdout;
+	dbg_file = 1;
+	dbg_stream = fopen(DBG_OUTFILE, "a");
+	if (!dbg_stream) {
+		dbg_file = 0;
+		dbg_stream = stdout;
+	}
 
 	if (open_rom(&rf, argv[1])) {
+		if (dbg_file) fclose(dbg_stream);
 		printf("Trouble in open_rom()\n");
 		return -1;
 	}
 
-	printf("loaded %ldk ROM %s.\n", rf.siz / 1024, argv[1]);
+	/* add header to dbg log */
+	fprintf(dbg_stream, "\n********************\n**** Started analyzing %s\n", argv[1]);
 
+	/* print column header */
+	printf("file\tsize\tLOADER ##\tLOADER ofs\tLOADER CPU\tLOADER CPUcode\t"
+		"FID tag\t&FID\tFID\tFID CPU\tFID CPUcode\t"
+		"RAMF_off\tRAMjump entry\tIVT2\tIVT2 confidence\t"
+		"std cks?\t&std_s\t&std_x\t"
+		"alt cks?\t&alt_s\t&alt_x\talt2 cks?\t&alt2_s\t&alt2_x\tRIPEMD160\t"
+		"known keyset\ts27k\ts36k\tguessed keyset\ts27k\ts36k\t"
+		"&EEPROM_read()\tEEPROM PORT\t"
+		"\n"
+		);
+
+	/* output file name + size */
+	printf("%s\t%ldk\t", argv[1], rf.siz / 1024);
+
+	/* output LOADER info : ##, pos, CPU, CPUcode*/
 	loaderpos=find_loader(&rf);
 	if (loaderpos >= 0) {
 		const char *scpu;
 		scpu = (const char *) rf.loader_cpu;
-		fprintf(dbg_stream, "Loader %d found @ 0x%lX, ", rf.loader_v, (unsigned long) loaderpos);
-		fprintf(dbg_stream, "%.*s\n", sizeof(((struct loader_t *)NULL)->cpu), scpu);
+		printf("%0d\t0x%lX\t", rf.loader_v, (unsigned long) loaderpos);
+		printf( "%.6s\t%.2s\t", scpu, scpu + 6);
+	} else {
+		printf("N/A\tN/A\tN/A\tN/A\tN/A\t");
 	}
 
 	fidpos = find_fid(&rf);
 	if (fidpos >= 0) {
 		const char *sfid;
 		const char *scpu;
-
-		fprintf(dbg_stream, "FID header tag = 0x%04X\n", (unsigned) reconst_16(&rf.buf[rf.p_fid]));
-
 		sfid = (const char *) rf.fid;
 		scpu = (const char *) rf.fid_cpu;
-		fprintf(dbg_stream, "FID: %.*s found @ 0x%lX, ", \
-			sizeof(((struct fid_base1_t *)NULL)->FID), sfid, (unsigned long) fidpos);
-		fprintf(dbg_stream, "%.*s\n", sizeof(((struct fid_base1_t *)NULL)->cpu), scpu);
+		printf("0x%04X\t0x%lX\t%.*s\t%.6s\t%.2s\t",
+			rf.fftag, (unsigned long) rf.p_fid, sizeof(((struct fid_base1_t *)NULL)->FID), sfid, scpu, scpu+6);
 
 	} else {
-		fprintf(dbg_stream, "error: no FID struct, nothing more to say...\n");
+		fprintf(dbg_stream, "error: no FID struct !?\n");
+		printf("N/A\tN/A\tN/A\tN/A\t");
 	}
+
+	//"RAMF_off\tRAMjump entry\tIVT2\tIVT2 confidence\t"
 	ramfpos = find_ramf(&rf);
 	if (ramfpos >= 0) {
-		fprintf(dbg_stream, "RAMjump : 0x%08X - 0x%08X\n", rf.ramf.pRAMjump, rf.ramf.pRAM_DLAmax);
+		int ivt_conf = 0;
+		printf("%d\t0x%08X\t", rf.ramf_offset, rf.ramf.pRAMjump);
 		if (rf.p_ivt2 >= 0) {
-			fprintf(dbg_stream, "IVECT2 @ 0x%lX\n", (unsigned long) rf.p_ivt2);
+			ivt_conf = 99;
 		} else {
 			long iter;
 			fprintf(dbg_stream, "no IVT2 ?? wtf. Last resort, brute force technique:\n");
@@ -660,27 +717,80 @@ int main(int argc, char *argv[])
 					break;
 				}
 				iter += new_offs;
+				ivt_conf = 50;
 				fprintf(dbg_stream, "\tPossible IVT @ 0x%lX\n",(unsigned long) iter);
 				if (reconst_32(rf.buf + iter + 4) ==0xffff7ffc) {
+					ivt_conf = 75;
 					fprintf(dbg_stream, "\t\tProbable IVT !\n");
 					ivtfound = 1;
 				}
 				iter += 0x4;
 			}
 		}
+		printf("0x%lX\t0.%02d\t", (unsigned long) rf.p_ivt2, ivt_conf);
 
+	} else {
+		fprintf(dbg_stream, "find_ramf() failed !!\n");
+		printf("N/A\tN/A\tN/A\tN/A\t");
 	}
 
+	//std cks	std_cks_s	std_cks_x
 	if (!checksum_std(rf.buf, rf.siz, &rf.p_cks, &rf.p_ckx)) {
-		fprintf(dbg_stream, "standard checksum values found : std_cks @ 0x%lX, std_ckx @0x%lX\n",
-				(unsigned long) rf.p_cks, (unsigned long) rf.p_ckx);
+		printf("1\t0x%lX\t0x%lX\t",
+			(unsigned long) rf.p_cks, (unsigned long) rf.p_ckx);
+	} else {
+		printf("0\tN/A\tN/A\t");
+	}
+	
+	//alt cks?\t&alt_s\t&alt_x\talt2 cks?\t&alt2_s\t&alt2_x\tRIPEMD160
+	if (rf.cks_alt_good) {
+		printf("1\t0x%lX\t0x%lX\t",
+			(unsigned long) rf.p_acs, (unsigned long) rf.p_acx);
+	} else {
+		printf("0\tN/A\tN/A\t");
 	}
 
-	find_s27k(&rf, 0);
-	find_s27_hardcore(rf.buf, rf.siz);
+	if (rf.cks_alt2_good) {
+		printf("1\t0x%lX\t0x%lX\t",
+			(unsigned long) rf.p_a2cs, (unsigned long) rf.p_a2cx);
+	} else {
+		printf("0\tN/A\tN/A\t");
+	}
+
+	if (rf.has_rm160) {
+		printf("1\t");
+	} else {
+		printf("0\t");
+	}
+
+
+	//known s27k s36k guessed s27k s36k
+	int key_idx;
+	if (find_s27k(&rf, &key_idx, 0)) {
+		printf("1\t0x%08X\t0x%08X\t",
+			known_keys[key_idx].s27k, known_keys[key_idx].s36k1);
+	} else {
+		printf("0\tN/A\tN/A\t");
+	}
+	uint32_t s27k, s36k;
+	if (find_s27_hardcore(rf.buf, rf.siz, &s27k, &s36k)) {
+		printf("1\t0x%08X\t0x%08X\t",
+			s27k, s36k);
+	} else {
+		printf("0\tN/A\tN/A\t");
+	}
+
+	// EEPROM info
 	find_eep(&rf);
+	if (rf.p_eepread) {
+		printf("0x%lX\t0x%08lX\t",
+			(unsigned long) rf.p_eepread, (unsigned long) rf.eep_port);
+	} else {
+		printf("N/A\tN/A\t");
+	}
 
 	printf("\n");
 	close_rom(&rf);
+	if (dbg_file) fclose(dbg_stream);
 	return 0;
 }

@@ -10,7 +10,7 @@
 
 /* LOADER versions
  * 07 is not a "LOADER" but applies to old "sh705507" FIDs ;
- * L81 is for the alternate (more recent?) variant of LOADER80.
+ * L81 is for an alternate (more recent?) variant of LOADER80.
  * Actually the correlation between loader version and type of FID struct
  * is tenuous at best.  Maybe the FID IC string ("705519" etc)
  * would be more reliable, but LOADER80 ROMs don't follow a clear pattern.
