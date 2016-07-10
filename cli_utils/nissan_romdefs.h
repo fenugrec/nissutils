@@ -87,7 +87,7 @@ struct fid_base2_t {
 //version for loader-less ROMs, with FIDCPU=705507, checked on
 //AM604
 // Note : most members are probably invalid, except altcks start/end
-struct ramf_07 {
+struct ramf_705507 {
 	uint8_t pRAM1[4];		//rxbuf?
 	uint8_t pRAMexec2[4];	//RAMexec?
 	uint8_t pRAM_unk1[4];
@@ -126,7 +126,7 @@ struct ramf_705513 {
 
 //LOADER40, checked on
 //EC87A, EC82A, EC80A
-struct ramf_40 {
+struct ramf_705520 {
 	uint8_t pRAM1[4];		//rxbuf?
 	uint8_t pRAMexec2[4];	//RAMexec?
 	uint8_t pRAM_unk1[4];
@@ -148,7 +148,7 @@ struct ramf_40 {
 
 //LOADER50, checked on
 //6Z68A, AC401
-struct ramf_50 {
+struct ramf_705821 {
 	uint8_t pRAM1[4];		//rxbuf?
 	uint8_t pRAMexec2[4];	//RAMexec?
 	uint8_t pRAM_unk1[4];
@@ -173,7 +173,7 @@ struct ramf_50 {
 //LOADER60, checked on
 //ZD89A, CF43D
 //LOADER50 and LOADER60 are identical so far.
-struct ramf_60 {
+struct ramf_705823 {
 	uint8_t pRAM1[4];		//rxbuf?
 	uint8_t pRAMexec2[4];	//RAMexec?
 	uint8_t pRAM_unk1[4];
@@ -198,7 +198,7 @@ struct ramf_60 {
 //LOADER80, checked on
 //1KA6A, 9HA7D
 // BUT invalid on EM62B and others... wtf
-struct ramf_80 {
+struct ramf_705828 {
 	uint8_t pRAM1[4];		//rxbuf?
 	uint8_t pRAMexec2[4];	//RAMexec?
 	uint8_t pRAM_unk1[4];
@@ -225,7 +225,7 @@ struct ramf_80 {
 };
 
 //LOADER80 for EM62B and other oddballs... wtf
-struct ramf_80b {
+struct ramf_705519 {
 	uint8_t pRAM1[4];		//rxbuf?
 	uint8_t pRAMexec2[4];	//RAMexec?
 	uint8_t pRAM_unk1[4];

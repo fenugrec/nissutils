@@ -64,7 +64,6 @@ struct romfile {
 	bool	cks_alt2_good;	//alt2 cks found + valid
 	bool	has_rm160;	//RIPEMD160 hash found
 	bool	ramf_offset;	//RAMF struct wasn't found where expected (offset != 0)
-	bool	ramf_oddball;	//some (705519, 705822) FIDtypes are strange
 	
 
 	struct ramf_unified ramf;	//not useful atm
@@ -404,6 +403,9 @@ long find_fid(struct romfile *rf) {
 	switch (rf->fidtype) {
 	case FID705519:
 	case FID705822:
+		//these lack the last "wtf" field
+		rf->sfid_size = sizeof(struct fid_base2_t) - 4;
+		break;
 	case FID705828:
 		rf->sfid_size = sizeof(struct fid_base2_t);
 		break;
@@ -500,20 +502,11 @@ long find_ramf(struct romfile *rf) {
 
 	parse_ramf(rf);
 	if (fidtypes[rf->fidtype].pROMend) {
-		
 		testval = reconst_32(&rf->buf[rf->p_ramf + fidtypes[rf->fidtype].pROMend]);
-		if (testval == (rf->siz -1)) goto good_romend;
-
-		//maybe oddball (705519, 705822) type that has unusual RAMF struct :
-		testval = reconst_32(&rf->buf[rf->p_ramf + fidtypes[FID999901].pROMend]);
-		if (testval == (rf->siz -1)) {
-			fprintf(dbg_stream, "oddball FID struct !!\n");
-			rf->fidtype = FID999901;
-			rf->ramf_oddball = 1;
-			parse_ramf(rf);
+		if (testval != (rf->siz -1)) {
+			fprintf(dbg_stream, "ROMend field doesn't match ?\n");
 		}
 	}
-good_romend:
 
 	free(rf->buf);
 	if ((rf->p_acstart >= rf->siz) ||
@@ -641,7 +634,7 @@ int main(int argc, char *argv[])
 	/* print column header */
 	printf("file\tsize\tLOADER ##\tLOADER ofs\tLOADER CPU\tLOADER CPUcode\t"
 		"FID tag\t&FID\tFID\tFID CPU\tFID CPUcode\t"
-		"RAMF_off\tRAMF_weird\tRAMjump entry\tIVT2\tIVT2 confidence\t"
+		"RAMF_weird\tRAMjump entry\tIVT2\tIVT2 confidence\t"
 		"std cks?\t&std_s\t&std_x\t"
 		"alt cks?\t&alt_s\t&alt_x\talt2 cks?\t&alt2_s\t&alt2_x\tRIPEMD160\t"
 		"known keyset\ts27k\ts36k\tguessed keyset\ts27k\ts36k\t"
@@ -677,11 +670,11 @@ int main(int argc, char *argv[])
 		printf("N/A\tN/A\tN/A\tN/A\tN/A\t");
 	}
 
-	//"RAMF_off\tRAMF_weird\tRAMjump entry\tIVT2\tIVT2 confidence\t"
+	//"RAMF_off\RAMjump entry\tIVT2\tIVT2 confidence\t"
 	ramfpos = find_ramf(&rf);
 	if (ramfpos >= 0) {
 		int ivt_conf = 0;
-		printf("%d\t%d\t0x%08X\t", rf.ramf_offset, rf.ramf_oddball, rf.ramf.pRAMjump);
+		printf("%d\t0x%08X\t", rf.ramf_offset, rf.ramf.pRAMjump);
 		if (rf.p_ivt2 > 0) {
 			ivt_conf = 99;
 		} else {
@@ -712,7 +705,7 @@ int main(int argc, char *argv[])
 
 	} else {
 		fprintf(dbg_stream, "find_ramf() failed !!\n");
-		printf("N/A\tN/A\tN/A\tN/A\tN/A\t");
+		printf("N/A\tN/A\tN/A\tN/A\t");
 	}
 
 	//std cks	std_cks_s	std_cks_x
