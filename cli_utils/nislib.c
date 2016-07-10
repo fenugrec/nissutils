@@ -538,6 +538,28 @@ exit:
 }
 
 
+/** return the immediate value loaded by PC-relative opcode (mov.w or mov.l only)
+ * @param opc mov.x (@PC, disp), Rn opcode
+ * @param pos Position of opcode within buffer
+ *
+ */
+static uint32_t sh_get_PCimm(uint16_t opc, const uint8_t *buf, uint32_t pos) {
+	if (opc & 0x4000) {
+		//mov.l
+		pos += ((opc & 0xFF) * 4) + 4;
+		/* essential : align 4 !!! */
+		pos &= ~0x03;
+		//printf("retrieve &er() from 0x%0X\n", pos);
+		pos = reconst_32(&buf[pos]);
+	} else {
+		//mov.w
+		pos += ((opc & 0xFF) * 2) + 4;
+		//printf("retrieve &er() from 0x%0X\n", pos);
+		pos = reconst_16(&buf[pos]);
+	}
+	return pos;
+}
+
 #define EEPREAD_POSTJSR	6	//search for "jsr" within [-1, +POSTJSR] instructions of "mov 7B"
 #define EEPREAD_MAXBT 25	//max backtrack to locate the mov that loads the function address
 #define EEPREAD_MINJ 1		//min # of identical, nearby calls to eepread()
@@ -555,7 +577,6 @@ uint32_t find_eepread(const uint8_t *buf, long siz, uint32_t *real_portreg) {
 
 	for (cur = 0; cur < siz; cur += 2) {
 		/* find E4 7B opcode, for every occurence check if the pattern is credible */
-		bool addr_long = 0;	//if addr is loaded with "mov.l"
 		uint16_t opc;
 		int jumpreg;
 		int window;
@@ -589,12 +610,7 @@ uint32_t find_eepread(const uint8_t *buf, long siz, uint32_t *real_portreg) {
 			//2 possible opcodes : -  mov.w @(i, pc), Rn  : (0x9n 0xii) , or
 			//  mov.l @(i, pc), Rn : (0xDn 0xii)
 			jsr_opcode = opc;
-			uint8_t jc_top = (opc & 0xFF00) >> 8;
-			if (jc_top == (0xD0 | jumpreg)) {
-				addr_long = 1;
-				found_seq = 1;
-				break;
-			}
+			uint8_t jc_top = (opc & 0xBF00) >> 8;
 			if (jc_top == (0x90 | jumpreg)) {
 				found_seq = 1;
 				break;
@@ -610,17 +626,8 @@ uint32_t find_eepread(const uint8_t *buf, long siz, uint32_t *real_portreg) {
 		 * Compute PC offset, retrieve addr
 		*/
 		jackpot = (cur + window * 2);	//location of "mov.x" instr
-		if (addr_long) {
-			jackpot += ((opc & 0xFF) * 4) + 4;
-			/* essential : align 4 !!! */
-			jackpot &= ~0x03;
-			//printf("retrieve &er() from 0x%0X\n", jackpot);
-			jackpot = reconst_32(&buf[jackpot]);
-		} else {
-			jackpot += ((opc & 0xFF) * 2) + 4;
-			//printf("retrieve &er() from 0x%0X\n", jackpot);
-			jackpot = reconst_16(&buf[jackpot]);
-		}
+		jackpot = sh_get_PCimm(opc, buf, jackpot);
+
 		/* discard out-of-ROM addresses */
 		if (jackpot > (1024 * 1024 * 1024UL)) {
 			//printf("Occurence %d @ 0x%0X: bad; &eep_read() out of bounds (0x%0X)\n",
