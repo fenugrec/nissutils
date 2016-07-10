@@ -702,7 +702,7 @@ int main(int argc, char *argv[])
 	if (ramfpos >= 0) {
 		int ivt_conf = 0;
 		printf("%d\t0x%08X\t", rf.ramf_offset, rf.ramf.pRAMjump);
-		if (rf.p_ivt2 >= 0) {
+		if (rf.p_ivt2 > 0) {
 			ivt_conf = 99;
 		} else {
 			long iter;
