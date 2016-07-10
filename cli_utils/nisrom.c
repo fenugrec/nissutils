@@ -28,7 +28,7 @@ struct romfile {
 	uint8_t *buf;	//copied here
 	//and some metadata
 	long p_loader;	//struct loader
-	int loader_v;	//version (10, 50, 60 etc)
+	enum loadvers_t loader_v;	//version (10, 50, 60 etc)
 
 	long p_fid;	//location of struct fid_base
 	enum fidtype_ic fidtype;
@@ -268,7 +268,7 @@ long find_loader(struct romfile *rf) {
 	if (!rf) return -1;
 	if (!(rf->buf)) return -1;
 
-	rf->loader_v = 0;
+	rf->loader_v = L_UNK;
 
 	/* look for "LOADER", backtrack to beginning of struct. */
 	sl = u8memstr(rf->buf, rf->siz, loadstr, 6);
@@ -321,7 +321,7 @@ static void parse_ramf(struct romfile *rf) {
 }
 
 
-//find offset of FID struct, parse & update romfile struct
+//find offset of FID struct, parse & update romfile struct. find_loader() must have been run before calling this.
 //ret -1 if not ok
 long find_fid(struct romfile *rf) {
 	const uint8_t dbstr[]="DATAB";
@@ -370,7 +370,7 @@ long find_fid(struct romfile *rf) {
 	//sanity check loader version VS the header tag.
 	fftag = reconst_16(&rf->buf[sf_offset]);
 	rf->fftag = fftag;
-	if (rf->loader_v == 80) {
+	if (rf->loader_v == L80) {
 		//these are special, they don't have an "FFFF" tag.
 	} else {
 		if (fftag != 0xffff) {
@@ -395,7 +395,7 @@ long find_fid(struct romfile *rf) {
 		return -1;
 	}
 
-	if (rf->fidtype == FID705507) {
+	if ((rf->fidtype == FID705507) || (rf->fidtype == FID705101)) {
 		fprintf(dbg_stream, "Loader-less ROM.\n");
 		rf->loader_v = L_UNK;
 	}
