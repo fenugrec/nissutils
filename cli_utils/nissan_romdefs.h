@@ -2,6 +2,8 @@
  * (c) fenugrec 2014-2015
  * GPLv3
  *
+ * TODO : merge in nislib.h ?
+ *
  */
 
 #include <stdint.h>
@@ -244,6 +246,40 @@ struct ramf_80b {
 	uint8_t romend[4];		// == ROMSIZE - 1
 	uint8_t pIVECT2[4];
 };
+
+
+
+/******** new technique for analyzing the RAMF struct
+ * every FID type (705507 etc) fills a struct fidtype_t, values are offsets inside the struct ramf of the ROM.
+ * Some FID types don't define all these fields; a value of 0 (like fidtype.pIVT2 = 0) means the value is undefined.
+ *
+ * the "enum fidtype_ic" will be used to index in an array of all known fid types.
+ */
+enum fidtype_ic {FID705101,
+		FID705507,
+		FID705513,
+		FID705519,
+		FID705520,
+		FID705821,
+		FID705822,
+		FID705823,
+		FID705828
+};
+
+struct fidtype_t {
+	enum fidtype_ic fti;
+	uint8_t FIDIC[8];	//such as "SH705507"
+	int	pRAMjump;
+	int	pRAM_DLAmax;	//end of RAM dl area ? ex ffff8438...DLAmax
+	int	pRAMinit;	//array of data for ram initialization ? see 8U92A
+	int	packs_start;
+	int	packs_end;	//alt cks bounds
+	int	pIVT2;		//secondary vector table
+	int	pROMend;	// == ROMSIZE - 1
+	int	pECUREC;
+};
+
+extern const struct fidtype_t fidtypes[];
 
 
 /* hold data in a single format once the specific structure is parsed,
