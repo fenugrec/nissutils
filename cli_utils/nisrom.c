@@ -508,7 +508,7 @@ long find_ramf(struct romfile *rf) {
 		}
 	}
 
-	//free(rf->buf);
+	free(rf->buf);
 	if ((rf->p_acstart >= rf->siz) ||
 		(rf->p_acend >= rf->siz) ||
 		(rf->p_ivt2 >= rf->siz)) {
@@ -596,10 +596,9 @@ void find_eep(struct romfile *rf) {
 	uint32_t port;
 	uint32_t eepread = find_eepread(rf->buf, rf->siz, &port);
 	if (eepread > 0) {
-		fprintf(dbg_stream, "found eep_read() @ 0x%0X\n", eepread);
+		rf->p_eepread = eepread;
+		rf->eep_port = port;
 	}
-	rf->p_eepread = eepread;
-	rf->eep_port = port;
 }
 
 int main(int argc, char *argv[])
