@@ -31,6 +31,7 @@ struct romfile {
 	int loader_v;	//version (10, 50, 60 etc)
 
 	long p_fid;	//location of struct fid_base
+	enum fidtype_ic fidtype;
 	uint16_t fftag;	//FID header tag
 	long sfid_size;	//sizeof correct struct fid_base
 	long p_ramf;	//location of struct ramf
@@ -63,6 +64,7 @@ struct romfile {
 	bool	cks_alt2_good;	//alt2 cks found + valid
 	bool	has_rm160;	//RIPEMD160 hash found
 	bool	ramf_offset;	//RAMF struct wasn't found where expected (offset != 0)
+	bool	ramf_oddball;	//some (705519, 705822) FIDtypes are strange
 	
 
 	struct ramf_unified ramf;	//not useful atm
@@ -292,59 +294,30 @@ long find_loader(struct romfile *rf) {
 
 //parse second part of FID struct and fill altcks + ivt2 + rf->ramf-> stuff
 static void parse_ramf(struct romfile *rf) {
+	const struct fidtype_t *ft;	//helper
 	assert(rf);
 
-	//2- find altcks and IVT2 ; sanity check
-	switch (rf->loader_v) {
-	case 07:
-		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_07, altcks_start)]);
-		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_07, altcks_end)]);
-		rf->p_ivt2 = 0;
-		rf->ramf.pRAMjump = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_07, pRAMjump)]);
-		rf->ramf.pRAM_DLAmax = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_07, pRAM_DLAmax)]);
-		break;
-	case 10:
-		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_10, altcks_start)]);
-		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_10, altcks_end)]);
-		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_10, pIVECT2)]);
-		rf->ramf.pRAMjump = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_10, pRAMjump)]);
-		rf->ramf.pRAM_DLAmax = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_10, pRAM_DLAmax)]);
-		break;
-	case 40:
-		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_40, altcks_start)]);
-		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_40, altcks_end)]);
-		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_40, pIVECT2)]);
-		rf->ramf.pRAMjump = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_40, pRAMjump)]);
-		rf->ramf.pRAM_DLAmax = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_40, pRAM_DLAmax)]);
-		break;
-	case 50:
-	case 60:
-		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_50, altcks_start)]);
-		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_50, altcks_end)]);
-		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_50, pIVECT2)]);
-		rf->ramf.pRAMjump = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_50, pRAMjump)]);
-		rf->ramf.pRAM_DLAmax = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_50, pRAM_DLAmax)]);
-		break;
-	case 80:
-		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, altcks_start)]);
-		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, altcks_end)]);
-		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, pIVECT2)]);
-		rf->ramf.pRAMjump = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, pRAMjump)]);
-		rf->ramf.pRAM_DLAmax = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, pRAM_DLAmax)]);
-		break;
-	case L81:
-		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80b, altcks_start)]);
-		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80b, altcks_end)]);
-		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80b, pIVECT2)]);
-		rf->ramf.pRAMjump = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80b, pRAMjump)]);
-		rf->ramf.pRAM_DLAmax = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80b, pRAM_DLAmax)]);
-		break;
-	default:
+	ft = &fidtypes[rf->fidtype];
+
+	if (ft->pRAMjump) {
+		rf->ramf.pRAMjump = reconst_32(&rf->buf[rf->p_ramf + ft->pRAMjump]);
+		rf->ramf.pRAM_DLAmax = reconst_32(&rf->buf[rf->p_ramf + ft->pRAM_DLAmax]);
+	}
+
+	if (ft->packs_start) {
+		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + ft->packs_start]);
+		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + ft->packs_end]);
+	} else {
 		rf->p_acstart = -1;
 		rf->p_acend = -1;
-		rf->p_ivt2 = -1;
-		break;
 	}
+
+	if (ft->pIVT2) {
+		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + ft->pIVT2]);
+	} else {
+		rf->p_ivt2 = -1;
+	}
+
 	return;
 }
 
@@ -357,6 +330,7 @@ long find_fid(struct romfile *rf) {
 	const uint8_t *sf;
 	uint16_t fftag;
 	long sf_offset;	//offset in file
+	int fid_idx;
 
 	if (!rf) return -1;
 	if (!(rf->buf)) return -1;
@@ -409,27 +383,36 @@ long find_fid(struct romfile *rf) {
 	rf->fid = &rf->buf[sf_offset + offsetof(struct fid_base1_t, FID)];
 	rf->fid_cpu = &rf->buf[sf_offset + offsetof(struct fid_base1_t, cpu)];
 
-	/* special case for LOADER-less ROMs that have CPU=705507. */
-	if (rf->loader_v == 0) {
-		const uint8_t load07[] = "705507";
-		if (memcmp(rf->fid_cpu + 2, load07, 6) == 0) {
-			fprintf(dbg_stream, "Looks like a loader-less \"07\" ROM.\n");
-			rf->loader_v = L07;
-		} else {
-			fprintf(dbg_stream, "Unknown loader version / FID type !!\n");
+	rf->fidtype = FID_UNK;
+	/* determine FID type : iterate through array of known types, matching the CPU string */
+	for (fid_idx = 0; fidtypes[fid_idx].fti != FID_UNK; fid_idx++) {
+		if (memcmp(rf->fid_cpu, fidtypes[fid_idx].FIDIC, 8) == 0) {
+			rf->fidtype = fidtypes[fid_idx].fti;
+			break;
 		}
 	}
+	if (rf->fidtype == FID_UNK) {
+		fprintf(dbg_stream, "Unknown FID IC type %.8s ! Cannot proceed\n", rf->fid_cpu);
+		return -1;
+	}
 
-	switch (rf->loader_v) {
-	case L81:
-	case L80:
+	if (rf->fidtype == FID705507) {
+		fprintf(dbg_stream, "Loader-less ROM.\n");
+		rf->loader_v = L_UNK;
+	}
+
+	switch (rf->fidtype) {
+	case FID705519:
+	case FID705822:
+	case FID705828:
 		rf->sfid_size = sizeof(struct fid_base2_t);
 		break;
-	case L07:
-	case L10:
-	case L40:
-	case L50:
-	case L60:
+	case FID705101:
+	case FID705507:
+	case FID705513:
+	case FID705520:
+	case FID705821:
+	case FID705823:
 	default:
 		rf->sfid_size = sizeof(struct fid_base1_t);
 		break;
@@ -516,15 +499,17 @@ long find_ramf(struct romfile *rf) {
 	}
 
 	parse_ramf(rf);
-	if (rf->loader_v == L80) {
-		testval = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, romend)]);
+	if (fidtypes[rf->fidtype].pROMend) {
+		
+		testval = reconst_32(&rf->buf[rf->p_ramf + fidtypes[rf->fidtype].pROMend]);
 		if (testval == (rf->siz -1)) goto good_romend;
 
-		//maybe type 80b:
-		testval = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80b, romend)]);
+		//maybe oddball (705519, 705822) type that has unusual RAMF struct :
+		testval = reconst_32(&rf->buf[rf->p_ramf + fidtypes[FID999901].pROMend]);
 		if (testval == (rf->siz -1)) {
-			fprintf(dbg_stream, "Using alternate LOADER 80b def.\n");
-			rf->loader_v = L81;
+			fprintf(dbg_stream, "oddball FID struct !!\n");
+			rf->fidtype = FID999901;
+			rf->ramf_oddball = 1;
 			parse_ramf(rf);
 		}
 	}
@@ -564,15 +549,10 @@ good_romend:
 
 	long pecurec = 0;
 	//display some LOADER80-specific garbage
-	if (rf->loader_v == 80) {
-		pecurec = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, pECUREC)]);
-		testval = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80, romend)]);
-	} else if (rf->loader_v == L81) {
-		pecurec = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80b, pECUREC)]);
-		testval = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_80b, romend)]);
-	}
+	if (fidtypes[rf->fidtype].pECUREC) {
+		pecurec = reconst_32(&rf->buf[rf->p_ramf + fidtypes[rf->fidtype].pECUREC]);
+		testval = reconst_32(&rf->buf[rf->p_ramf + fidtypes[rf->fidtype].pROMend]);
 
-	if ((rf->loader_v == 80) || (rf->loader_v == L81)) {
 		//parse ECUREC
 		if (pecurec < 0) {
 			fprintf(dbg_stream, "unlikely pecurec = %lX\n", (unsigned long) pecurec);
@@ -661,7 +641,7 @@ int main(int argc, char *argv[])
 	/* print column header */
 	printf("file\tsize\tLOADER ##\tLOADER ofs\tLOADER CPU\tLOADER CPUcode\t"
 		"FID tag\t&FID\tFID\tFID CPU\tFID CPUcode\t"
-		"RAMF_off\tRAMjump entry\tIVT2\tIVT2 confidence\t"
+		"RAMF_off\tRAMF_weird\tRAMjump entry\tIVT2\tIVT2 confidence\t"
 		"std cks?\t&std_s\t&std_x\t"
 		"alt cks?\t&alt_s\t&alt_x\talt2 cks?\t&alt2_s\t&alt2_x\tRIPEMD160\t"
 		"known keyset\ts27k\ts36k\tguessed keyset\ts27k\ts36k\t"
@@ -697,11 +677,11 @@ int main(int argc, char *argv[])
 		printf("N/A\tN/A\tN/A\tN/A\tN/A\t");
 	}
 
-	//"RAMF_off\tRAMjump entry\tIVT2\tIVT2 confidence\t"
+	//"RAMF_off\tRAMF_weird\tRAMjump entry\tIVT2\tIVT2 confidence\t"
 	ramfpos = find_ramf(&rf);
 	if (ramfpos >= 0) {
 		int ivt_conf = 0;
-		printf("%d\t0x%08X\t", rf.ramf_offset, rf.ramf.pRAMjump);
+		printf("%d\t%d\t0x%08X\t", rf.ramf_offset, rf.ramf_oddball, rf.ramf.pRAMjump);
 		if (rf.p_ivt2 > 0) {
 			ivt_conf = 99;
 		} else {
@@ -732,7 +712,7 @@ int main(int argc, char *argv[])
 
 	} else {
 		fprintf(dbg_stream, "find_ramf() failed !!\n");
-		printf("N/A\tN/A\tN/A\tN/A\t");
+		printf("N/A\tN/A\tN/A\tN/A\tN/A\t");
 	}
 
 	//std cks	std_cks_s	std_cks_x

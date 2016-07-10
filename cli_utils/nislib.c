@@ -238,6 +238,19 @@ const struct fidtype_t fidtypes[] = {
 			pROMend: 0x60,
 			pECUREC: 0x5c,
 			},
+	[FID999901] = {	fti: FID999901,
+			FIDIC: "custom01",
+			pRAMjump: 0x10,
+			pRAM_DLAmax: 0x14,
+			pRAMinit: 0x30,
+			packs_start: 0x44,
+			packs_end: 0x48,
+			pIVT2: 0x54,
+			pROMend: 0x50,
+			pECUREC: 0x4c,
+			},
+	[FID_UNK] = {	fti: FID_UNK,
+			},
 };	//fidtypes[]
 
 

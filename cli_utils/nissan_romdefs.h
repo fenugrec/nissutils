@@ -17,7 +17,7 @@
  * is tenuous at best.  Maybe the FID IC string ("705519" etc)
  * would be more reliable, but LOADER80 ROMs don't follow a clear pattern.
  */
-enum loadvers_t {L_UNK=0, L07=07, L10=10, L40=40, L50=50, L60=60, L80=80, L81=81};
+enum loadvers_t {L_UNK=0, L10=10, L40=40, L50=50, L60=60, L80=80, L81=81};
 
 /* struct LOADER -- this must be packed, i.e. no padding between members */
 struct loader_t {
@@ -104,9 +104,9 @@ struct ramf_07 {
 	uint8_t altcks_end[4];
 };
 
-//LOADER10, checked on
+//FID IC 705513  + LOADER10, checked on
 //CD002, 8U92A, AC011
-struct ramf_10 {
+struct ramf_705513 {
 	uint8_t pRAM1[4];		//rxbuf?
 	uint8_t pRAMexec2[4];	//RAMexec?
 	uint8_t pRAM_unk1[4];
@@ -263,7 +263,9 @@ enum fidtype_ic {FID705101,
 		FID705821,
 		FID705822,
 		FID705823,
-		FID705828
+		FID705828,
+		FID999901,
+		FID_UNK
 };
 
 struct fidtype_t {

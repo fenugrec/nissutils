@@ -6,6 +6,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define ARRAY_SIZE(x)	(sizeof(x) / sizeof((x)[0]))
+
 /* this needs to be valid; debugging output is written to this.*/
 extern FILE *dbg_stream;	//such as as stdout or stderr
 
