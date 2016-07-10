@@ -299,7 +299,7 @@ static void parse_ramf(struct romfile *rf) {
 	case 07:
 		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_07, altcks_start)]);
 		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_07, altcks_end)]);
-		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_07, pIVECT2)]);
+		rf->p_ivt2 = 0;
 		rf->ramf.pRAMjump = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_07, pRAMjump)]);
 		rf->ramf.pRAM_DLAmax = reconst_32(&rf->buf[rf->p_ramf + offsetof(struct ramf_07, pRAM_DLAmax)]);
 		break;

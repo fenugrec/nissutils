@@ -84,7 +84,7 @@ struct fid_base2_t {
 
 //version for loader-less ROMs, with FIDCPU=705507, checked on
 //AM604
-// Note : most members are probably invalid, except altcks start/end and pIVECT2
+// Note : most members are probably invalid, except altcks start/end
 struct ramf_07 {
 	uint8_t pRAM1[4];		//rxbuf?
 	uint8_t pRAMexec2[4];	//RAMexec?
@@ -100,7 +100,6 @@ struct ramf_07 {
 	uint8_t pRAM_unk2[4][4];	//4x same, sometimes first member is different
 	uint8_t altcks_start[4];
 	uint8_t altcks_end[4];
-	uint8_t pIVECT2[4];
 };
 
 //LOADER10, checked on
