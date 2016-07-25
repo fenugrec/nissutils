@@ -39,6 +39,14 @@ const uint8_t *u8memstr(const uint8_t *buf, long buflen, const uint8_t *needle, 
  */
 const uint8_t *u32memstr(const uint8_t *buf, long buflen, const uint32_t needle);
 
+
+/** Find opcode pattern... bleh
+ * "patlen" is # of opcodes
+ */
+uint32_t find_pattern(const uint8_t *buf, long siz, int patlen,
+			const uint16_t *pat, const uint16_t *mask);
+
+
 /* "security" algorithms */
 
 /** Encode u32 data, algo 1

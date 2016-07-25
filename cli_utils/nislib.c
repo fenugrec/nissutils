@@ -257,7 +257,7 @@ const struct keyset_t known_keys[] = {
 	{0x4D38FE64, 0x35084C7E, 0x2A28E9A6},
 	{0x5414CDA6, 0xE303BF23, 0x0},
 	{0x634D157A, 0x4B1D6294, 0x403EFEBB},
-	{0x6BD9175D, 0x02581327, 0x},
+	{0x6BD9175D, 0x02581327, 0x0},
 	{0x705A2287, 0x582A6FA1, 0x4D4B0DC8},
 	{0x7B472BD1, 0x8F7577FC, 0x0},
 	{0x7C672F93, 0x64377BAE, 0x595819D5},
@@ -698,7 +698,7 @@ uint32_t find_eepread(const uint8_t *buf, long siz, uint32_t *real_portreg) {
 /** Find opcode pattern... bleh
  * "patlen" is # of opcodes
  */
-static uint32_t find_pattern(const uint8_t *buf, long siz, int patlen,
+uint32_t find_pattern(const uint8_t *buf, long siz, int patlen,
 			const uint16_t *pat, const uint16_t *mask) {
 	long bcur = 0;	//base cursor for start of pattern
 	long hcur = 0;	//iterating cursor
