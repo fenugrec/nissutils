@@ -966,12 +966,15 @@ static bool sh_isprologue(const uint8_t *buf) {
 #define FCALLTABLE_MINLENGTH 50	//typically > 100 function pointers though
 #define FCALLTABLE_IVTSKIP 0x400	//skip any IVT found
 #define FCALLTABLE_PROLOGS 10		//ugly hack to recognize function prologues
+#define FCALLTABLE_MAXDUPS 10		//discard table if too many duplicate ptrs (like in IVTs)
 
 long find_calltable(const uint8_t *buf, long skip, long siz, unsigned *ctlen) {
 	long cur;
 	unsigned consec = 0;
 	unsigned good_prologs = 0;
 	long table_start;
+	uint32_t dupcheck = 0;
+	unsigned dupcount = 0;
 
 	if (siz > INT32_MAX) return -1;
 
@@ -988,11 +991,28 @@ long find_calltable(const uint8_t *buf, long skip, long siz, unsigned *ctlen) {
 				table_start = cur + 4;
 				consec = 0;
 				good_prologs = 0;
+				dupcount = 0;
 				continue;
 			}
 		}
 
 		tv = reconst_32(&buf[cur]);
+		if (!consec) {
+			//just started : save first val
+			dupcheck = tv;
+		} else {
+			//check if duplicated
+			if (dupcheck == tv) dupcount += 1;
+			if (dupcount >= FCALLTABLE_MAXDUPS) {
+				//reset
+				table_start = cur + 4;
+				consec = 0;
+				good_prologs = 0;
+				dupcount = 0;
+				continue;
+			}
+		}
+
 		if ((tv >= (uint32_t) siz) || 
 			(tv & 1)) {
 			//invalid / unaligned func ptr. Maybe end of valid table :
@@ -1002,6 +1022,7 @@ long find_calltable(const uint8_t *buf, long skip, long siz, unsigned *ctlen) {
 			table_start = cur + 4;
 			consec = 0;
 			good_prologs = 0;
+			dupcount = 0;
 			continue;
 		}
 		//valid func ptr; check if it points to valid code (not rigorous)
