@@ -468,7 +468,7 @@ bool check_ivt(const uint8_t *buf) {
 	if (por_pc != mr_pc) return 0;
 	if (por_sp != mr_sp) return 0;
 	if (por_pc > 0x00ffffff) return 0;
-	if (por_sp < 0xffff0000) return 0;
+	if (por_sp < 0xfff80000) return 0;
 
 	return 1;
 }
@@ -949,32 +949,47 @@ bool find_s27_hardcore(const uint8_t *buf, long siz, uint32_t *s27k, uint32_t *s
 
 
 #define FCALLTABLE_MINLENGTH 50	//typically > 100 function pointers though
-#define FCALLTABLE_SKIPSTART 0x400	//skip IVT
+#define FCALLTABLE_IVTSKIP 0x400	//skip any IVT found
+// TODO : check if funcs start with a valid opcode. Will need a decoding backend for that...
 long find_calltable(const uint8_t *buf, long siz, unsigned *ctlen) {
 	long cur;
 	unsigned consec = 0;
 	long table_start;
 	bool good = 0;
 
+	if (siz > INT32_MAX) return -1;
+
 	siz &= ~3;
-	cur = FCALLTABLE_SKIPSTART;
-	table_start = FCALLTABLE_SKIPSTART;
+	cur = 0;
+	table_start = 0;
 	for (; cur < siz; cur += 4) {
 		uint32_t tv;
-		tv = reconst_32(&buf[cur]);
-		if (tv >= siz) {
-			//invalid func ptr. Maybe end of valid table :
-			if (good) break;
-			//else Reset.
-			table_start = cur;
-			consec = 0;
-		} else {
-			//valid func ptr.
-			consec += 1;
-			if (consec >= FCALLTABLE_MINLENGTH) {
-				good = 1;
+
+		//skip IVTs if applicable
+		if ((siz - cur) > FCALLTABLE_IVTSKIP) {
+			if (check_ivt(&buf[cur])) {
+				cur += FCALLTABLE_IVTSKIP;
 			}
 		}
+
+		tv = reconst_32(&buf[cur]);
+		if ((tv >= (uint32_t) siz) || 
+			(tv & 1)) {
+			//invalid / unaligned func ptr. Maybe end of valid table :
+			if (good) break;
+			//else Reset.
+			table_start = cur + 4;
+			consec = 0;
+			good = 0;
+			continue;
+		}
+		//valid func ptr.
+
+		consec += 1;
+		if (consec >= FCALLTABLE_MINLENGTH) {
+			good = 1;
+		}
+
 	}
 	*ctlen = consec;
 	if (good) return table_start;
