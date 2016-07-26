@@ -947,21 +947,37 @@ bool find_s27_hardcore(const uint8_t *buf, long siz, uint32_t *s27k, uint32_t *s
 
 }
 
+/* unreliable - check if opcode at *buf could be a valid func prologue.
+ * for now, accepts  :
+ * "2F <Rn>6" (mov.l Rn, @-r15)
+ * "4F 22 (sts.l pr, @-r15)
+ */
+static bool sh_isprologue(const uint8_t *buf) {
+	uint16_t opc;
+	opc = reconst_16(buf);
+	if (	((opc & 0xFF0F) == 0x2F06) ||
+		(opc == 0x4F22)) {
+		return 1;
+	}
+	return 0;
+}
+
 
 #define FCALLTABLE_MINLENGTH 50	//typically > 100 function pointers though
 #define FCALLTABLE_IVTSKIP 0x400	//skip any IVT found
-// TODO : check if funcs start with a valid opcode. Will need a decoding backend for that...
-long find_calltable(const uint8_t *buf, long siz, unsigned *ctlen) {
+#define FCALLTABLE_PROLOGS 10		//ugly hack to recognize function prologues
+
+long find_calltable(const uint8_t *buf, long skip, long siz, unsigned *ctlen) {
 	long cur;
 	unsigned consec = 0;
+	unsigned good_prologs = 0;
 	long table_start;
-	bool good = 0;
 
 	if (siz > INT32_MAX) return -1;
 
 	siz &= ~3;
-	cur = 0;
-	table_start = 0;
+	cur = skip & ~3;
+	table_start = cur;
 	for (; cur < siz; cur += 4) {
 		uint32_t tv;
 
@@ -969,6 +985,10 @@ long find_calltable(const uint8_t *buf, long siz, unsigned *ctlen) {
 		if ((siz - cur) > FCALLTABLE_IVTSKIP) {
 			if (check_ivt(&buf[cur])) {
 				cur += FCALLTABLE_IVTSKIP;
+				table_start = cur + 4;
+				consec = 0;
+				good_prologs = 0;
+				continue;
 			}
 		}
 
@@ -976,22 +996,23 @@ long find_calltable(const uint8_t *buf, long siz, unsigned *ctlen) {
 		if ((tv >= (uint32_t) siz) || 
 			(tv & 1)) {
 			//invalid / unaligned func ptr. Maybe end of valid table :
-			if (good) break;
+			if (	(consec >= FCALLTABLE_MINLENGTH) &&
+				(good_prologs >= FCALLTABLE_PROLOGS)) goto goodexit;
 			//else Reset.
 			table_start = cur + 4;
 			consec = 0;
-			good = 0;
+			good_prologs = 0;
 			continue;
 		}
-		//valid func ptr.
-
-		consec += 1;
-		if (consec >= FCALLTABLE_MINLENGTH) {
-			good = 1;
+		//valid func ptr; check if it points to valid code (not rigorous)
+		if (sh_isprologue(&buf[tv])) {
+			good_prologs += 1;
 		}
 
+		consec += 1;
 	}
-	*ctlen = consec;
-	if (good) return table_start;
 	return -1;
+goodexit:
+	*ctlen = consec;
+	return table_start;
 }

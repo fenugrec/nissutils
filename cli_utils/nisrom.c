@@ -763,10 +763,12 @@ int main(int argc, char *argv[])
 	}
 
 	//test : find calltable
-	unsigned ctlen;
-	uint32_t ctpos = find_calltable(rf.buf, rf.siz, &ctlen);
-	if (ctpos) {
-		fprintf(dbg_stream, "calltable found @ %lX, len=0x%X\n", (unsigned long) ctpos, ctlen);
+	unsigned ctlen = 0;
+	uint32_t ctpos = 0;
+	while (1) {
+		ctpos = find_calltable(rf.buf, ctpos + ctlen * 4, rf.siz, &ctlen);
+		if (ctpos == -1) break;
+		fprintf(dbg_stream, "possible calltable @ %lX, len=0x%X\n", (unsigned long) ctpos, ctlen);
 	}
 
 	printf("\n");

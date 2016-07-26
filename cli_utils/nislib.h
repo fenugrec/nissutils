@@ -141,9 +141,9 @@ long find_ivt(const uint8_t *buf, long siz);
 
 /** find the main calltable (large array of function pointers polled in a loop)
  * @return offset if succesful, -1 otherwise; length of table (in # of entries) written to *ctlen
- 
+ * @param skip : start at &buf[skip]
 */
-long find_calltable(const uint8_t *buf, long siz, unsigned *ctlen);
+long find_calltable(const uint8_t *buf, long skip, long siz, unsigned *ctlen);
 
 /** find EEPROM read_byte(addr, &dest) function address and IO port used */
 uint32_t find_eepread(const uint8_t *buf, long siz, uint32_t *real_portreg);
