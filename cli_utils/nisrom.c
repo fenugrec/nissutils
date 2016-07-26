@@ -762,6 +762,13 @@ int main(int argc, char *argv[])
 		printf("N/A\tN/A\t");
 	}
 
+	//test : find calltable
+	unsigned ctlen;
+	uint32_t ctpos = find_calltable(rf.buf, rf.siz, &ctlen);
+	if (ctpos) {
+		fprintf(dbg_stream, "calltable found @ %lX, len=0x%X\n", (unsigned long) ctpos, ctlen);
+	}
+
 	printf("\n");
 	close_rom(&rf);
 	if (dbg_file) fclose(dbg_stream);

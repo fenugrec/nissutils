@@ -946,3 +946,37 @@ bool find_s27_hardcore(const uint8_t *buf, long siz, uint32_t *s27k, uint32_t *s
 	return 0;
 
 }
+
+
+#define FCALLTABLE_MINLENGTH 50	//typically > 100 function pointers though
+#define FCALLTABLE_SKIPSTART 0x400	//skip IVT
+long find_calltable(const uint8_t *buf, long siz, unsigned *ctlen) {
+	long cur;
+	unsigned consec = 0;
+	long table_start;
+	bool good = 0;
+
+	siz &= ~3;
+	cur = FCALLTABLE_SKIPSTART;
+	table_start = FCALLTABLE_SKIPSTART;
+	for (; cur < siz; cur += 4) {
+		uint32_t tv;
+		tv = reconst_32(&buf[cur]);
+		if (tv >= siz) {
+			//invalid func ptr. Maybe end of valid table :
+			if (good) break;
+			//else Reset.
+			table_start = cur;
+			consec = 0;
+		} else {
+			//valid func ptr.
+			consec += 1;
+			if (consec >= FCALLTABLE_MINLENGTH) {
+				good = 1;
+			}
+		}
+	}
+	*ctlen = consec;
+	if (good) return table_start;
+	return -1;
+}
