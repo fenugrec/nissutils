@@ -8,11 +8,16 @@ The basic register defines are taken from dschultz' versions he posts on this th
 http://www.romraider.com/forum/viewtopic.php?f=40&t=5825
 
 The "SH705x_IVT" variants have a special tweak intended for Nissan ROMs that have only a partial
-vector table at address 0; their reset code then sets the vbr register to point at the complete table @ 0x1000.
+vector table at address 0; their reset code then sets the vbr register to point at the complete table @ 0x1000 or some other address. You must determine it beforehand to select the correct variant when loading the ROM.
 
 *** Files
-sh3_dschultz.cfg it dschultz' standard version;
-705*_additions.txt are the interrupt vectors and slightly different mem area definitions
-sh3_705x_regs.cfg are only the register names
-sh3_705x_notwin.cfg is the dschultz version augmented with everything except the "twinVT" variants
-sh3_full.cfg includes everything.
+- sh3_dschultz.cfg is dschultz' original version;
+- 705*_additions.txt are the interrupt vectors and slightly different mem area definitions
+- sh3_705x_regs.cfg are only the register names (not usable by itself)
+- sh3_705x_notwin.cfg is the dschultz version augmented with everything except the "twinVT" variants
+- sh3_full.cfg includes everything. Recommended for analyzing Nissan ROMs
+
+*** How to use
+- backup the original sh3.cfg file (look in the IDA directory, inside cfg/)
+- copy "sh3_full.cfg" in there, and rename it to sh3.cfg
+
