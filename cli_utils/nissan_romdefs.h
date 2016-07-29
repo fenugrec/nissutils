@@ -55,7 +55,7 @@ struct fid_base1_t {
 	uint8_t MSTCR_2[2];
 } ;
 
-/* large firmware metadata struct. for LOADER80 */
+/* large firmware metadata struct. for certain LOADER80 */
 struct fid_base2_t {
 	uint8_t FID[17];	//firmware ID
 	uint8_t database[9];	//just "DATABASE", ASCIIz

@@ -386,19 +386,16 @@ long find_fid(struct romfile *rf) {
 	}
 
 	switch (rf->fidtype) {
-	case FID705519:
-	case FID705822:
-		//these lack the last "wtf" field
-		rf->sfid_size = sizeof(struct fid_base2_t) - 4;
-		break;
 	case FID705828:
 		rf->sfid_size = sizeof(struct fid_base2_t);
 		break;
 	case FID705101:
 	case FID705507:
 	case FID705513:
+	case FID705519:
 	case FID705520:
 	case FID705821:
+	case FID705822:
 	case FID705823:
 	default:
 		rf->sfid_size = sizeof(struct fid_base1_t);
