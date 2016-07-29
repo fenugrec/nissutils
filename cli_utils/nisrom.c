@@ -61,8 +61,10 @@ struct romfile {
 	uint32_t	eep_port;	//PORT reg used for EEPROM pins
 
 	/* some flags */
-	bool	cks_alt_good;	//alt cks found + valid
-	bool	cks_alt2_good;	//alt2 cks found + valid
+	bool	cks_alt_present;	//valid alt cks bounds
+	bool	cks_alt_good;	//alt cks values found + valid
+	bool	cks_alt2_present;	//valid alt2 cks bounds
+	bool	cks_alt2_good;	//alt2 cks values found + valid
 	bool	has_rm160;	//RIPEMD160 hash found
 
 	struct ramf_unified ramf;	//not useful atm
@@ -422,9 +424,10 @@ int validate_altcks(struct romfile *rf) {
 	if ((rf->p_acstart < 0) ||
 		(rf->p_acend < 0) ||
 		(rf->p_acstart >= rf->p_acend)) {
+		rf->cks_alt_present = 0;
 		return -1;
 	}
-
+	rf->cks_alt_present = 1;
 	sum32(&rf->buf[rf->p_acstart], rf->p_acend - rf->p_acstart, &acs, &acx);
 	fprintf(dbg_stream, "alt cks block 0x%06lX - 0x%06lX: sumt=0x%08lX, xort=0x%08lX\n",
 		(unsigned long) rf->p_acstart, (unsigned long) rf->p_acend,
@@ -542,9 +545,11 @@ long find_ramf(struct romfile *rf) {
 		//parse ECUREC
 		if ((pecurec < 0) || ((pecurec + 6) > rf->siz)) {
 			fprintf(dbg_stream, "unlikely pecurec = %lX\n", (unsigned long) pecurec);
+			rf->cks_alt2_present = 0;
 		} else {
 			//skip leading '1'
 			fprintf(dbg_stream, "probable ECUID : %.*s\n", 5,  &rf->buf[pecurec + 1]);
+			rf->cks_alt2_present = 1;
 		}
 
 		//validate ROM size
@@ -711,23 +716,23 @@ int main(int argc, char *argv[])
 	}
 	
 	//alt cks?\t&alt_s\t&alt_x\tack_start\t&ack_end\t
-	if (rf.cks_alt_good) {
-		printf("1\t0x%lX\t0x%lX\t0x%lX\t0x%lX\t",
+	if (rf.cks_alt_present) {
+		printf("%d\t0x%lX\t0x%lX\t0x%lX\t0x%lX\t",
+			rf.cks_alt_good,
 			(unsigned long) rf.p_acs, (unsigned long) rf.p_acx,
 			(unsigned long) rf.p_acstart, (unsigned long) rf.p_acend);
 	} else {
-		printf("0\tN/A\tN/A\t0x%lX\t0x%lX\t",
-			(unsigned long) rf.p_acstart, (unsigned long) rf.p_acend);
+		printf("0\tN/A\tN/A\tN/A\tN/A\t");
 	}
 
 	//"alt2 cks?\t&alt2_s\t&alt2_x\talt2_start\tRIPEMD160\t"
-	if (rf.cks_alt2_good) {
-		printf("1\t0x%lX\t0x%lX\t0x%lX\t%d\t",
+	if (rf.cks_alt2_present) {
+		printf("%d\t0x%lX\t0x%lX\t0x%lX\t%d\t",
+			rf.cks_alt2_good,
 			(unsigned long) rf.p_a2cs, (unsigned long) rf.p_a2cx,
 			(unsigned long) rf.p_ac2start, rf.has_rm160);
 	} else {
-		printf("0\tN/A\tN/A\t0x%lX\t%d\t",
-			(unsigned long) rf.p_ac2start, rf.has_rm160);
+		printf("0\tN/A\tN/A\tN/A\t%d\t", rf.has_rm160);
 	}
 
 
