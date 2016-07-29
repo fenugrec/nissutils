@@ -385,6 +385,8 @@ long find_fid(struct romfile *rf) {
 	}
 
 	switch (rf->fidtype) {
+	case FID7253332:
+		//TODO, until then use garbage
 	case FID705828:
 		rf->sfid_size = sizeof(struct fid_base2_t);
 		break;
@@ -454,24 +456,26 @@ int validate_altcks(struct romfile *rf) {
 
 long find_ramf(struct romfile *rf) {
 	uint32_t testval;
+	const struct fidtype_t *ft;	//helper
 
 	if (!rf) return -1;
 	if (!(rf->buf)) return -1;
 	if (rf->p_fid <= 0) return -1;
 
 	rf->p_ramf = rf->p_fid + rf->sfid_size;
+	ft = &fidtypes[rf->fidtype];
 
-	//1- sanity check first member, has always been FFFF8000.
+	//1- sanity check first member, typically FFFF8000.
 	testval = reconst_32(&rf->buf[rf->p_ramf]);
-	if (testval != 0xffff8000) {
+	if (testval != ft->RAMF_header) {
 		long ramf_adj = 4;
 		long sign = 1;
 		fprintf(dbg_stream, "Unlikely contents for struct ramf; got 0x%lX.\n",
 					(unsigned long) testval);
-		while (ramf_adj < 0x300) {
+		while (ramf_adj < ft->pRAMF_maxdist) {
 			//search around, in a pattern like +4, -4, +8, -8, +12  and then +16, +20 etc
 			testval = reconst_32(&rf->buf[rf->p_ramf + (sign * ramf_adj)]);
-			if (testval == 0xffff8000) {
+			if (testval == ft->RAMF_header) {
 				fprintf(dbg_stream, "probable RAMF found @ delta = %+d\n",
 							(int) (sign * ramf_adj));
 				rf->ramf_offset = (sign * ramf_adj);
@@ -638,7 +642,7 @@ int main(int argc, char *argv[])
 	if (loaderpos >= 0) {
 		const char *scpu;
 		scpu = (const char *) rf.loader_cpu;
-		printf("%0d\t0x%lX\t", rf.loader_v, (unsigned long) loaderpos);
+		printf("%02d\t0x%lX\t", rf.loader_v, (unsigned long) loaderpos);
 		printf( "%.6s\t%.2s\t", scpu, scpu + 6);
 	} else {
 		printf("N/A\tN/A\tN/A\tN/A\t");

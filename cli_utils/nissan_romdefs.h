@@ -17,7 +17,7 @@
  * is tenuous at best.  Maybe the FID IC string ("705519" etc)
  * would be more reliable, but LOADER80 ROMs don't follow a clear pattern.
  */
-enum loadvers_t {L_UNK=0, L10=10, L40=40, L50=50, L60=60, L80=80, L81=81};
+enum loadvers_t {L_UNK=-1, L10=10, L40=40, L50=50, L60=60, L80=80, L81=81, L00=0};
 
 /* struct LOADER -- this must be packed, i.e. no padding between members */
 struct loader_t {
@@ -27,7 +27,7 @@ struct loader_t {
 	uint8_t field_1D;
 	uint8_t YN;
 	uint8_t pad2;
-	uint8_t cpu[10];	//like "SH705822N", ASCIIz
+	uint8_t cpu[10];	//like "SH705822N" or "S725332N"; ASCIIz
 	uint8_t field_28[1];	//0x0F
 	uint8_t field_29[14];
 	uint8_t field_39[7];
@@ -45,7 +45,7 @@ struct fid_base1_t {
 	uint8_t field_1D;
 	uint8_t YN;
 	uint8_t pad2;
-	uint8_t cpu[10];	//like "SH705822N", ASCIIz
+	uint8_t cpu[10];	//like "SH705822N" or "S725332N"; ASCIIz
 	uint8_t field_2A[1];	//0x0F
 	uint8_t field_2B[14];
 	uint8_t field_39[9];
@@ -263,13 +263,15 @@ enum fidtype_ic {FID705101,
 		FID705822,
 		FID705823,
 		FID705828,
-		FID999901,
+		FID7253332,
 		FID_UNK
 };
 
 struct fidtype_t {
 	enum fidtype_ic fti;
 	uint8_t FIDIC[8];	//such as "SH705507"
+	int	pRAMF_maxdist;	//for some ROMs where the RAMF struct is super far from the FID
+	uint32_t	RAMF_header;	//first member to identify RAMF struct
 	int	pRAMjump;
 	int	pRAM_DLAmax;	//end of RAM dl area ? ex ffff8438...DLAmax
 	int	pRAMinit;	//array of data for ram initialization ? see 8U92A
