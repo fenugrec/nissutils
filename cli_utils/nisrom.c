@@ -192,7 +192,7 @@ bool find_s27k(struct romfile *rf, int *key_idx, bool thorough) {
 	long kph_cur = 0;
 	long key_offs;
 	int occurences = 0;
-	#define SPLITKEY_MAXDIST	12
+	#define SPLITKEY_MAXDIST	16
 	while (known_keys[keyset].s27k != 0) {
 		const uint8_t *kp_h, *kp_l;
 		int dist;
