@@ -886,6 +886,7 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, long siz, long bsr_offs) {
  - find "swapf" function used by both encr / decryption
  - find xrefs to "swapf" (exactly 2)
  - follow xref (
+ - TODO maybe : add "movi20" opcode for SH2A (7253x )
 */
 
 #define S27_SPF_PATLEN 5

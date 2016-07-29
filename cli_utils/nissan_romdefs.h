@@ -293,6 +293,9 @@ struct ramf_unified {
 };
 
 /**** "preload" info struct filled before calling RAMjump *****/
+/** TODO : check against a few different FID types !
+ * i.e. VD70A (7055 + 7051) seems to have extra fields at the end
+ */
 struct rj_preload {
 	uint16_t flag0;	// ?
 	uint16_t wdt_pin;	//  pin # mask for PxDR
