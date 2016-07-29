@@ -38,7 +38,6 @@ struct loader_t {
 
 /* basic firmware metadata struct; everything except LOADER80 ?*/
 struct fid_base1_t {
-	uint8_t FFtag[2];
 	uint8_t FID[17];	//firmware ID
 	uint8_t database[9];	//just "DATABASE", ASCIIz
 	uint8_t field_1C;
@@ -58,7 +57,6 @@ struct fid_base1_t {
 
 /* large firmware metadata struct. for LOADER80 */
 struct fid_base2_t {
-	uint8_t FFtag[2];
 	uint8_t FID[17];	//firmware ID
 	uint8_t database[9];	//just "DATABASE", ASCIIz
 	uint8_t field_1C;

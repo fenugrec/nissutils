@@ -32,7 +32,6 @@ struct romfile {
 
 	long p_fid;	//location of struct fid_base
 	enum fidtype_ic fidtype;
-	uint16_t fftag;	//FID header tag
 	long sfid_size;	//sizeof correct struct fid_base
 	long p_ramf;	//location of struct ramf
 
@@ -325,7 +324,6 @@ long find_fid(struct romfile *rf) {
 	const uint8_t dbstr[]="DATAB";
 	const uint8_t loadstr[]="LOADER";
 	const uint8_t *sf;
-	uint16_t fftag;
 	long sf_offset;	//offset in file
 	int fid_idx;
 
@@ -364,17 +362,6 @@ long find_fid(struct romfile *rf) {
 	}
 
 	rf->p_fid = sf_offset;
-
-	//sanity check loader version VS the header tag.
-	fftag = reconst_16(&rf->buf[sf_offset]);
-	rf->fftag = fftag;
-	if (rf->loader_v == L80) {
-		//these are special, they don't have an "FFFF" tag.
-	} else {
-		if (fftag != 0xffff) {
-			fprintf(dbg_stream, "Unusual FID header tag = 0x%04X\n", (unsigned) fftag);
-		}
-	}
 
 	/* independant of loader version : */
 	rf->fid = &rf->buf[sf_offset + offsetof(struct fid_base1_t, FID)];
@@ -630,10 +617,11 @@ int main(int argc, char *argv[])
 
 	/* print column header */
 	printf("file\tsize\tLOADER ##\tLOADER ofs\tLOADER CPU\tLOADER CPUcode\t"
-		"FID tag\t&FID\tFID\tFID CPU\tFID CPUcode\t"
+		"&FID\tFID\tFID CPU\tFID CPUcode\t"
 		"RAMF_weird\tRAMjump entry\tIVT2\tIVT2 confidence\t"
 		"std cks?\t&std_s\t&std_x\t"
-		"alt cks?\t&alt_s\t&alt_x\talt2 cks?\t&alt2_s\t&alt2_x\tRIPEMD160\t"
+		"alt cks?\t&alt_s\t&alt_x\tack_start\t&ack_end\t"
+		"alt2 cks?\t&alt2_s\t&alt2_x\tRIPEMD160\t"
 		"known keyset\ts27k\ts36k\tguessed keyset\ts27k\ts36k\t"
 		"&EEPROM_read()\tEEPROM PORT\t"
 		"\n"
@@ -659,12 +647,12 @@ int main(int argc, char *argv[])
 		const char *scpu;
 		sfid = (const char *) rf.fid;
 		scpu = (const char *) rf.fid_cpu;
-		printf("0x%04X\t0x%lX\t%.*s\t%.6s\t%.2s\t",
-			rf.fftag, (unsigned long) rf.p_fid, sizeof(((struct fid_base1_t *)NULL)->FID), sfid, scpu, scpu+6);
+		printf("0x%lX\t%.*s\t%.6s\t%.2s\t",
+			(unsigned long) rf.p_fid, sizeof(((struct fid_base1_t *)NULL)->FID), sfid, scpu, scpu+6);
 
 	} else {
 		fprintf(dbg_stream, "error: no FID struct !?\n");
-		printf("N/A\tN/A\tN/A\tN/A\tN/A\t");
+		printf("N/A\tN/A\tN/A\tN/A\t");
 	}
 
 	//"RAMF_off\RAMjump entry\tIVT2\tIVT2 confidence\t"
@@ -713,12 +701,13 @@ int main(int argc, char *argv[])
 		printf("0\tN/A\tN/A\t");
 	}
 	
-	//alt cks?\t&alt_s\t&alt_x\talt2 cks?\t&alt2_s\t&alt2_x\tRIPEMD160
+	//alt cks?\t&alt_s\t&alt_x\tack_start\t&ack_end\talt2 cks?\t&alt2_s\t&alt2_x\tRIPEMD160
 	if (rf.cks_alt_good) {
-		printf("1\t0x%lX\t0x%lX\t",
-			(unsigned long) rf.p_acs, (unsigned long) rf.p_acx);
+		printf("1\t0x%lX\t0x%lX\t0x%lX\t0x%lX\t",
+			(unsigned long) rf.p_acs, (unsigned long) rf.p_acx,
+			(unsigned long) rf.p_acstart, (unsigned long) rf.p_acend);
 	} else {
-		printf("0\tN/A\tN/A\t");
+		printf("0\tN/A\tN/A\tN/A\tN/A\t");
 	}
 
 	if (rf.cks_alt2_good) {
