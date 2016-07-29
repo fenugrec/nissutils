@@ -34,6 +34,8 @@ void write_32b(uint32_t val, uint8_t *buf);
  */
 const uint8_t *u8memstr(const uint8_t *buf, long buflen, const uint8_t *needle, long nlen);
 
+const uint8_t *u16memstr(const uint8_t *buf, long buflen, const uint16_t needle);
+
 /** search a <buflen> u8 buffer for a 32-bit aligned u32 value, in SH endianness
  *
  */

@@ -129,12 +129,24 @@ const uint8_t *u8memstr(const uint8_t *buf, long buflen, const uint8_t *needle, 
 	return NULL;
 }
 
-/* thin wrapper around u8memstr and write_32b */
-const uint8_t *u32memstr(const uint8_t *buf, long buflen, const uint32_t needle) {
-	uint8_t u8val[4];
-	write_32b(needle, u8val);
+/* manual, aligned search for u16 val */
+const uint8_t *u16memstr(const uint8_t *buf, long buflen, const uint16_t needle) {
+	buflen &= ~1;
+	long cur;
+	for (cur = 0; cur < buflen; cur += 2) {
+		if (reconst_16(&buf[cur]) == needle) return &buf[cur];
+	}
+	return NULL;
+}
 
-	return u8memstr(buf, buflen, u8val, 4);
+/* manual, aligned search instead of calling u8memstr; should be faster */
+const uint8_t *u32memstr(const uint8_t *buf, long buflen, const uint32_t needle) {
+	buflen &= ~3;
+	long cur;
+	for (cur = 0; cur < buflen; cur += 4) {
+		if (reconst_32(&buf[cur]) == needle) return &buf[cur];
+	}
+	return NULL;
 }
 
 

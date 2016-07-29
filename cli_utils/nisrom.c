@@ -196,16 +196,14 @@ bool find_s27k(struct romfile *rf, int *key_idx, bool thorough) {
 		const uint8_t *kp_h, *kp_l;
 		int dist;
 		uint32_t curkey;
-		uint8_t ckh[2], ckl[2];
+		uint16_t ckh, ckl;
 		curkey = known_keys[keyset].s27k;
-		ckh[0] = curkey >> 24;
-		ckh[1] = curkey >> 16;
-		ckl[0] = curkey >> 8;
-		ckl[1] = curkey >> 0;
+		ckh = curkey >> 16;
+		ckl = curkey >> 0;
 
 		/* find a match for both 16 bit halves*/
-		kp_h = u8memstr(rf->buf + kph_cur, rf->siz - kph_cur, ckh, 2);
-		kp_l = u8memstr(rf->buf + kpl_cur, rf->siz - kpl_cur, ckl, 2);
+		kp_h = u16memstr(rf->buf + kph_cur, rf->siz - kph_cur, ckh);
+		kp_l = u16memstr(rf->buf + kpl_cur, rf->siz - kpl_cur, ckl);
 		if ((kp_h == NULL) ||
 			(kp_l == NULL)) {
 			//try next keyset
@@ -222,7 +220,7 @@ bool find_s27k(struct romfile *rf, int *key_idx, bool thorough) {
 			((kp_l - rf->buf) & 1)) {
 			//dubious match
 			//Find next kp_l, skip current occurence
-			kpl_cur = 1 + kp_l - rf->buf;
+			kpl_cur = 2 + kp_l - rf->buf;
 			continue;
 		}
 		//same idea for kp_h
@@ -230,7 +228,7 @@ bool find_s27k(struct romfile *rf, int *key_idx, bool thorough) {
 			((kp_h - rf->buf) & 1)) {
 			//dubious match
 			//Find next kp_h, skip current occurence
-			kph_cur = 1 + kp_h - rf->buf;
+			kph_cur = 2 + kp_h - rf->buf;
 			continue;
 		}
 
