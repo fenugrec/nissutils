@@ -55,6 +55,7 @@ struct romfile {
 	long p_acstart;	//start of alt_cks block
 	long p_acend;	//end of alt_cks block
 
+	long p_ac2start;	//start of alt2 cks block (end is always ROMEND ?)
 
 	long	p_eepread;	//address of eeprom_read() func
 	uint32_t	eep_port;	//PORT reg used for EEPROM pins
@@ -532,16 +533,16 @@ long find_ramf(struct romfile *rf) {
 		(void) validate_altcks(rf);
 	}
 
-	long pecurec = 0;
-	//display some LOADER80-specific garbage
+	long pecurec = -1;
+	//display some LOADER > 80 specific garbage
 	if (fidtypes[rf->fidtype].pECUREC) {
 		pecurec = reconst_32(&rf->buf[rf->p_ramf + fidtypes[rf->fidtype].pECUREC]);
 		testval = reconst_32(&rf->buf[rf->p_ramf + fidtypes[rf->fidtype].pROMend]);
 
 		//parse ECUREC
-		if (pecurec < 0) {
+		if ((pecurec < 0) || ((pecurec + 6) > rf->siz)) {
 			fprintf(dbg_stream, "unlikely pecurec = %lX\n", (unsigned long) pecurec);
-		} else if ((pecurec + 6) <= rf->siz) {
+		} else {
 			//skip leading '1'
 			fprintf(dbg_stream, "probable ECUID : %.*s\n", 5,  &rf->buf[pecurec + 1]);
 		}
@@ -577,6 +578,7 @@ long find_ramf(struct romfile *rf) {
 		}
 
 	}
+	rf->p_ac2start = pecurec;
 no_ripemd:
 
 	return rf->p_ramf;
@@ -627,8 +629,8 @@ int main(int argc, char *argv[])
 		"&FID\tFID\tFID CPU\tFID CPUcode\t"
 		"RAMF_weird\tRAMjump entry\tIVT2\tIVT2 confidence\t"
 		"std cks?\t&std_s\t&std_x\t"
-		"alt cks?\t&alt_s\t&alt_x\tack_start\t&ack_end\t"
-		"alt2 cks?\t&alt2_s\t&alt2_x\tRIPEMD160\t"
+		"alt cks?\t&alt_s\t&alt_x\talt_start\t&alt_end\t"
+		"alt2 cks?\t&alt2_s\t&alt2_x\talt2_start\tRIPEMD160\t"
 		"known keyset\ts27k\ts36k\tguessed keyset\ts27k\ts36k\t"
 		"&EEPROM_read()\tEEPROM PORT\t"
 		"\n"
@@ -708,7 +710,7 @@ int main(int argc, char *argv[])
 		printf("0\tN/A\tN/A\t");
 	}
 	
-	//alt cks?\t&alt_s\t&alt_x\tack_start\t&ack_end\talt2 cks?\t&alt2_s\t&alt2_x\tRIPEMD160
+	//alt cks?\t&alt_s\t&alt_x\tack_start\t&ack_end\t
 	if (rf.cks_alt_good) {
 		printf("1\t0x%lX\t0x%lX\t0x%lX\t0x%lX\t",
 			(unsigned long) rf.p_acs, (unsigned long) rf.p_acx,
@@ -717,17 +719,14 @@ int main(int argc, char *argv[])
 		printf("0\tN/A\tN/A\tN/A\tN/A\t");
 	}
 
+	//"alt2 cks?\t&alt2_s\t&alt2_x\talt2_start\tRIPEMD160\t"
 	if (rf.cks_alt2_good) {
-		printf("1\t0x%lX\t0x%lX\t",
-			(unsigned long) rf.p_a2cs, (unsigned long) rf.p_a2cx);
+		printf("1\t0x%lX\t0x%lX\t0x%lX\t%d\t",
+			(unsigned long) rf.p_a2cs, (unsigned long) rf.p_a2cx,
+			(unsigned long) rf.p_ac2start, rf.has_rm160);
 	} else {
-		printf("0\tN/A\tN/A\t");
-	}
-
-	if (rf.has_rm160) {
-		printf("1\t");
-	} else {
-		printf("0\t");
+		printf("0\tN/A\tN/A\t0x%lX\t%d\t",
+			(unsigned long) rf.p_ac2start, rf.has_rm160);
 	}
 
 
