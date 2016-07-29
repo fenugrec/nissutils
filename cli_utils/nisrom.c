@@ -716,7 +716,8 @@ int main(int argc, char *argv[])
 			(unsigned long) rf.p_acs, (unsigned long) rf.p_acx,
 			(unsigned long) rf.p_acstart, (unsigned long) rf.p_acend);
 	} else {
-		printf("0\tN/A\tN/A\tN/A\tN/A\t");
+		printf("0\tN/A\tN/A\t0x%lX\t0x%lX\t",
+			(unsigned long) rf.p_acstart, (unsigned long) rf.p_acend);
 	}
 
 	//"alt2 cks?\t&alt2_s\t&alt2_x\talt2_start\tRIPEMD160\t"
