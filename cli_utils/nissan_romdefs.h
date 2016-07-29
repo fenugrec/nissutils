@@ -37,6 +37,7 @@ struct loader_t {
 #define FID_MAXSIZE		0x100	//just for bounds checking
 
 /* basic firmware metadata struct; everything except LOADER80 ?*/
+/* Also some weird 705507 ROMs lack the MSTCR_* fields... */
 struct fid_base1_t {
 	uint8_t FID[17];	//firmware ID
 	uint8_t database[9];	//just "DATABASE", ASCIIz

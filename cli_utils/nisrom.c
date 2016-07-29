@@ -34,6 +34,7 @@ struct romfile {
 	enum fidtype_ic fidtype;
 	long sfid_size;	//sizeof correct struct fid_base
 	long p_ramf;	//location of struct ramf
+	int	ramf_offset;	//RAMF struct wasn't found where expected (offset != 0)
 
 	/* these point in buf, and so are not necessarily 0-terminated strings */
 	const uint8_t *loader_cpu;	//LOADERxx CPU code
@@ -62,8 +63,6 @@ struct romfile {
 	bool	cks_alt_good;	//alt cks found + valid
 	bool	cks_alt2_good;	//alt2 cks found + valid
 	bool	has_rm160;	//RIPEMD160 hash found
-	bool	ramf_offset;	//RAMF struct wasn't found where expected (offset != 0)
-	
 
 	struct ramf_unified ramf;	//not useful atm
 };
@@ -467,18 +466,25 @@ long find_ramf(struct romfile *rf) {
 	if (testval != 0xffff8000) {
 		long ramf_adj = 4;
 		long sign = 1;
-		fprintf(dbg_stream, "Unlikely contents for struct ramf; got 0x%lX.\n", (unsigned long) testval);
-		while (ramf_adj != 12) {
-			//search around, in a pattern like +4, -4, +8, -8, +12 etc
+		fprintf(dbg_stream, "Unlikely contents for struct ramf; got 0x%lX.\n",
+					(unsigned long) testval);
+		while (ramf_adj < 0x300) {
+			//search around, in a pattern like +4, -4, +8, -8, +12  and then +16, +20 etc
 			testval = reconst_32(&rf->buf[rf->p_ramf + (sign * ramf_adj)]);
 			if (testval == 0xffff8000) {
-				fprintf(dbg_stream, "probable RAMF found @ delta = %+d\n", (int) (sign * ramf_adj));
-				rf->p_ramf += (sign * ramf_adj);
-				rf->ramf_offset = 1;
+				fprintf(dbg_stream, "probable RAMF found @ delta = %+d\n",
+							(int) (sign * ramf_adj));
+				rf->ramf_offset = (sign * ramf_adj);
+				rf->p_ramf += rf->ramf_offset;
 				break;
 			}
-			sign = -sign;	//flip sign;
-			if (sign == 1) ramf_adj += 4;
+			if (ramf_adj < 0x0c) {
+				sign = -sign;	//flip sign;
+				if (sign == 1) ramf_adj += 4;
+			} else {
+				sign = 1;
+				ramf_adj += 4;
+			}
 		}
 	}
 
@@ -656,7 +662,7 @@ int main(int argc, char *argv[])
 	ramfpos = find_ramf(&rf);
 	if (ramfpos >= 0) {
 		int ivt_conf = 0;
-		printf("%d\t0x%08X\t", rf.ramf_offset, rf.ramf.pRAMjump);
+		printf("%+d\t0x%08X\t", rf.ramf_offset, rf.ramf.pRAMjump);
 		if (rf.p_ivt2 > 0) {
 			ivt_conf = 99;
 		} else {
