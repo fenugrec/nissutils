@@ -360,8 +360,6 @@ void sum32(const uint8_t *buf, long siz, uint32_t *sum, uint32_t *xor) {
 //	so we get ckx= sumt - 2*ckx, and then we try to locate cks and ckx in the ROM.
 int checksum_alt2(const uint8_t *buf, long siz, long *p_ack_s, long *p_ack_x,
 				long p_skip1, long p_skip2) {
-	int ckscount, ckxcount;	//count number of found instances
-	long bufcur;
 	uint32_t sumt,xort, cks, ckx;
 
 	if (!buf || (siz & 0x3) || !p_ack_s || !p_ack_x || (siz <= 0)) {
@@ -383,34 +381,18 @@ int checksum_alt2(const uint8_t *buf, long siz, long *p_ack_s, long *p_ack_x,
 
 	cks=xort;
 	ckx= sumt - 2*xort;	//cheat !
-	//printf("sumt=0x%0X; xort=cks=0x%0X; ckx=0x%0X\n",sumt, cks, ckx);
+	fprintf(dbg_stream, "alt2 sum=0x%0X; xor=0x%0X\n", cks, ckx);
 	//try to find cks et ckx in there
-	ckscount=0;
-	ckxcount=0;
 	*p_ack_s = 0;
 	*p_ack_x = 0;
 
-	for (bufcur=0; bufcur < siz; bufcur += 4) {
-		uint32_t lw;
-		lw = reconst_32(&buf[bufcur]);
-		if (lw==cks) {
-			//printf("cks found @ 0x%0X\n", bufcur);
-			*p_ack_s = bufcur;
-			ckscount += 1;
-			continue;
-		}
-		if (lw==ckx) {
-			//printf("ckx found @ 0x%0X\n", bufcur);
-			*p_ack_x = bufcur;
-			ckxcount += 1;
-			continue;
-		}
-	}
+	const uint8_t *tp = u32memstr(buf, siz, cks);
+	if (tp) *p_ack_s = tp - buf;	//convert to offset-in-buf
+	tp = u32memstr(buf, siz, ckx);
+	if (tp) *p_ack_x = tp - buf;
+	//do we really need to look for > 1 instance ?
 
-	if (ckxcount>1 || ckscount>1)
-		fprintf(dbg_stream, "warning : more than one set of checksums found ! the real checksums should be close to each other.\n");
-
-	if (ckxcount==0 && ckscount==0) {
+	if (*p_ack_s==0 || p_ack_x==0) {
 //		printf("warning : no checksum found !\n");
 		return -1;
 	}

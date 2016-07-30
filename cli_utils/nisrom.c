@@ -576,8 +576,8 @@ long find_ramf(struct romfile *rf) {
 			fprintf(dbg_stream, "alt2 checksum found; sum @ 0x%lX, xor @ 0x%lX\n",
 					(unsigned long) p_as, (unsigned long) p_ax);
 			rf->cks_alt2_good = 1;
-			rf->p_a2cs = p_as;
-			rf->p_a2cx = p_ax;
+			rf->p_a2cs = p_as + pecurec;
+			rf->p_a2cx = p_ax + pecurec;
 		} else {
 			fprintf(dbg_stream, "alt2 checksum not found ?? Bad algo, bad skip, or other problem...\n");
 		}
