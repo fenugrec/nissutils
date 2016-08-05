@@ -752,7 +752,7 @@ uint32_t find_pattern(const uint8_t *buf, long siz, int patlen,
 	return -1;
 }
 
-/* recursive backtrack inside function to find a "mov imm16, Rn" or "mov imm32, Rn" instruction.
+/* recursive backtrack inside function to find a "mov imm16, Rn", "mov imm32, Rn" or "movi20 #imm20, rn" instruction.
  *
  * regno : n from "Rn"
  * min : don't backtrack further than buf[min]
@@ -809,6 +809,13 @@ static uint16_t fs27_bt_immload(const uint8_t *buf, long min, long start,
 		// "mov #imm8, R<regno>"	[E<regno> <i>]
 		// "mov.w @(disp, PC), R<regno> 	[9<regno> <disp/2>]
 		// "mov.l @(disp, PC), R<regno> 	[D<regno> <disp/4>]
+		// "movi20 #imm20, R<regno>	[0<regno> <i16_19> 0][i0_15]
+		// test for the "movi20" variant first, because it takes up 2 opcodes
+		uint16_t prevop = reconst_16(&buf[start - 2]);
+		if ((prevop & 0xFF0F) == (regno << 8)) {
+			//movi20 match. just keep lower 16 bits
+			return opc;
+		}
 		uint8_t ic_top = (opc & 0xFF00) >> 8;
 		uint32_t imloc = start; //location of mov instruction
 		if (ic_top == (0xD0 | regno)) {
