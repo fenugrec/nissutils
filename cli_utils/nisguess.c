@@ -15,8 +15,11 @@
 
 #include "nislib.h"
 
+FILE *dbg_stream;
+
 int main(int argc, char * argv[]) {
 	uint32_t enc,dec,key;
+	dbg_stream = stdout;
 
 	if (argc < 3) {
 		printf("%s <enc> <dec>\n\tboth args are uint32, in hex.\n", argv[0]);
@@ -36,8 +39,8 @@ int main(int argc, char * argv[]) {
 	}
 
 	for (key=0; key != -1; key++) {
-		if (dec1(key, enc) == dec) {
-			printf("found key=%#x\n", key);
+		if (dec1(enc, key) == dec) {
+			printf("found key=%#lx\n", (unsigned long) key);
 		}
 		if (!(key & 0x3ffffff)) {
 			float status = 100.0 * key / ((uint32_t) -1);

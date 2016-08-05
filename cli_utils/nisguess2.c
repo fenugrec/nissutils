@@ -27,10 +27,11 @@
 
 #define u32 uint32_t
 
+FILE *dbg_stream;
 
 // ret true if key works
 inline bool testkey_single(u32 enc, u32 dec, u32 key) {
-	return (dec1(key, enc) == dec);
+	return (dec1(enc, key) == dec);
 }
 
 //decode *efh with key, return true if it matches *dfh.
@@ -110,6 +111,7 @@ void find_key(FILE *efh, FILE *dfh) {
 
 int main(int argc, char * argv[]) {
 	FILE *efh, *dfh;
+	dbg_stream = stdout;
 
 	if (argc < 3) {
 		printf("%s <enc_file> <dec_file>\n", argv[0]);
