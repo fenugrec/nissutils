@@ -1,5 +1,6 @@
 /*bruteforce scode, given encrypted + decrypted data.
  * (c) fenugrec 2015
+ * GPLv3
  * This version allows to converge on a precise key that works for a given set of u32 vals. (nisguess only gives all possible keys)
  * Note : because of the algo, there can be many (or no) key possibilities for any given 4-byte-in, 4-byte-out combination.
  * Should be compiled with -O3

@@ -1,5 +1,6 @@
 /* nisdec1: decrypt binary file using algo_1 (NPT_DDL)
  * (c) fenugrec 2015
+ * GPLv3
  * Needs the 32-bit scode to decrypt.
  * usage : nisdec1 <scode> <in_file> [<out_file>]
  * if out_file is omitted, output is written to "temp.bin"
