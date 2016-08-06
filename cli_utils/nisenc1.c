@@ -1,5 +1,6 @@
 /* nisecn1: encrypt binary file using algo_1
  * (c) fenugrec 2015
+ * GPLv3
  * Specify the 32-bit key/scode to use.
  * usage : nisenc1 <key> <in_file> [<out_file>]
  * if out_file is omitted, output is written to "temp.bin"

@@ -1,6 +1,6 @@
 /* (c) fenugrec 2015-2016
  * Gather information about a ROM, from metadata and heuristics
- *
+ * GPLv3
  *
  * usage:
  * nisrom <romfile>
