@@ -53,10 +53,23 @@ static long flen(FILE *hf) {
 }
 
 
+static void report_hit(bool is_write, u32 pos, u32 base, u32 offs) {
+	if (is_write) {
+		printf("\t\t**** W @ 0x%06lX : 0x%08lX + 0x%lX\n", (unsigned long) pos,
+				(unsigned long) base, (unsigned long) offs);
+	} else {
+		printf("\t\t**** R @ 0x%06lX : 0x%08lX + 0x%lX\n", (unsigned long) pos,
+				(unsigned long) base, (unsigned long) offs);
+	}
+}
+
 
 /**** RECURSIV HELL ****/
 
 int recurselevel;
+
+u32 glob_base;
+u32 glob_offs;	//fugly shit to have access throughout all levels
 
 enum opcode_dest {
 	R0 = 0, R15 = 15, GBR, OPC_DEST_OTHER};
@@ -149,11 +162,7 @@ void test_gbrref(u8 *buf, u32 pos, u32 offs) {
 
 	if (offs == (opc & 0xFF) * mul) {
 		//match !
-		if (dir) {
-			printf("\t\t**** W @ 0x%06lX\n", (unsigned long) pos);
-		} else {
-			printf("\t\t**** R @ 0x%06lX\n", (unsigned long) pos);
-		}
+		report_hit(dir, pos, glob_base, offs);
 	}
 }
 
@@ -189,11 +198,7 @@ void test_rnrel(u8 *buf, u32 pos, u32 offs, int regno) {
 
 	if (offs == disp) {
 		//match !
-		if (dir) {
-			printf("\t\t**** W @ 0x%06lX\n", (unsigned long) pos);
-		} else {
-			printf("\t\t**** R @ 0x%06lX\n", (unsigned long) pos);
-		}
+		report_hit(dir, pos, glob_base, offs);
 	}
 }
 
@@ -239,17 +244,12 @@ void test_r0rn(u8 *buf, u32 pos, u32 offs, int regno) {
 
 	if (offs == disp) {
 		//match !
-		if (dir) {
-			printf("\t\t**** W @ 0x%06lX\n", (unsigned long) pos);
-		} else {
-			printf("\t\t**** R @ 0x%06lX\n", (unsigned long) pos);
-		}
+		report_hit(dir, pos, glob_base, offs);
 	}
 }
 
 
 
-u32 glob_offs;	//fugly shit to have access throughout all levels
 
 // siz : size of buf
 // recursively track usage of register <regno>
@@ -281,7 +281,7 @@ void track_reg(u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
 			if ((opc & 0xF0FF) == ((regno << 4) | 0x6003)) {
 				//regno is copied to a new one.
 				int newreg = (opc & 0xF00) >> 8;
-				printf("Entering %4d.%6lX reg copy\n", recurselevel, (unsigned long) pos);
+				printf("Entering %4d.%6lX MOV\n", recurselevel, (unsigned long) pos);
 				track_reg(buf, pos, siz, newreg, visited);
 			}
 
@@ -355,6 +355,7 @@ void findrefs(FILE *i_file, u32 base, u32 offs) {
 
 	long file_len;
 
+	glob_base = base;
 	glob_offs = offs;
 
 	file_len = flen(i_file);
