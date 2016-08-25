@@ -138,7 +138,7 @@ void test_gbrref(u8 *buf, u32 pos, u32 offs) {
 }
 
 //test @(disp,Rn) forms
-void test_rnrel(u8 *buf, u32 pos, u32 offs) {
+void test_rnrel(u8 *buf, u32 pos, u32 offs, int regno) {
 	u16 opc = reconst_16(&buf[pos]);
 	u32 disp = 0;
 	int dir = 0;	//0 : R. 1: W
@@ -146,20 +146,20 @@ void test_rnrel(u8 *buf, u32 pos, u32 offs) {
 
 	if ((opc & 0xF000) == 0x1000) {
 			// 0001nnnnmmmmi4*4 mov.l <REG_M>,@(<disp>,<REG_N>)
+		if (((opc >> 8) & 0x0F) != regno) return;	//nnnn must match
 		dir = 1;
 		disp = (opc & 0xF) * 4;
-	} else if ((opc & 0xFE00) == 0x8400) {
+	} else if ((opc & 0xF600) == 0x8000) {
 			// 10000100mmmmi4*1 mov.b @(<disp>,<REG_M>),R0
 			// 10000101mmmmi4*2 mov.w @(<disp>,<REG_M>),R0
-		dir = 0;
-		disp = (opc & 0xF) * (1 + (opc & 0x0100));
-	} else if ((opc & 0xFE00) == 0x8000) {
 			// 10000000mmmmi4*1 mov.b R0,@(<disp>,<REG_M>)
 			// 10000001mmmmi4*2 mov.w R0,@(<disp>,<REG_M>)
-		dir = 1;
-		disp = (opc & 0xF) * (1 + (opc & 0x0100));
+		if (((opc >> 4) & 0x0F) != regno) return;	//mmmm must match
+		dir = ! (bool)(opc & 0x0400);
+		disp = (opc & 0xF) * (1 + (bool) (opc & 0x0100));
 	} else if ((opc & 0xF000) == 0x5000) {
-			// 0101nnnnmmmmi4*4 mov.l @(<disp>,<REG_M>),<REG_N>)
+			// 0101nnnnmmmmi4*4 mov.l @(<disp>,<REG_M>),<REG_N>
+		if (((opc >> 4) & 0x0F) != regno) return;	//mmmm must match
 		dir = 0;
 		disp = (opc & 0xF) * 4;
 	} else {
@@ -302,7 +302,7 @@ void track_reg(u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
 		if (regno == GBR) {
 			test_gbrref(buf, pos, glob_offs);
 		} else {
-			test_rnrel(buf, pos, glob_offs);	//test naive @(disp+Rn) forms
+			test_rnrel(buf, pos, glob_offs, regno);	//test naive @(disp+Rn) forms
 			test_r0rn(buf, pos, glob_offs, regno);	//test @(R0,Rn) forms
 		}
 
