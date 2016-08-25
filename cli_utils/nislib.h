@@ -160,6 +160,8 @@ bool find_s27_hardcore(const uint8_t *buf, long siz, uint32_t *s27k, uint32_t *s
 
 /************** SH analysis helpers */
 
+uint16_t fs27_bt_immload(const uint8_t *buf, long min, long start,
+				int regno, bool shlr);
 
 /** return the immediate value loaded by PC-relative opcode (mov.w or mov.l only)
  * caller must have ensured opcode is a mov.x (@PC, disp), Rn opcode

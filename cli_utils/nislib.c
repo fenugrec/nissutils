@@ -789,7 +789,7 @@ uint32_t find_pattern(const uint8_t *buf, long siz, int patlen,
  * handles multiple-mov sequences, and "shlr16" too.
  */
 
-static uint16_t fs27_bt_immload(const uint8_t *buf, long min, long start,
+uint16_t fs27_bt_immload(const uint8_t *buf, long min, long start,
 				int regno, bool shlr) {
 	uint16_t opc;
 	while (start >= min) {
@@ -946,7 +946,6 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, long siz, long bsr_offs) {
  - find "swapf" function used by both encr / decryption
  - find xrefs to "swapf" (exactly 2)
  - follow xref (
- - TODO maybe : add "movi20" opcode for SH2A (7253x )
 */
 
 #define S27_SPF_PATLEN 5

@@ -137,6 +137,98 @@ void test_gbrref(u8 *buf, u32 pos, u32 offs) {
 	}
 }
 
+//test @(disp,Rn) forms
+void test_rnrel(u8 *buf, u32 pos, u32 offs) {
+	u16 opc = reconst_16(&buf[pos]);
+	u32 disp = 0;
+	int dir = 0;	//0 : R. 1: W
+
+
+	if ((opc & 0xF000) == 0x1000) {
+			// 0001nnnnmmmmi4*4 mov.l <REG_M>,@(<disp>,<REG_N>)
+		dir = 1;
+		disp = (opc & 0xF) * 4;
+	} else if ((opc & 0xFE00) == 0x8400) {
+			// 10000100mmmmi4*1 mov.b @(<disp>,<REG_M>),R0
+			// 10000101mmmmi4*2 mov.w @(<disp>,<REG_M>),R0
+		dir = 0;
+		disp = (opc & 0xF) * (1 + (opc & 0x0100));
+	} else if ((opc & 0xFE00) == 0x8000) {
+			// 10000000mmmmi4*1 mov.b R0,@(<disp>,<REG_M>)
+			// 10000001mmmmi4*2 mov.w R0,@(<disp>,<REG_M>)
+		dir = 1;
+		disp = (opc & 0xF) * (1 + (opc & 0x0100));
+	} else if ((opc & 0xF000) == 0x5000) {
+			// 0101nnnnmmmmi4*4 mov.l @(<disp>,<REG_M>),<REG_N>)
+		dir = 0;
+		disp = (opc & 0xF) * 4;
+	} else {
+		//invalid
+		return;
+	}
+
+	if (offs == disp) {
+		//match !
+		if (dir) {
+			printf("\t\t**** W @ 0x%06lX\n", (unsigned long) pos);
+		} else {
+			printf("\t\t**** R @ 0x%06lX\n", (unsigned long) pos);
+		}
+	}
+}
+
+
+
+// @(R0, Rn) forms
+#define R0RN_MAXBT	10	//how far back to search for an immediate load for the offset
+void test_r0rn(u8 *buf, u32 pos, u32 offs, int regno) {
+	u16 opc = reconst_16(&buf[pos]);
+	int dir = 0;	//0 : R. 1: W
+	int newreg;
+	u32 disp = 0;
+
+	//0000nnnnmmmm0100 mov.b <REG_M>,@(R0,<REG_N>)
+	//0000nnnnmmmm0101 mov.w <REG_M>,@(R0,<REG_N>)
+	//0000nnnnmmmm0110 mov.l <REG_M>,@(R0,<REG_N>)
+	//0000nnnnmmmm1100 mov.b @(R0,<REG_M>),<REG_N>
+	//0000nnnnmmmm1101 mov.w @(R0,<REG_M>),<REG_N>
+	//0000nnnnmmmm1110 mov.l @(R0,<REG_M>),<REG_N>
+
+	if (((opc & 0xF00F) == 0x0007) ||
+		((opc & 0xF00F) == 0x000F) ||
+		((opc & 0xF004) != 0x0004)) return;	//bad opcode
+
+	//select either nnnn or mmmm according to direction
+	if (opc & 0x0008) {
+		//need to check mmmm field, maybe.
+		dir = 0;
+		newreg = (opc >> 4) & 0x0F;	//mmmm
+	} else {
+		dir = 1;
+		newreg = (opc >> 8) & 0x0F;	//nnnn
+	}
+
+	// two cases : the correct base was either in R0, or Rx
+	if (regno == 0) {
+		disp = fs27_bt_immload(buf, pos - R0RN_MAXBT, pos, newreg, 0);
+	} else {
+		//then mmmm needs to match regno
+		if (newreg != regno) return;
+		disp = fs27_bt_immload(buf, pos - R0RN_MAXBT, pos, R0, 0);
+	}
+
+	if (offs == disp) {
+		//match !
+		if (dir) {
+			printf("\t\t**** W @ 0x%06lX\n", (unsigned long) pos);
+		} else {
+			printf("\t\t**** R @ 0x%06lX\n", (unsigned long) pos);
+		}
+	}
+}
+
+
+
 u32 glob_offs;	//fugly shit to have access throughout all levels
 
 // siz : size of buf
@@ -146,10 +238,9 @@ void track_reg(u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
 	recurselevel += 1;
 	pos += 2;
 
-	while (pos < siz) {
-		//end recursion if already visited
+	for (; pos < siz; pos += 2) {
 		if (visited[pos]) {
-			goto endrec;
+			return;
 		}
 		visited[pos] = 1;
 
@@ -190,16 +281,19 @@ void track_reg(u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
 			}
 		}
 
-		//new recurse if bt/bf/bra
+		//new recurse if bt/bf
 		if (IS_BT_OR_BF(opc)) {
 			u32 newpos = disarm_8bit_offset(pos, GET_BTF_OFFSET(opc));
 			printf("Branch %4d.%6lX BT/BF\n", recurselevel, (unsigned long) pos);
 			track_reg(buf, newpos, siz, regno, visited);
 		}
+		//bra : don't recurse, just alter path
 		if (IS_BRA(opc)) {
 			u32 newpos = disarm_12bit_offset(pos, GET_BRA_OFFSET(opc));
 			printf("Branch %4d.%6lX BRA\n", recurselevel, (unsigned long) pos);
-			track_reg(buf, newpos, siz, regno, visited);
+			pos = newpos - 2;
+			//TODO : delay slut ? fuuuuu
+			continue;
 		}
 
 		//TODO  : how to deal with jsr / bsr ?
@@ -208,9 +302,9 @@ void track_reg(u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
 		if (regno == GBR) {
 			test_gbrref(buf, pos, glob_offs);
 		} else {
-
+			test_rnrel(buf, pos, glob_offs);	//test naive @(disp+Rn) forms
+			test_r0rn(buf, pos, glob_offs, regno);	//test @(R0,Rn) forms
 		}
-		pos += 2;
 
 	}
 
@@ -267,15 +361,17 @@ void findrefs(FILE *i_file, u32 base, u32 offs) {
 
 	recurselevel = 0;
 	u32 romcurs = 0;
-	while (romcurs < file_len) {
+	for (; romcurs < file_len; romcurs += 2) {
 		u16 opc;
+
+		if (visited[romcurs]) continue;
 
 		opc = reconst_16(&src[romcurs]);
 		visited[romcurs] = 1;
 
 		//2 possible opcodes : -  mov.w @(i, pc), Rn  : (0x1001nnnn 0xii) , or
 		//  mov.l @(i, pc), Rn : (0x1101nnnn 0xii)
-		uint8_t optop = (opc & 0xBF00) >> 8;
+		uint8_t optop = (opc & 0xB000) >> 8;
 		if (optop == 0x90) {
 			u32 imm = sh_get_PCimm(src, romcurs);
 			if (imm == base) {
@@ -286,7 +382,6 @@ void findrefs(FILE *i_file, u32 base, u32 offs) {
 			}
 		}
 
-		romcurs += 2;
 	}
 
 
