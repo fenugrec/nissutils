@@ -155,3 +155,16 @@ uint32_t find_eepread(const uint8_t *buf, long siz, uint32_t *real_portreg);
  * @param s36k : output
  */
 bool find_s27_hardcore(const uint8_t *buf, long siz, uint32_t *s27k, uint32_t *s36k);
+
+
+
+/************** SH analysis helpers */
+
+
+/** return the immediate value loaded by PC-relative opcode (mov.w or mov.l only)
+ * caller must have ensured opcode is a mov.x (@PC, disp), Rn opcode
+ *
+ * @param pos Position of opcode within buffer
+ *
+ */
+uint32_t sh_get_PCimm(const uint8_t *buf, uint32_t pos);

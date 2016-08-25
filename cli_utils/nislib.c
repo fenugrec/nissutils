@@ -592,12 +592,11 @@ exit:
 }
 
 
-/** return the immediate value loaded by PC-relative opcode (mov.w or mov.l only)
- * @param opc mov.x (@PC, disp), Rn opcode
- * @param pos Position of opcode within buffer
- *
- */
-static uint32_t sh_get_PCimm(uint16_t opc, const uint8_t *buf, uint32_t pos) {
+uint32_t sh_get_PCimm(const uint8_t *buf, uint32_t pos) {
+	uint16_t opc;
+
+	opc = reconst_16(&buf[pos]);
+
 	if (opc & 0x4000) {
 		//mov.l
 		pos += ((opc & 0xFF) * 4) + 4;
@@ -681,7 +680,7 @@ uint32_t find_eepread(const uint8_t *buf, long siz, uint32_t *real_portreg) {
 		 * Compute PC offset, retrieve addr
 		*/
 		jackpot = (cur + window * 2);	//location of "mov.x" instr
-		jackpot = sh_get_PCimm(opc, buf, jackpot);
+		jackpot = sh_get_PCimm(buf, jackpot);
 
 		/* discard out-of-ROM addresses */
 		if (jackpot > (1024 * 1024 * 1024UL)) {
