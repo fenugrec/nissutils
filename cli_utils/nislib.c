@@ -560,7 +560,7 @@ static bool analyze_eepread(const uint8_t *buf, long siz, uint32_t func, uint32_
 	 */
 	uint32_t fcur;
 	bool good = 0;
-	
+
 	for (fcur = 0;fcur < EEPREAD_GETIOREG; fcur += 1) {
 		uint16_t opc;
 		uint32_t litofs;
@@ -610,6 +610,7 @@ static uint32_t sh_get_PCimm(uint16_t opc, const uint8_t *buf, uint32_t pos) {
 		pos += ((opc & 0xFF) * 2) + 4;
 		//printf("retrieve &er() from 0x%0X\n", pos);
 		pos = reconst_16(&buf[pos]);
+		if (pos & 0x8000) pos |= 0xFFFF0000;	//sign-extend
 	}
 	return pos;
 }
@@ -626,7 +627,7 @@ uint32_t find_eepread(const uint8_t *buf, long siz, uint32_t *real_portreg) {
 	uint32_t jackpot = 0;
 	uint32_t real_jackpot = 0;
 	uint32_t portreg = 0;
-	
+
 	siz &= ~1;
 
 	for (cur = 0; cur < siz; cur += 2) {
@@ -688,7 +689,7 @@ uint32_t find_eepread(const uint8_t *buf, long siz, uint32_t *real_portreg) {
 			//	occurences, cur + window * 2, jackpot);
 			continue;
 		}
-		
+
 		/* improve confidence level : there should really be 2-3 identical "jsr" opcodes nearby */
 		int other_jsrs = 0;
 		int sign = 1;
@@ -718,7 +719,7 @@ uint32_t find_eepread(const uint8_t *buf, long siz, uint32_t *real_portreg) {
 			continue;
 			//printf("Occurence %d @ 0x%0X : no 7C nearby\n", occurences, cur + window * 2);
 		}
-		
+
 		/* last test : follow inside eep_read() to see if we access IO registers pretty soon */
 		if (analyze_eepread(buf, siz, jackpot, &portreg)) {
 			occurences += 1;
@@ -728,7 +729,7 @@ uint32_t find_eepread(const uint8_t *buf, long siz, uint32_t *real_portreg) {
 		} else {
 			fprintf(dbg_stream, "didn't recognize &eep_read()\n");
 		}
-		
+
 
 	}	//for
 	//return last occurence.
@@ -783,9 +784,9 @@ uint32_t find_pattern(const uint8_t *buf, long siz, int patlen,
  * regno : n from "Rn"
  * min : don't backtrack further than buf[min]
  * shlr : if set, take the upper 16bits of immediate (set to 0; only used within recursion)
- * 
+ *
  * @return 0 if failed; 16-bit immediate otherwise
- * 
+ *
  * handles multiple-mov sequences, and "shlr16" too.
  */
 
@@ -795,7 +796,7 @@ static uint16_t fs27_bt_immload(const uint8_t *buf, long min, long start,
 	while (start >= min) {
 		int new_regno;
 		opc = reconst_16(&buf[start]);
-		
+
 		// 1) limit search to function head. Problem : sometimes this opcode is not at the head of the function !
 		//if (opc == 0x4F22) return 0;
 
@@ -806,7 +807,7 @@ static uint16_t fs27_bt_immload(const uint8_t *buf, long min, long start,
 			start -= 2;
 			new_regno = (opc & 0xF0) >> 4;
 			new_bt = fs27_bt_immload(buf, min, start, new_regno, shlr);
-			
+
 			if (new_bt) {
 				//Suxxess : found literal
 				//printf("root literal @ %X\n", new_bt);
@@ -815,7 +816,7 @@ static uint16_t fs27_bt_immload(const uint8_t *buf, long min, long start,
 			// recurse failed; probably loaded from arglist or some other shit
 			return 0;
 		}
-		
+
 		// 2b) if we had a "shlr16" into regno, recurse too and shift immediate before returning.
 		if (opc == (0x4029 | (regno << 8))) {
 			uint16_t new_bt;
@@ -866,7 +867,7 @@ static uint16_t fs27_bt_immload(const uint8_t *buf, long min, long start,
 			return (opc & 0xFF);
 		}
 
-		
+
 		start -= 2;
 
 	}	//while
@@ -897,7 +898,7 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, long siz, long bsr_offs) {
 		uint16_t opc;
 		int regno;
 		opc = reconst_16(&buf[cur]);
-	
+
 		if (	((opc & 0xFF00) == 0xC100) ||
 			((opc & 0xFF00) == 0x8100)) {
 			// but skip anything related to r15
@@ -1001,7 +1002,7 @@ bool find_s27_hardcore(const uint8_t *buf, long siz, uint32_t *s27k, uint32_t *s
 			if (sign == 1) disp +=2 ;
 		}
 		swapf_cur = patpos + 2;
-		
+
 	}
 	if (s27_found && s36_found) return 1;
 	return 0;
@@ -1074,7 +1075,7 @@ long find_calltable(const uint8_t *buf, long skip, long siz, unsigned *ctlen) {
 			}
 		}
 
-		if ((tv >= (uint32_t) siz) || 
+		if ((tv >= (uint32_t) siz) ||
 			(tv & 1)) {
 			//invalid / unaligned func ptr. Maybe end of valid table :
 			if (	(consec >= FCALLTABLE_MINLENGTH) &&
