@@ -1,4 +1,24 @@
-/* find base+offset xrefs
+/* find base+offset xrefs. Not nearly an exhaustive search, but
+ * it saves about 1-2h of manual IDA search *every time* !
+ *
+ * The way this works is:
+ * 1- you have a certain location (typically in RAM), say 0xffff40ff that you're interested in.
+ * 2- you notice the code often accesses it by devious ways such as
+ *   D6 0B mov.l   @(h'2C,pc), r6 ; r6 = 0xFFFF40E7
+ *   E0 18 mov     #h'18, r0
+ *   00 6C mov.b   @(r0,r6), r0	;r0 = [0xffff40ff] !
+ * i.e. there's a base address (FFFF40E7) and an offset (+18) to reach the target addr.
+ * Sometimes (often, actually) more than one combination of base + offset is used for the same target.
+ * For the example above, the other frequent occurence is 0xFFFF400F + 0xF0 == 0xFFFF40FF.
+ *
+ * 3- run this utility, with "tgt" being the location you want to track,
+ * and "minbase" the smallest likely base address. All the possible base addresses will be
+ * tested. In the above case, I could specify minbase = 0xFFFF4000 and the utility will
+ * test a total of 255 base + offset permutations.
+ *
+ * This should really be compiled at -O2
+ *
+ *
  * (c) fenugrec 2016
  * GPLv3
  */
@@ -391,23 +411,23 @@ void findrefs(FILE *i_file, u32 base, u32 offs) {
 
 
 int main(int argc, char * argv[]) {
-	unsigned long base, offs;
+	unsigned long tgt, minbase, base, offs;
 	FILE *i_file;
 
 	dbg_stream = stdout;
 
 	if (argc != 4) {
-		printf("%s <base> <offset> <in_file>"
-			"\n\tExample: %s 0xffff400f 0xf0 rom.bin\n", argv[0], argv[0]);
+		printf("%s <tgt> <minbase> <in_file>"
+			"\n\tExample: %s 0xffff40ff 0xffff4000 rom.bin\n", argv[0], argv[0]);
 		return 0;
 	}
 
 	// arg 1,2 : orig checksum locations
-	if (sscanf(argv[1], "%lx", &base) != 1) {
+	if (sscanf(argv[1], "%lx", &tgt) != 1) {
 		printf("did not understand %s\n", argv[1]);
 		return 0;
 	}
-	if (sscanf(argv[2], "%lx", &offs) != 1) {
+	if (sscanf(argv[2], "%lx", &minbase) != 1) {
 		printf("did not understand %s\n", argv[2]);
 		return 0;
 	}
@@ -418,9 +438,11 @@ int main(int argc, char * argv[]) {
 		return 0;
 	}
 
-	rewind(i_file);
-
-	findrefs(i_file, base, offs);
+	for (base=tgt; base >= minbase; base -= 1) {
+		offs = tgt - base;
+		rewind(i_file);
+		findrefs(i_file, base, offs);
+	}
 
 	fclose(i_file);
 
