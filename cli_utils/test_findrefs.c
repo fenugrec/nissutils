@@ -248,8 +248,41 @@ void test_r0rn(u8 *buf, u32 pos, u32 offs, int regno) {
 	}
 }
 
+/* test "@Rn, Rm" and "Rn, @Rm" variants (REGREF) */
+void test_regref(u8 *buf, u32 pos, u32 offs, int regno) {
+	int dir = 0;
+	int newreg;
+	u16 opc=reconst_16(&buf[pos]);
 
+	// offset must be 0 for these to work
+	if (offs) return;
 
+	// patterns :
+	// 0010nnnnmmmm0000 mov.b <REG_M>,@<REG_N>
+	// 0010nnnnmmmm0001 mov.w <REG_M>,@<REG_N>
+	// 0010nnnnmmmm0010 mov.l <REG_M>,@<REG_N>
+	// 0110nnnnmmmm0000 mov.b @<REG_M>,<REG_N>
+	// 0110nnnnmmmm0001 mov.w @<REG_M>,<REG_N>
+	// 0110nnnnmmmm0010 mov.l @<REG_M>,<REG_N>
+
+	u16 optop = opc & 0xB00F;	//drop bit 14 (direction)
+	if  (	(optop == 0x2000) ||
+			(optop == 0x2001) ||
+			(optop == 0x2002) ){
+		if (opc & 0x4000) {
+			//@Rm, Rn
+			newreg = (opc >> 4) & 0xF;
+			dir = 0;
+		} else {
+			//Rm, @Rn
+			newreg = (opc >> 8) & 0xF;
+			dir = 1;
+		}
+		if (newreg != regno) return;	//mismatch
+		report_hit(dir, pos, glob_base, 0);
+	}
+	return;
+}
 
 // siz : size of buf
 // recursively track usage of register <regno>
@@ -324,6 +357,7 @@ void track_reg(u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
 		} else {
 			test_rnrel(buf, pos, glob_offs, regno);	//test naive @(disp+Rn) forms
 			test_r0rn(buf, pos, glob_offs, regno);	//test @(R0,Rn) forms
+			test_regref(buf, pos, glob_offs, regno);	//test @R, R forms
 		}
 
 	}
