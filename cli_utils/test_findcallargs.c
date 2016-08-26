@@ -2,7 +2,17 @@
  *
  * The way this works is:
  *
- * This should really be compiled at -O2
+ * 1- there's a cool function, maybe "set_DTC(dtc_index)".
+ *   - We know the func address
+ *   - the interesting argument is passed in r4
+ * 2- the cool function is called from many many places
+ * 3- we want to find the place(s) where the func is called with a certain argument,
+ *   ex. set_DTC(0xB0)
+ *
+ * easy : run this utility, with
+ *    <tgt> = function address
+ *    <r4val> = argument value
+ * Example: test_findcallargs.exe 0x56738 0xB0 rom.bin
  *
  *
  * (c) fenugrec 2016
