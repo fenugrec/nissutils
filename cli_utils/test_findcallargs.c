@@ -233,37 +233,6 @@ endrec:
 }
 
 
-/** Find all "bsr N" occurences that call the function at <tgt>.
- * for every hit, calls <callback>(<data>), a generic proto
- */
-void find_bsr(const u8 *buf, u32 tgt, void (*found_bsr_cb)(const u8 *buf, u32 pos, void *data), void *cbdata) {
-
-	/*
-	 * bsr opcode : 1011 dddd dddd dddd
-	 * displacement range = 2*disp == [-4096, +4094] + PC
-	 *
-	 */
-	int sign = 1;
-	int disp = 0;
-
-	/* iterate, starting at the position where the opcode "B0 00" would jump to "swapf". */
-	while ((sign * disp) != -4096) {
-		uint16_t opc;
-		uint32_t bsr_offs = tgt - 4 - (sign * disp);
-		opc = reconst_16(&buf[bsr_offs]);
-		// is it a "bsr" with the correct offset ?
-		if (opc == (0xB000 | ((sign * disp / 2) & 0xFFF))) {
-			printf("found bsr at %lX\n", (unsigned long) bsr_offs);
-			found_bsr_cb(buf, bsr_offs, cbdata);
-		}
-		sign = -sign;
-		if (sign == 1) disp +=2 ;
-	}
-	return;
-
-}
-
-
 struct bsrcb_data {
 	u32 expected_r4val;
 	};

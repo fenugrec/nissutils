@@ -170,3 +170,9 @@ uint16_t fs27_bt_immload(const uint8_t *buf, long min, long start,
  *
  */
 uint32_t sh_get_PCimm(const uint8_t *buf, uint32_t pos);
+
+
+/** Find all "bsr N" occurences that call the function at <tgt>.
+ * for every hit, calls <callback>(<cdata>)
+ */
+void find_bsr(const uint8_t *buf, uint32_t tgt, void (*found_bsr_cb)(const uint8_t *buf, uint32_t pos, void *data), void *cbdata);

@@ -46,7 +46,7 @@ struct romfile {
 
 	long p_acs;	//pos of alt_cks sum
 	long p_acx;	//pos of alt_cks xor
-	
+
 	long p_a2cs;
 	long p_a2cx;	//pos of alt2 cks sum, xor
 
@@ -179,7 +179,7 @@ bool find_s27k(struct romfile *rf, int *key_idx, bool thorough) {
 
 		keyset += 1;
 	}
-	
+
 
 	/* test 2 : search as two 16bit halves close by
 	 * this is slower so only tried if required. TODO :
@@ -609,7 +609,7 @@ int main(int argc, char *argv[])
 	long ramfpos;
 
 	if (argc !=2) {
-		printf("%s <ROMFILE> : analyze 512k or 1M ROM.\n",argv[0]);
+		printf("%s <ROMFILE> : analyze ROM dump.\n",argv[0]);
 		return 0;
 	}
 
@@ -714,7 +714,7 @@ int main(int argc, char *argv[])
 	} else {
 		printf("0\tN/A\tN/A\t");
 	}
-	
+
 	//alt cks?\t&alt_s\t&alt_x\tack_start\t&ack_end\t
 	if (rf.cks_alt_present) {
 		printf("%d\t0x%lX\t0x%lX\t0x%lX\t0x%lX\t",

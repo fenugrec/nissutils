@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include "nislib.h"
 #include "nissan_romdefs.h"
+#include "stypes.h"
 
 uint32_t reconst_32(const uint8_t *buf) {
 	// ret 4 bytes at *buf with SH endianness
@@ -885,7 +886,7 @@ uint16_t fs27_bt_immload(const uint8_t *buf, long min, long start,
  * @return the key if found, 0 otherwise
  */
 #define S27_IMM_MAXBT	0x70	//max # of bytes to backtrack
-static uint32_t fs27_bt_stmem(const uint8_t *buf, long siz, long bsr_offs) {
+static uint32_t fs27_bt_stmem(const uint8_t *buf, long bsr_offs) {
 	const long min = bsr_offs - S27_IMM_MAXBT;
 	int occ = 0;
 	int occ_dist[2] = {0,0}; //find out which 16-bit key half is loaded at a lower RAM address
@@ -942,6 +943,69 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, long siz, long bsr_offs) {
 	return key;
 }
 
+
+
+
+/* Find all "bsr N" occurences that call the function at <tgt>.
+ * for every hit, calls <callback>(<data>), a generic proto
+ */
+void find_bsr(const u8 *buf, u32 tgt, void (*found_bsr_cb)(const u8 *buf, u32 pos, void *data), void *cbdata) {
+
+	/*
+	 * bsr opcode : 1011 dddd dddd dddd
+	 * displacement range = 2*disp == [-4096, +4094] + PC
+	 *
+	 */
+	int sign = 1;
+	int disp = 0;
+
+	/* iterate, starting at the position where the opcode "B0 00" would jump to "swapf". */
+	while ((sign * disp) != -4096) {
+		uint16_t opc;
+		uint32_t bsr_offs = tgt - 4 - (sign * disp);
+		opc = reconst_16(&buf[bsr_offs]);
+		// is it a "bsr" with the correct offset ?
+		if (opc == (0xB000 | ((sign * disp / 2) & 0xFFF))) {
+			fprintf(dbg_stream, "found bsr at %lX\n", (unsigned long) bsr_offs);
+			found_bsr_cb(buf, bsr_offs, cbdata);
+		}
+		sign = -sign;
+		if (sign == 1) disp +=2 ;
+	}
+	return;
+
+}
+
+
+struct s27_keyfinding {
+	int swapf_xrefs;	//# of occurences
+	bool s27_found;
+	bool s36_found;
+	uint32_t *s27k;
+	uint32_t *s36k;		//where to store the keys found
+};
+
+/* callback for every "bsr swapf" hit */
+void found_bsr_swapf(const u8 *buf, u32 pos, void *data) {
+	struct s27_keyfinding *skf = data;
+
+	skf->swapf_xrefs += 1;
+	/* now, backtrack to find constants */
+	/* TODO : determine if the key is for sid27 or sid36; this just assumes that the first key we find
+	 * is the s36 one. This has been true for a lot of ROMs, but is just lucky. */
+	uint32_t key;
+	key = fs27_bt_stmem(buf, pos);
+	if (key && skf->s36_found) {
+		*skf->s27k = key;
+		skf->s27_found = 1;
+	} else if (key) {
+		*skf->s36k = key;
+		skf->s36_found = 1;
+	}
+}
+
+
+
 /* Strategy :
  - find "swapf" function used by both encr / decryption
  - find xrefs to "swapf" (exactly 2)
@@ -955,8 +1019,15 @@ static const uint16_t spf_mask[]={0xf00f, 0xf00f, 0xf00f, 0xffff, 0xf00f};
 bool find_s27_hardcore(const uint8_t *buf, long siz, uint32_t *s27k, uint32_t *s36k) {
 	uint32_t swapf_cur = 0;
 	int swapf_instances = 0;
-	bool s27_found = 0;
-	bool s36_found = 0;
+
+	struct s27_keyfinding skf;
+	skf.s27k = s27k;
+	skf.s27_found = 0;
+	skf.s36k = s36k;
+	skf.s36_found = 0;
+	skf.swapf_xrefs = 0;
+
+
 	while ( swapf_cur < siz ) {
 		uint32_t patpos;
 		patpos = find_pattern(&buf[swapf_cur], siz - swapf_cur,
@@ -966,43 +1037,13 @@ bool find_s27_hardcore(const uint8_t *buf, long siz, uint32_t *s27k, uint32_t *s
 		swapf_instances +=1 ;
 		//printf("got 1 swapf @ %0lX;\n", patpos + 0UL);
 
-		/* Find xrefs (bsr) to  this swapf instance.
-		 * bsr opcode : 1011 dddd dddd dddd
-		 * displacement range = 2*disp == [-4096, +4094] + PC
-		 *
-		 */
-		int sign = 1;
-		int disp = 0;
-		int swapf_xrefs = 0;
-		/* iterate, starting at the position where the opcode "B0 00" would jump to "swapf". */
-		while ((sign * disp) != -4096) {
-			uint16_t opc;
-			uint32_t bsr_offs = patpos - 4 - (sign * disp);
-			opc = reconst_16(&buf[bsr_offs]);
-			// is it a "bsr" with the correct offset ?
-			if (opc == (0xB000 | ((sign * disp / 2) & 0xFFF))) {
-				fprintf(dbg_stream, "good bsr swapf@ %lX\n", (unsigned long) bsr_offs);
-				swapf_xrefs += 1;
-				/* now, backtrack to find constants */
-				/* TODO : determine if the key is for sid27 or sid36; this just assumes that the first key we find
-				 * is the s36 one. This has been true for a lot of ROMs, but is just lucky. */
-				uint32_t key;
-				key = fs27_bt_stmem(buf, siz, bsr_offs);
-				if (key && s36_found) {
-					*s27k = key;
-					s27_found = 1;
-				} else if (key) {
-					*s36k = key;
-					s36_found = 1;
-				}
-			}
-			sign = -sign;
-			if (sign == 1) disp +=2 ;
-		}
+		/* Find xrefs (bsr) to  this swapf instance. */
+		find_bsr(buf, patpos, found_bsr_swapf, &skf);
+
 		swapf_cur = patpos + 2;
 
 	}
-	if (s27_found && s36_found) return 1;
+	if (skf.s27_found && skf.s36_found) return 1;
 	return 0;
 
 }
