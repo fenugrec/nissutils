@@ -796,7 +796,6 @@ u32 sh_extsw(u16 val) {
  *
  * regno : n from "Rn"
  * min : don't backtrack further than buf[min]
- * shlr : if set, take the upper 16bits of immediate (set to 0; only used within recursion)
  *
  * @return 0 if failed; 32-bit immediate otherwise
  *
@@ -804,7 +803,7 @@ u32 sh_extsw(u16 val) {
  */
 
 uint32_t sh_bt_immload(const uint8_t *buf, long min, long start,
-				int regno, bool shlr) {
+				int regno) {
 	uint16_t opc;
 	while (start >= min) {
 		int new_regno;
@@ -819,7 +818,7 @@ uint32_t sh_bt_immload(const uint8_t *buf, long min, long start,
 			u32 new_bt;
 			start -= 2;
 			new_regno = (opc & 0xF0) >> 4;
-			new_bt = sh_bt_immload(buf, min, start, new_regno, shlr);
+			new_bt = sh_bt_immload(buf, min, start, new_regno);
 
 			if (new_bt) {
 				//Suxxess : found literal
@@ -833,7 +832,7 @@ uint32_t sh_bt_immload(const uint8_t *buf, long min, long start,
 		if (opc == (0x4029 | (regno << 8))) {
 			u32 new_bt;
 			start -= 2;
-			new_bt = sh_bt_immload(buf, min, start, regno, 1);
+			new_bt = sh_bt_immload(buf, min, start, regno);
 
 			if (new_bt) {
 				//Suxxess : found literal
@@ -914,7 +913,7 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, long bsr_offs) {
 			if ((opc & 0xFFF0) == 0x81F0) goto next;
 			regno = 0;
 			uint16_t rv;
-			rv = (u16) sh_bt_immload(buf, min, cur - 2, regno, 0);
+			rv = (u16) sh_bt_immload(buf, min, cur - 2, regno);
 			if (rv) {
 				//printf("imm->mem(gbr) store %d : %X\n", occ, rv);
 				occ_dist[occ] = opc & 0xFF;
@@ -927,7 +926,7 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, long bsr_offs) {
 			if ((opc & 0xFF00) == 0x2F00) goto next;
 			regno = (opc & 0xF0) >> 4;
 			uint16_t rv;
-			rv = (u16) sh_bt_immload(buf, min, cur - 2, regno, 0);
+			rv = (u16) sh_bt_immload(buf, min, cur - 2, regno);
 			if (rv) {
 				//printf("imm->mem(Rn) store #%d : %X\n", occ, rv);
 				occ_dist[occ] = 0;
