@@ -104,7 +104,7 @@ void test_rnrel(const u8 *buf, u32 pos, u32 offs, int regno) {
 		if (((opc >> 8) & 0x0F) != regno) return;	//nnnn must match
 		dir = 1;
 		disp = (opc & 0xF) * 4;
-	} else if ((opc & 0xF600) == 0x8000) {
+	} else if ((opc & 0xFA00) == 0x8000) {
 			// 10000100mmmmi4*1 mov.b @(<disp>,<REG_M>),R0
 			// 10000101mmmmi4*2 mov.w @(<disp>,<REG_M>),R0
 			// 10000000mmmmi4*1 mov.b R0,@(<disp>,<REG_M>)
