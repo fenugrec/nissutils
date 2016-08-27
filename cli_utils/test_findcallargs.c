@@ -151,7 +151,7 @@ void test_goodcall(u8 *buf, u32 pos, int regno) {
 
 // siz : size of buf
 // recursively track usage of register <regno>
-void track_reg(u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
+void sh_track_reg(u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
 
 	recurselevel += 1;
 	pos += 2;
@@ -179,13 +179,13 @@ void track_reg(u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
 				//regno is copied to a new one.
 				int newreg = (opc & 0xF00) >> 8;
 				printf("Entering %4d.%6lX MOV\n", recurselevel, (unsigned long) pos);
-				track_reg(buf, pos, siz, newreg, visited);
+				sh_track_reg(buf, pos, siz, newreg, visited);
 			}
 
 			//new recurse if we copy to gbr
 			if ((opc & 0xF0FF) == (0x401E | (regno << 8))) {
 				printf("Entering %4d.%6lX LDC GBR\n", recurselevel, (unsigned long) pos);
-				track_reg(buf, pos, siz, GBR, visited);
+				sh_track_reg(buf, pos, siz, GBR, visited);
 			}
 		}
 
@@ -194,7 +194,7 @@ void track_reg(u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
 			if ((opc & 0xF0FF) == 0x0012) {
 				int newreg = (opc >> 8) & 0xF;
 				printf("Entering %4d.%6lX STC GBR\n", recurselevel, (unsigned long) pos);
-				track_reg(buf, pos, siz, newreg, visited);
+				sh_track_reg(buf, pos, siz, newreg, visited);
 			}
 		}
 
@@ -202,7 +202,7 @@ void track_reg(u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
 		if (IS_BT_OR_BF(opc)) {
 			u32 newpos = disarm_8bit_offset(pos, GET_BTF_OFFSET(opc));
 			printf("Branch %4d.%6lX BT/BF\n", recurselevel, (unsigned long) pos);
-			track_reg(buf, newpos, siz, regno, visited);
+			sh_track_reg(buf, newpos, siz, regno, visited);
 		}
 		//bra : don't recurse, just alter path
 		if (IS_BRA(opc)) {
@@ -256,7 +256,7 @@ void bsr_callback(const u8 *buf, u32 pos, void *data) {
  * **** 1 : for "jsr @reg" form
  *
  * - locate mov.w or mov.l instructions that load the specified <base> value
- * - follow code recursively with tracked register (track_reg()). Ending conditions:
+ * - follow code recursively with tracked register (sh_track_reg()). Ending conditions:
  *  - register clobbered (non exhaustive)
  *  - rts opcode
  *  - bt / bf / bra to visited areas
@@ -319,7 +319,7 @@ void findcalls(FILE *i_file, u32 base, u32 arg) {
 				// match ! start recursion.
 				int regno = sh_getopcode_dest(opc);
 				printf("Entering 00.%6lX.R%d\n", (unsigned long) romcurs, regno);
-				track_reg(src, romcurs, file_len, regno, visited);
+				sh_track_reg(src, romcurs, file_len, regno, visited);
 			}
 		}
 

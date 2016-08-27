@@ -300,7 +300,7 @@ void test_callback(const u8 *buf, u32 pos, int regno, void *data) {
 
 // siz : size of buf
 // recursively track usage of register <regno>
-void track_reg(const u8 *buf, u32 pos, u32 siz, int regno, u8 *visited,
+void sh_track_reg(const u8 *buf, u32 pos, u32 siz, int regno, u8 *visited,
 			void (*tracker_cb)(const uint8_t *buf, uint32_t pos, int regno, void *data), void *cbdata) {
 
 	recurselevel += 1;
@@ -324,13 +324,13 @@ void track_reg(const u8 *buf, u32 pos, u32 siz, int regno, u8 *visited,
 				//regno is copied to a new one.
 				int newreg = (opc & 0xF00) >> 8;
 				printf("Entering %4d.%6lX MOV\n", recurselevel, (unsigned long) pos);
-				track_reg(buf, pos, siz, newreg, visited, tracker_cb, cbdata);
+				sh_track_reg(buf, pos, siz, newreg, visited, tracker_cb, cbdata);
 			}
 
 			//new recurse if we copy to gbr
 			if ((opc & 0xF0FF) == (0x401E | (regno << 8))) {
 				printf("Entering %4d.%6lX LDC GBR\n", recurselevel, (unsigned long) pos);
-				track_reg(buf, pos, siz, GBR, visited, tracker_cb, cbdata);
+				sh_track_reg(buf, pos, siz, GBR, visited, tracker_cb, cbdata);
 			}
 		}
 
@@ -339,7 +339,7 @@ void track_reg(const u8 *buf, u32 pos, u32 siz, int regno, u8 *visited,
 			if ((opc & 0xF0FF) == 0x0012) {
 				int newreg = (opc >> 8) & 0xF;
 				printf("Entering %4d.%6lX STC GBR\n", recurselevel, (unsigned long) pos);
-				track_reg(buf, pos, siz, newreg, visited, tracker_cb, cbdata);
+				sh_track_reg(buf, pos, siz, newreg, visited, tracker_cb, cbdata);
 			}
 		}
 
@@ -347,7 +347,7 @@ void track_reg(const u8 *buf, u32 pos, u32 siz, int regno, u8 *visited,
 		if (IS_BT_OR_BF(opc)) {
 			u32 newpos = disarm_8bit_offset(pos, GET_BTF_OFFSET(opc));
 			printf("Branch %4d.%6lX BT/BF to %6lX\n", recurselevel, (unsigned long) pos, (unsigned long) newpos);
-			track_reg(buf, newpos - 2, siz, regno, visited, tracker_cb, cbdata);
+			sh_track_reg(buf, newpos - 2, siz, regno, visited, tracker_cb, cbdata);
 		}
 
 		bool isbra = 0;
@@ -387,7 +387,7 @@ endrec:
  * core function. strategy:
  *
  * - locate mov.w or mov.l instructions that load the specified <base> value
- * - follow code recursively with tracked register (track_reg()). Ending conditions:
+ * - follow code recursively with tracked register (sh_track_reg()). Ending conditions:
  *  - register clobbered (non exhaustive)
  *  - rts opcode
  *  - bt / bf / bra to visited areas
@@ -428,7 +428,7 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 				int regno = sh_getopcode_dest(opc);
 				memset(visited, 0, siz);
 				printf("Entering 00.%6lX.R%d\n", (unsigned long) romcurs, regno);
-				track_reg(src, romcurs, siz, regno, visited, test_callback, &offs);
+				sh_track_reg(src, romcurs, siz, regno, visited, test_callback, &offs);
 			}
 		}
 
