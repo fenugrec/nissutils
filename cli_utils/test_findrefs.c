@@ -68,8 +68,7 @@ static void report_hit(bool is_write, u32 pos, u32 base, u32 offs) {
 
 int recurselevel;
 
-u32 glob_base;
-u32 glob_offs;	//fugly shit to have access throughout all levels
+u32 glob_base;	//fugly shit to have access throughout all levels
 
 enum opcode_dest {
 	R0 = 0, R15 = 15, GBR, OPC_DEST_OTHER};
@@ -284,9 +283,25 @@ void test_regref(const u8 *buf, u32 pos, u32 offs, int regno) {
 	return;
 }
 
+
+// This is run on every position where <regno> is of interest.
+void test_callback(const u8 *buf, u32 pos, int regno, void *data) {
+	u32 offs = *(u32 *)data;
+	if (regno == GBR) {
+		test_gbrref(buf, pos, offs);
+	} else {
+		test_rnrel(buf, pos, offs, regno);	//test naive @(disp+Rn) forms
+		test_r0rn(buf, pos, offs, regno);	//test @(R0,Rn) forms
+		test_regref(buf, pos, offs, regno);	//test @R, R forms
+	}
+
+}
+
+
 // siz : size of buf
 // recursively track usage of register <regno>
-void track_reg(const u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
+void track_reg(const u8 *buf, u32 pos, u32 siz, int regno, u8 *visited,
+			void (*tracker_cb)(const uint8_t *buf, uint32_t pos, int regno, void *data), void *cbdata) {
 
 	recurselevel += 1;
 	pos += 2;
@@ -303,24 +318,19 @@ void track_reg(const u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
 			goto endrec;
 		}
 
-		//end recursion if reg is clobbered
-		if (sh_getopcode_dest(opc) == regno) {
-			goto endrec;
-		}
-
 		if (regno < 16) {
 			//new recurse if match mov Rm, Rn
 			if ((opc & 0xF0FF) == ((regno << 4) | 0x6003)) {
 				//regno is copied to a new one.
 				int newreg = (opc & 0xF00) >> 8;
 				printf("Entering %4d.%6lX MOV\n", recurselevel, (unsigned long) pos);
-				track_reg(buf, pos, siz, newreg, visited);
+				track_reg(buf, pos, siz, newreg, visited, tracker_cb, cbdata);
 			}
 
 			//new recurse if we copy to gbr
 			if ((opc & 0xF0FF) == (0x401E | (regno << 8))) {
 				printf("Entering %4d.%6lX LDC GBR\n", recurselevel, (unsigned long) pos);
-				track_reg(buf, pos, siz, GBR, visited);
+				track_reg(buf, pos, siz, GBR, visited, tracker_cb, cbdata);
 			}
 		}
 
@@ -329,7 +339,7 @@ void track_reg(const u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
 			if ((opc & 0xF0FF) == 0x0012) {
 				int newreg = (opc >> 8) & 0xF;
 				printf("Entering %4d.%6lX STC GBR\n", recurselevel, (unsigned long) pos);
-				track_reg(buf, pos, siz, newreg, visited);
+				track_reg(buf, pos, siz, newreg, visited, tracker_cb, cbdata);
 			}
 		}
 
@@ -337,7 +347,7 @@ void track_reg(const u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
 		if (IS_BT_OR_BF(opc)) {
 			u32 newpos = disarm_8bit_offset(pos, GET_BTF_OFFSET(opc));
 			printf("Branch %4d.%6lX BT/BF to %6lX\n", recurselevel, (unsigned long) pos, (unsigned long) newpos);
-			track_reg(buf, newpos - 2, siz, regno, visited);
+			track_reg(buf, newpos - 2, siz, regno, visited, tracker_cb, cbdata);
 		}
 
 		bool isbra = 0;
@@ -348,29 +358,25 @@ void track_reg(const u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
 			printf("Branch %4d.%6lX BRA to %6lX\n", recurselevel, (unsigned long) pos, (unsigned long) bra_newpos);
 			visited[pos] = 1;	//cheat !
 			isbra = 1;
-			continue;
 		}
 
 		//TODO  : how to deal with jsr / bsr ?
 
-		// And finally, check if we have a hit.
+		// almost done: check if we have a hit
 		if (isbra) pos += 2;	//go check next opcode for delay slot
-
-		if (regno == GBR) {
-			test_gbrref(buf, pos, glob_offs);
-		} else {
-			test_rnrel(buf, pos, glob_offs, regno);	//test naive @(disp+Rn) forms
-			test_r0rn(buf, pos, glob_offs, regno);	//test @(R0,Rn) forms
-			test_regref(buf, pos, glob_offs, regno);	//test @R, R forms
-		}
+		tracker_cb(buf, pos, regno, cbdata);
 		if (isbra) {
 			pos = bra_newpos -2;	//alter path
 			continue;
 		}
 
+		//end recursion if reg is clobbered
+		if (sh_getopcode_dest(opc) == regno) {
+			goto endrec;
+		}
 		visited[pos] = 1;
 
-	}
+	}	//for
 
 endrec:
 	recurselevel -= 1;
@@ -397,7 +403,6 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 	u8 *visited;	//array of bytes, set to 1 when a certain area is "visited"
 
 	glob_base = base;
-	glob_offs = offs;
 
 	visited = malloc(siz);
 	if (!visited) {
@@ -423,7 +428,7 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 				int regno = sh_getopcode_dest(opc);
 				memset(visited, 0, siz);
 				printf("Entering 00.%6lX.R%d\n", (unsigned long) romcurs, regno);
-				track_reg(src, romcurs, siz, regno, visited);
+				track_reg(src, romcurs, siz, regno, visited, test_callback, &offs);
 			}
 		}
 
