@@ -797,9 +797,10 @@ u32 sh_extsw(u16 val) {
  * regno : n from "Rn"
  * min : don't backtrack further than buf[min]
  *
+ *
  * @return 0 if failed; 32-bit immediate otherwise
  *
- * handles multiple-mov sequences, and "shlr16" too.
+ * handles multiple-mov sequences, and "shlr16", and "extu.b" too.
  */
 
 uint32_t sh_bt_immload(const uint8_t *buf, long min, long start,
@@ -840,6 +841,18 @@ uint32_t sh_bt_immload(const uint8_t *buf, long min, long start,
 			}
 			// recurse failed; probably loaded from arglist or some other shit
 			return 0;
+		}
+
+		// 2c) EXTU.B Rm,Rn 0110nnnnmmmm1100 : special case of mov R,R : also recurse
+		if ((opc & 0xFF0F) == (0x600C | (regno << 8))) {
+			u32 new_bt;
+			new_regno = (opc >> 4) & 0x0F;	//follow Rm
+			start -= 2;
+			new_bt = sh_bt_immload(buf, min, start, new_regno);
+
+			if (new_bt) {
+				return (new_bt & 0xFF);
+			}
 		}
 
 		// 3) no recursion : try to find load_immediate.
