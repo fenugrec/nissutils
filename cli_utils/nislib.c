@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include "nislib.h"
 #include "nissan_romdefs.h"
+#include "sh_opcodes.h"
 #include "stypes.h"
 
 uint32_t reconst_32(const uint8_t *buf) {
@@ -1158,4 +1159,74 @@ long find_calltable(const uint8_t *buf, long skip, long siz, unsigned *ctlen) {
 goodexit:
 	*ctlen = consec;
 	return table_start;
+}
+
+
+
+
+/* for bt,bf sign-extended offsets : return PC+4+ (exts.b offset)<<1 */
+u32 disarm_8bit_offset (u32 pos, u32 offs) {
+	/* sign extend if higher bit is 1 (0x08) */
+	if ((offs & 0x80) == 0x80)
+		offs |= ~0xFF;
+	return (offs<<1) + pos + 4;
+}
+
+/* for {bra,bsr} only: (sign-extend 12bit offset)<<1  + PC +4 */
+u32 disarm_12bit_offset (u32 pos, u32 insoff) {
+	u32 off = insoff;
+	/* sign extend if higher bit is 1 (0x0800) */
+	if ((off & 0x0800) == 0x0800)
+		off |= ~0xFFF;
+	return (pos) + (off<<1) + 4;
+}
+
+enum opcode_dest sh_getopcode_dest(u16 code) {
+
+	if (IS_MOVB_R0REL_TO_REG(code) || (IS_MOVW_R0REL_TO_REG(code)) || (IS_MOVL_R0REL_TO_REG(code)) ||
+		IS_MOVT(code) || (IS_STSMAC(code)) || (IS_STCSR1(code)) || IS_STSPR(code)
+		) {
+		return GET_TARGET_REG(code);
+	}
+	if (IS_AND_REGS(code) || IS_XOR_REGS(code) || IS_OR_REGS(code) || IS_XTRCT(code)
+		) {
+		return GET_TARGET_REG(code);
+	}
+	if (IS_ADD(code) || IS_ADDC(code) || IS_ADDV(code) ||
+		IS_SUB(code) || IS_SUBC(code) || IS_SUBV(code)
+		) {
+		return GET_TARGET_REG(code);
+	}
+	if (IS_ROT(code) || IS_SHIFT1(code) || IS_DT(code)
+		) {
+		return GET_TARGET_REG(code);		//incomplete
+	}
+	if ((code & 0xF000) == 0x5000) {
+		return GET_TARGET_REG(code);
+	}
+	if ((code & 0xF000) == 0x6000) {
+		return GET_TARGET_REG(code);
+	}
+	if ((code & 0xF000) == 0x7000) {
+		return GET_TARGET_REG(code);
+	}
+	if (IS_MOVB_REGDISP_R0(code) || IS_MOVW_REGDISP_R0(code)
+		) {
+		return 0;
+	}
+	if ((code & 0xF000) == 0x9000) {
+		return GET_TARGET_REG(code);
+	}
+	if (IS_MOVA_PCREL_R0(code) || IS_BINLOGIC_IMM_R0(code) ||
+		IS_MOVB_GBRREF_R0(code) || IS_MOVW_GBRREF_R0(code) || IS_MOVL_GBRREF_R0(code)
+		) {
+		return 0;
+	}
+	if ((code & 0xF000) == 0xD000) {
+		return GET_TARGET_REG(code);
+	}
+	if ((code & 0xF000) == 0xE000) {
+		return GET_TARGET_REG(code);
+	}
+	return OPC_DEST_OTHER;
 }

@@ -36,10 +36,10 @@ const uint8_t *u8memstr(const uint8_t *buf, long buflen, const uint8_t *needle, 
 
 const uint8_t *u16memstr(const uint8_t *buf, long buflen, const uint16_t needle);
 
-/** search a <buflen> u8 buffer for a 32-bit aligned u32 value, in SH endianness
+/** search a <buflen> u8 buffer for a 32-bit aligned uint32_t value, in SH endianness
  *
  */
-const uint8_t *u32memstr(const uint8_t *buf, long buflen, const uint32_t needle);
+const uint8_t *uint32_tmemstr(const uint8_t *buf, long buflen, const uint32_t needle);
 
 
 /** Find opcode pattern... bleh
@@ -51,14 +51,14 @@ uint32_t find_pattern(const uint8_t *buf, long siz, int patlen,
 
 /* "security" algorithms */
 
-/** Encode u32 data, algo 1
- * @param data u32 value to encode
+/** Encode uint32_t data, algo 1
+ * @param data uint32_t value to encode
  * @param scode key to use
  */
 uint32_t enc1(uint32_t data, uint32_t scode);
 
-/** Decode u32 data, algo 1
- * @param data u32 value to decode
+/** Decode uint32_t data, algo 1
+ * @param data uint32_t value to decode
  * @param scode key to use
  */
 uint32_t dec1(uint32_t data, uint32_t scode);
@@ -73,7 +73,7 @@ struct keyset_t {
 extern const struct keyset_t known_keys[];
 
 
-/** Sum and xor all u32 values in *buf, read with SH endianness
+/** Sum and xor all uint32_t values in *buf, read with SH endianness
  * @param [out] *xor
  * @param [out] *sum
  */
@@ -176,3 +176,18 @@ uint32_t sh_get_PCimm(const uint8_t *buf, uint32_t pos);
  * for every hit, calls <callback>(<cdata>)
  */
 void find_bsr(const uint8_t *buf, uint32_t tgt, void (*found_bsr_cb)(const uint8_t *buf, uint32_t pos, void *data), void *cbdata);
+
+
+/** for bt,bf sign-extended offsets : return PC+4+ (exts.b offset)<<1 */
+uint32_t disarm_8bit_offset (uint32_t pos, uint32_t offs);
+
+/** for {bra,bsr} only: (sign-extend 12bit offset)<<1  + PC +4 */
+uint32_t disarm_12bit_offset (uint32_t pos, uint32_t insoff);
+
+
+
+enum opcode_dest {
+	R0 = 0, R15 = 15, GBR, OPC_DEST_OTHER};
+
+/** determine what register is modified by a given opcode */
+enum opcode_dest sh_getopcode_dest(uint16_t code);
