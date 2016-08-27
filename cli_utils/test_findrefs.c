@@ -339,25 +339,33 @@ void track_reg(const u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
 			printf("Branch %4d.%6lX BT/BF to %6lX\n", recurselevel, (unsigned long) pos, (unsigned long) newpos);
 			track_reg(buf, newpos - 2, siz, regno, visited);
 		}
+
+		bool isbra = 0;
+		u32 bra_newpos = pos;
 		//bra : don't recurse, just alter path
 		if (IS_BRA(opc)) {
-			u32 newpos = disarm_12bit_offset(pos, GET_BRA_OFFSET(opc));
-			printf("Branch %4d.%6lX BRA to %6lX\n", recurselevel, (unsigned long) pos, (unsigned long) newpos);
+			bra_newpos = disarm_12bit_offset(pos, GET_BRA_OFFSET(opc));
+			printf("Branch %4d.%6lX BRA to %6lX\n", recurselevel, (unsigned long) pos, (unsigned long) bra_newpos);
 			visited[pos] = 1;	//cheat !
-			pos = newpos - 2;
-			//TODO : delay slut ? fuuuuu
+			isbra = 1;
 			continue;
 		}
 
 		//TODO  : how to deal with jsr / bsr ?
 
 		// And finally, check if we have a hit.
+		if (isbra) pos += 2;	//go check next opcode for delay slot
+
 		if (regno == GBR) {
 			test_gbrref(buf, pos, glob_offs);
 		} else {
 			test_rnrel(buf, pos, glob_offs, regno);	//test naive @(disp+Rn) forms
 			test_r0rn(buf, pos, glob_offs, regno);	//test @(R0,Rn) forms
 			test_regref(buf, pos, glob_offs, regno);	//test @R, R forms
+		}
+		if (isbra) {
+			pos = bra_newpos -2;	//alter path
+			continue;
 		}
 
 		visited[pos] = 1;
