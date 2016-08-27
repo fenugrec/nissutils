@@ -779,18 +779,31 @@ uint32_t find_pattern(const uint8_t *buf, long siz, int patlen,
 	return -1;
 }
 
+
+/** sign-extend u8 value to u32, like exts.b */
+u32 sh_extsb(u8 val) {
+	if (val & 0x80) return 0xFFFFFF00 | val;
+	return val;
+}
+
+/** Sign-extend u16 value to u32, like exts.w */
+u32 sh_extsw(u16 val) {
+	if (val & 0x8000) return 0xFFFF0000 | val;
+	return val;
+}
+
 /* recursive backtrack inside function to find a "mov imm16, Rn", "mov imm32, Rn" or "movi20 #imm20, rn" instruction.
  *
  * regno : n from "Rn"
  * min : don't backtrack further than buf[min]
  * shlr : if set, take the upper 16bits of immediate (set to 0; only used within recursion)
  *
- * @return 0 if failed; 16-bit immediate otherwise
+ * @return 0 if failed; 32-bit immediate otherwise
  *
  * handles multiple-mov sequences, and "shlr16" too.
  */
 
-uint16_t fs27_bt_immload(const uint8_t *buf, long min, long start,
+uint32_t sh_bt_immload(const uint8_t *buf, long min, long start,
 				int regno, bool shlr) {
 	uint16_t opc;
 	while (start >= min) {
@@ -803,14 +816,13 @@ uint16_t fs27_bt_immload(const uint8_t *buf, long min, long start,
 		// 2) if we're copying from another reg, we need to recurse. opc format :
 		// mov Rm, R(regno) [6n m3]
 		if ((opc & 0xFF0F) == (0x6003 | (regno << 8))) {
-			uint16_t new_bt;
+			u32 new_bt;
 			start -= 2;
 			new_regno = (opc & 0xF0) >> 4;
-			new_bt = fs27_bt_immload(buf, min, start, new_regno, shlr);
+			new_bt = sh_bt_immload(buf, min, start, new_regno, shlr);
 
 			if (new_bt) {
 				//Suxxess : found literal
-				//printf("root literal @ %X\n", new_bt);
 				return new_bt;
 			}
 			// recurse failed; probably loaded from arglist or some other shit
@@ -819,14 +831,13 @@ uint16_t fs27_bt_immload(const uint8_t *buf, long min, long start,
 
 		// 2b) if we had a "shlr16" into regno, recurse too and shift immediate before returning.
 		if (opc == (0x4029 | (regno << 8))) {
-			uint16_t new_bt;
+			u32 new_bt;
 			start -= 2;
-			new_bt = fs27_bt_immload(buf, min, start, regno, 1);
+			new_bt = sh_bt_immload(buf, min, start, regno, 1);
 
 			if (new_bt) {
 				//Suxxess : found literal
-				//printf("root literal @ %X\n", new_bt);
-				return new_bt;
+				return new_bt >> 16;
 			}
 			// recurse failed; probably loaded from arglist or some other shit
 			return 0;
@@ -840,8 +851,8 @@ uint16_t fs27_bt_immload(const uint8_t *buf, long min, long start,
 		// test for the "movi20" variant first, because it takes up 2 opcodes
 		uint16_t prevop = reconst_16(&buf[start - 2]);
 		if ((prevop & 0xFF0F) == (regno << 8)) {
-			//movi20 match. just keep lower 16 bits
-			return opc;
+			//movi20 match. just keep lower 16 bits sign-extended
+			return sh_extsw(opc);
 		}
 		uint8_t ic_top = (opc & 0xFF00) >> 8;
 		uint32_t imloc = start; //location of mov instruction
@@ -852,19 +863,17 @@ uint16_t fs27_bt_immload(const uint8_t *buf, long min, long start,
 			imloc &= ~0x03;
 			//printf("retrieve &er() from 0x%0X\n", jackpot);
 			imloc = reconst_32(&buf[imloc]);
-			imloc = shlr ? imloc >> 16 : imloc & 0xFFFF;
 			return imloc;
 		}
 		if (ic_top == (0x90 | regno)) {
 			//imm16
 			imloc += ((opc & 0xFF) * 2) + 4;
 			//printf("retrieve &er() from 0x%0X\n", jackpot);
-			imloc = reconst_16(&buf[imloc]);
-			return imloc;
+			return sh_extsw(reconst_16(&buf[imloc]));
 		}
 		if (ic_top == (0xE0 | regno)) {
 			//imm8
-			return (opc & 0xFF);
+			return sh_extsb(opc & 0xFF);
 		}
 
 
@@ -905,7 +914,7 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, long bsr_offs) {
 			if ((opc & 0xFFF0) == 0x81F0) goto next;
 			regno = 0;
 			uint16_t rv;
-			rv = fs27_bt_immload(buf, min, cur - 2, regno, 0);
+			rv = (u16) sh_bt_immload(buf, min, cur - 2, regno, 0);
 			if (rv) {
 				//printf("imm->mem(gbr) store %d : %X\n", occ, rv);
 				occ_dist[occ] = opc & 0xFF;
@@ -918,7 +927,7 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, long bsr_offs) {
 			if ((opc & 0xFF00) == 0x2F00) goto next;
 			regno = (opc & 0xF0) >> 4;
 			uint16_t rv;
-			rv = fs27_bt_immload(buf, min, cur - 2, regno, 0);
+			rv = (u16) sh_bt_immload(buf, min, cur - 2, regno, 0);
 			if (rv) {
 				//printf("imm->mem(Rn) store #%d : %X\n", occ, rv);
 				occ_dist[occ] = 0;
