@@ -337,13 +337,13 @@ void track_reg(const u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
 		//new recurse if bt/bf
 		if (IS_BT_OR_BF(opc)) {
 			u32 newpos = disarm_8bit_offset(pos, GET_BTF_OFFSET(opc));
-			printf("Branch %4d.%6lX BT/BF\n", recurselevel, (unsigned long) pos);
-			track_reg(buf, newpos, siz, regno, visited);
+			printf("Branch %4d.%6lX BT/BF to %6lX\n", recurselevel, (unsigned long) pos, (unsigned long) newpos);
+			track_reg(buf, newpos - 2, siz, regno, visited);
 		}
 		//bra : don't recurse, just alter path
 		if (IS_BRA(opc)) {
 			u32 newpos = disarm_12bit_offset(pos, GET_BRA_OFFSET(opc));
-			printf("Branch %4d.%6lX BRA\n", recurselevel, (unsigned long) pos);
+			printf("Branch %4d.%6lX BRA to %6lX\n", recurselevel, (unsigned long) pos, (unsigned long) newpos);
 			pos = newpos - 2;
 			//TODO : delay slut ? fuuuuu
 			continue;
