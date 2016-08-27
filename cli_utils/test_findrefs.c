@@ -145,7 +145,7 @@ static u32 disarm_12bit_offset (u32 pos, u32 insoff) {
 
 
 //check and report if hit (GBR already == base)
-void test_gbrref(u8 *buf, u32 pos, u32 offs) {
+void test_gbrref(const u8 *buf, u32 pos, u32 offs) {
 	u16 opc = reconst_16(&buf[pos]);
 	int dir = 0;	//0 : R. 1: W
 	int mul = 0;
@@ -167,7 +167,7 @@ void test_gbrref(u8 *buf, u32 pos, u32 offs) {
 }
 
 //test @(disp,Rn) forms
-void test_rnrel(u8 *buf, u32 pos, u32 offs, int regno) {
+void test_rnrel(const u8 *buf, u32 pos, u32 offs, int regno) {
 	u16 opc = reconst_16(&buf[pos]);
 	u32 disp = 0;
 	int dir = 0;	//0 : R. 1: W
@@ -206,7 +206,7 @@ void test_rnrel(u8 *buf, u32 pos, u32 offs, int regno) {
 
 // @(R0, Rn) forms
 #define R0RN_MAXBT	10	//how far back to search for an immediate load for the offset
-void test_r0rn(u8 *buf, u32 pos, u32 offs, int regno) {
+void test_r0rn(const u8 *buf, u32 pos, u32 offs, int regno) {
 	u16 opc = reconst_16(&buf[pos]);
 	int dir = 0;	//0 : R. 1: W
 	int newreg;
@@ -249,7 +249,7 @@ void test_r0rn(u8 *buf, u32 pos, u32 offs, int regno) {
 }
 
 /* test "@Rn, Rm" and "Rn, @Rm" variants (REGREF) */
-void test_regref(u8 *buf, u32 pos, u32 offs, int regno) {
+void test_regref(const u8 *buf, u32 pos, u32 offs, int regno) {
 	int dir = 0;
 	int newreg;
 	u16 opc=reconst_16(&buf[pos]);
@@ -286,7 +286,7 @@ void test_regref(u8 *buf, u32 pos, u32 offs, int regno) {
 
 // siz : size of buf
 // recursively track usage of register <regno>
-void track_reg(u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
+void track_reg(const u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
 
 	recurselevel += 1;
 	pos += 2;
@@ -383,40 +383,22 @@ endrec:
  * of course, print any base+offset matches, whether reading or writing.
  */
 
-void findrefs(FILE *i_file, u32 base, u32 offs) {
-	uint8_t *src;
+void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 	u8 *visited;	//array of bytes, set to 1 when a certain area is "visited"
-
-	long file_len;
 
 	glob_base = base;
 	glob_offs = offs;
 
-	file_len = flen(i_file);
-	if ((file_len <= 0) || (file_len > 3*1024*1024L)) {
-		printf("huge file (length %ld)\n", file_len);
-	}
-
-	src = malloc(file_len * 2);	//cheat : allocate both bufs
-	if (!src) {
+	visited = calloc(1, siz);	//this also does memset(0)
+	if (!visited) {
 		printf("malloc choke\n");
 		return;
 	}
-	visited = src + file_len;	//use second half of alloc
-
-	/* load whole ROM */
-	if (fread(src,1,file_len,i_file) != file_len) {
-		printf("trouble reading\n");
-		free(src);
-		return;
-	}
-
-	memset(visited, 0, file_len);
 
 
 	recurselevel = 0;
 	u32 romcurs = 0;
-	for (; romcurs < file_len; romcurs += 2) {
+	for (; romcurs < siz; romcurs += 2) {
 		u16 opc;
 
 		if (visited[romcurs]) continue;
@@ -433,14 +415,13 @@ void findrefs(FILE *i_file, u32 base, u32 offs) {
 				// match ! start recursion.
 				int regno = sh_getopcode_dest(opc);
 				printf("Entering 00.%6lX.R%d\n", (unsigned long) romcurs, regno);
-				track_reg(src, romcurs, file_len, regno, visited);
+				track_reg(src, romcurs, siz, regno, visited);
 			}
 		}
 
 	}
 
-
-	free(src);
+	free(visited);
 }
 
 
@@ -473,13 +454,34 @@ int main(int argc, char * argv[]) {
 		return 0;
 	}
 
-	for (base=tgt; base >= minbase; base -= 1) {
-		offs = tgt - base;
-		rewind(i_file);
-		findrefs(i_file, base, offs);
+	long file_len;
+
+	rewind(i_file);
+	file_len = flen(i_file);
+	if ((file_len <= 0) || (file_len > 3*1024*1024L)) {
+		printf("huge file (length %ld)\n", file_len);
 	}
 
+	u8 *src = malloc(file_len);
+	if (!src) {
+		printf("malloc choke\n");
+		return 0;
+	}
+
+	/* load whole ROM */
+	if (fread(src,1,file_len,i_file) != file_len) {
+		printf("trouble reading\n");
+		free(src);
+		return 0;
+	}
 	fclose(i_file);
+
+	for (base=tgt; base >= minbase; base -= 1) {
+		offs = tgt - base;
+		findrefs(src, (u32) file_len, base, offs);
+	}
+
+	free(src);
 
 	return 0;
 }
