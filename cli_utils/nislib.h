@@ -191,3 +191,12 @@ enum opcode_dest {
 
 /** determine what register is modified by a given opcode */
 enum opcode_dest sh_getopcode_dest(uint16_t code);
+
+
+/** recursively track usage of register <regno>.
+ * start at <pos> in buffer; updates the <visited> array (provided as =={0} by caller)
+ * on every instruction, invokes the tracker_cb callback while passing it <cbdata> as a generic holder.
+ */
+void sh_track_reg(const uint8_t *buf, uint32_t pos, uint32_t siz, int regno, uint8_t *visited,
+			void (*tracker_cb)(const uint8_t *buf, uint32_t pos, int regno, void *data), void *cbdata);
+

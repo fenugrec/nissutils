@@ -66,9 +66,8 @@ static void report_hit(bool is_write, u32 pos, u32 base, u32 offs) {
 
 /**** RECURSIV HELL ****/
 
-int recurselevel;
-
 u32 glob_base;	//fugly shit to have access throughout all levels
+
 
 
 //check and report if hit (GBR already == base)
@@ -211,7 +210,6 @@ void test_regref(const u8 *buf, u32 pos, u32 offs, int regno) {
 	return;
 }
 
-
 // This is run on every position where <regno> is of interest.
 void test_callback(const u8 *buf, u32 pos, int regno, void *data) {
 	u32 offs = *(u32 *)data;
@@ -226,90 +224,6 @@ void test_callback(const u8 *buf, u32 pos, int regno, void *data) {
 }
 
 
-// siz : size of buf
-// recursively track usage of register <regno>
-void sh_track_reg(const u8 *buf, u32 pos, u32 siz, int regno, u8 *visited,
-			void (*tracker_cb)(const uint8_t *buf, uint32_t pos, int regno, void *data), void *cbdata) {
-
-	recurselevel += 1;
-	pos += 2;
-
-	for (; pos < siz; pos += 2) {
-		if (visited[pos]) {
-			return;
-		}
-
-		u16 opc = reconst_16(&buf[pos]);
-
-		//end recursion if we hit RTS
-		if (IS_RTS(opc) || IS_RTE(opc)) {
-			goto endrec;
-		}
-
-		if (regno < 16) {
-			//new recurse if match mov Rm, Rn
-			if ((opc & 0xF0FF) == ((regno << 4) | 0x6003)) {
-				//regno is copied to a new one.
-				int newreg = (opc & 0xF00) >> 8;
-				printf("Entering %4d.%6lX MOV\n", recurselevel, (unsigned long) pos);
-				sh_track_reg(buf, pos, siz, newreg, visited, tracker_cb, cbdata);
-			}
-
-			//new recurse if we copy to gbr
-			if ((opc & 0xF0FF) == (0x401E | (regno << 8))) {
-				printf("Entering %4d.%6lX LDC GBR\n", recurselevel, (unsigned long) pos);
-				sh_track_reg(buf, pos, siz, GBR, visited, tracker_cb, cbdata);
-			}
-		}
-
-		if (regno == GBR) {
-			//new recurse if we STC gbr, Rn
-			if ((opc & 0xF0FF) == 0x0012) {
-				int newreg = (opc >> 8) & 0xF;
-				printf("Entering %4d.%6lX STC GBR\n", recurselevel, (unsigned long) pos);
-				sh_track_reg(buf, pos, siz, newreg, visited, tracker_cb, cbdata);
-			}
-		}
-
-		//new recurse if bt/bf
-		if (IS_BT_OR_BF(opc)) {
-			u32 newpos = disarm_8bit_offset(pos, GET_BTF_OFFSET(opc));
-			printf("Branch %4d.%6lX BT/BF to %6lX\n", recurselevel, (unsigned long) pos, (unsigned long) newpos);
-			sh_track_reg(buf, newpos - 2, siz, regno, visited, tracker_cb, cbdata);
-		}
-
-		bool isbra = 0;
-		u32 bra_newpos = pos;
-		//bra : don't recurse, just alter path
-		if (IS_BRA(opc)) {
-			bra_newpos = disarm_12bit_offset(pos, GET_BRA_OFFSET(opc));
-			printf("Branch %4d.%6lX BRA to %6lX\n", recurselevel, (unsigned long) pos, (unsigned long) bra_newpos);
-			visited[pos] = 1;	//cheat !
-			isbra = 1;
-		}
-
-		//TODO  : how to deal with jsr / bsr ?
-
-		// almost done: check if we have a hit
-		if (isbra) pos += 2;	//go check next opcode for delay slot
-		tracker_cb(buf, pos, regno, cbdata);
-		if (isbra) {
-			pos = bra_newpos -2;	//alter path
-			continue;
-		}
-
-		//end recursion if reg is clobbered
-		if (sh_getopcode_dest(opc) == regno) {
-			goto endrec;
-		}
-		visited[pos] = 1;
-
-	}	//for
-
-endrec:
-	recurselevel -= 1;
-	return;
-}
 
 /*
  * core function. strategy:
@@ -339,7 +253,6 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 	}
 
 
-	recurselevel = 0;
 	u32 romcurs = 0;
 	for (; romcurs < siz; romcurs += 2) {
 		u16 opc;
