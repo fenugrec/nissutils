@@ -295,7 +295,6 @@ void track_reg(const u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
 		if (visited[pos]) {
 			return;
 		}
-		visited[pos] = 1;
 
 		u16 opc = reconst_16(&buf[pos]);
 
@@ -344,6 +343,7 @@ void track_reg(const u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
 		if (IS_BRA(opc)) {
 			u32 newpos = disarm_12bit_offset(pos, GET_BRA_OFFSET(opc));
 			printf("Branch %4d.%6lX BRA to %6lX\n", recurselevel, (unsigned long) pos, (unsigned long) newpos);
+			visited[pos] = 1;	//cheat !
 			pos = newpos - 2;
 			//TODO : delay slut ? fuuuuu
 			continue;
@@ -359,6 +359,8 @@ void track_reg(const u8 *buf, u32 pos, u32 siz, int regno, u8 *visited) {
 			test_r0rn(buf, pos, glob_offs, regno);	//test @(R0,Rn) forms
 			test_regref(buf, pos, glob_offs, regno);	//test @R, R forms
 		}
+
+		visited[pos] = 1;
 
 	}
 
@@ -389,7 +391,7 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 	glob_base = base;
 	glob_offs = offs;
 
-	visited = calloc(1, siz);	//this also does memset(0)
+	visited = malloc(siz);
 	if (!visited) {
 		printf("malloc choke\n");
 		return;
@@ -401,10 +403,7 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 	for (; romcurs < siz; romcurs += 2) {
 		u16 opc;
 
-		if (visited[romcurs]) continue;
-
 		opc = reconst_16(&src[romcurs]);
-		visited[romcurs] = 1;
 
 		//2 possible opcodes : -  mov.w @(i, pc), Rn  : (0x1001nnnn 0xii) , or
 		//  mov.l @(i, pc), Rn : (0x1101nnnn 0xii)
@@ -414,6 +413,7 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 			if (imm == base) {
 				// match ! start recursion.
 				int regno = sh_getopcode_dest(opc);
+				memset(visited, 0, siz);
 				printf("Entering 00.%6lX.R%d\n", (unsigned long) romcurs, regno);
 				track_reg(src, romcurs, siz, regno, visited);
 			}
