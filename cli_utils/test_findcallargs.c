@@ -234,10 +234,7 @@ void findcalls(FILE *i_file, u32 base, u32 arg) {
 	for (; romcurs < file_len; romcurs += 2) {
 		u16 opc;
 
-		if (visited[romcurs]) continue;
-
 		opc = reconst_16(&src[romcurs]);
-		visited[romcurs] = 1;
 
 		//2 possible opcodes : -  mov.w @(i, pc), Rn  : (0x1001nnnn 0xii) , or
 		//  mov.l @(i, pc), Rn : (0x1101nnnn 0xii)
@@ -247,6 +244,7 @@ void findcalls(FILE *i_file, u32 base, u32 arg) {
 			if (imm == base) {
 				// match ! start recursion.
 				int regno = sh_getopcode_dest(opc);
+				memset(visited, 0, file_len);
 				printf("Entering 00.%6lX.R%d\n", (unsigned long) romcurs, regno);
 				sh_track_reg(src, romcurs, file_len, regno, visited);
 			}
