@@ -1291,18 +1291,20 @@ void sh_track_reg(const u8 *buf, u32 pos, u32 siz, int regno, u8 *visited,
 		if (IS_BRA(opc)) {
 			bra_newpos = disarm_12bit_offset(pos, GET_BRA_OFFSET(opc));
 			printf("Branch %4d.%6lX BRA to %6lX\n", recurselevel, (unsigned long) pos, (unsigned long) bra_newpos);
-			visited[pos] = 1;	//cheat !
 			isbra = 1;
 		}
 
 		//TODO  : how to deal with jsr / bsr ?
 
 		// almost done: check if we have a hit
-		if (isbra) pos += 2;	//go check next opcode for delay slot
-		tracker_cb(buf, pos, regno, cbdata);
 		if (isbra) {
+			visited[pos] = 1;	//cheat ! so we don't die in endlessloop
+				//go check next opcode for delay slot
+			tracker_cb(buf, pos + 2, regno, cbdata);
 			pos = bra_newpos -2;	//alter path
 			continue;
+		} else {
+			tracker_cb(buf, pos, regno, cbdata);
 		}
 
 		//end recursion if reg is clobbered
