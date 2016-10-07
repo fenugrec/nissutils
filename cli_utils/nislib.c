@@ -12,6 +12,12 @@
 #include "sh_opcodes.h"
 #include "stypes.h"
 
+/****** fwd decls */
+u32 sh_extsb(u8 val);
+u32 sh_extsw(u16 val);
+
+
+
 uint32_t reconst_32(const uint8_t *buf) {
 	// ret 4 bytes at *buf with SH endianness
 	// " reconst_4B"
@@ -608,10 +614,11 @@ uint32_t sh_get_PCimm(const uint8_t *buf, uint32_t pos) {
 		pos = reconst_32(&buf[pos]);
 	} else {
 		//mov.w
+		u16 lit;
 		pos += ((opc & 0xFF) * 2) + 4;
 		//printf("retrieve &er() from 0x%0X\n", pos);
-		pos = reconst_16(&buf[pos]);
-		if (pos & 0x8000) pos |= 0xFFFF0000;	//sign-extend
+		lit = reconst_16(&buf[pos]);
+		pos = sh_extsw(lit);	//sign-extend
 	}
 	return pos;
 }
@@ -801,7 +808,7 @@ u32 sh_extsw(u16 val) {
  *
  * @return 0 if failed; 32-bit immediate otherwise
  *
- * handles multiple-mov sequences, and "shll", "shlr16", "extu.b" too.
+ * handles multiple-mov sequences, and "shll", "shlr16", "extu.b", "add #imm8",  too.
  */
 
 uint32_t sh_bt_immload(const uint8_t *buf, long min, long start,
@@ -814,7 +821,7 @@ uint32_t sh_bt_immload(const uint8_t *buf, long min, long start,
 		// 1) limit search to function head. Problem : sometimes this opcode is not at the head of the function !
 		//if (opc == 0x4F22) return 0;
 
-		// 2) if we're copying from another reg, we need to recurse. opc format :
+		// 2a) if we're copying from another reg, we need to recurse. opc format :
 		// mov Rm, R(regno) [6n m3]
 		if ((opc & 0xFF0F) == (0x6003 | (regno << 8))) {
 			u32 new_bt;
@@ -865,6 +872,20 @@ uint32_t sh_bt_immload(const uint8_t *buf, long min, long start,
 
 			if (new_bt) {
 				return (new_bt <<1);
+			}
+		}
+
+		// 2e) add imm8: recurse and add before returning. b'0111nnnniiiiiiii'
+		if ((opc & 0xFF00)  == (0x7000 | (regno << 8))) {
+			u32 add_s8;
+			u32 new_bt;
+			add_s8 = sh_extsb(opc & 0xFF);
+			start -= 2;
+			//printf("\t\t***********add @ %lX\n", (unsigned long) start);
+			new_bt = sh_bt_immload(buf, min, start, regno);
+
+			if (new_bt) {
+				return (new_bt + add_s8);
 			}
 		}
 
