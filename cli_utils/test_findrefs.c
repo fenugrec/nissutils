@@ -9,7 +9,7 @@
  *   00 6C mov.b   @(r0,r6), r0	;r0 = [0xffff40ff] !
  * i.e. there's a base address (FFFF40E7) and an offset (+18) to reach the target addr.
  * Sometimes (often, actually) more than one combination of base + offset is used for the same target.
- * For the example above, the other frequent occurence is 0xFFFF400F + 0xF0 == 0xFFFF40FF.
+ * For the example above, the other frequent occurence could be 0xFFFF400F + 0xF0 == 0xFFFF40FF.
  *
  * 3- run this utility, with "tgt" being the location you want to track,
  * and "minbase" the smallest likely base address. All the possible base addresses will be
@@ -23,6 +23,7 @@
  * GPLv3
  */
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -228,7 +229,7 @@ void test_callback(const u8 *buf, u32 pos, int regno, void *data) {
 /*
  * core function. strategy:
  *
- * - locate mov.w or mov.l instructions that load the specified <base> value
+ * - locate mov.w or mov.l instructions that load the specified <base> value, or an evil trick like "mov #imm8, Rn" followed by "shll8 Rn" for when ((<base> & 0xFFFF00FF) == 0xFFFF0000)
  * - follow code recursively with tracked register (sh_track_reg()). Ending conditions:
  *  - register clobbered (non exhaustive)
  *  - rts opcode
@@ -241,10 +242,19 @@ void test_callback(const u8 *buf, u32 pos, int regno, void *data) {
  * of course, print any base+offset matches, whether reading or writing.
  */
 
+#define FINDREFS_SHLL8_MAXDIST 10	//in bytes
 void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 	u8 *visited;	//array of bytes, set to 1 when a certain area is "visited"
+	u8 shll8_base;
+	bool try_shll8 = 0;
 
 	glob_base = base;
+	shll8_base = (base & 0xFF00) >> 8;
+	if (	((base & 0xFFFF80FF) == 0xFFFF8000) ||
+		((base & 0xFFFF80FF) == 0x00000000)) {
+		//i.e. if the lower 8 bits are 0, and the top 16 bits are a sign extension.
+		try_shll8 = 1;
+	}
 
 	visited = malloc(siz);
 	if (!visited) {
@@ -259,7 +269,7 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 
 		opc = reconst_16(&src[romcurs]);
 
-		//2 possible opcodes : -  mov.w @(i, pc), Rn  : (0x1001nnnn 0xii) , or
+		//A) 2 possible opcodes : -  mov.w @(i, pc), Rn  : (0x1001nnnn 0xii) , or
 		//  mov.l @(i, pc), Rn : (0x1101nnnn 0xii)
 		uint8_t optop = (opc & 0xB000) >> 8;
 		if (optop == 0x90) {
@@ -270,6 +280,32 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 				memset(visited, 0, siz);
 				printf("Entering 00.%6lX.R%d\n", (unsigned long) romcurs, regno);
 				sh_track_reg(src, romcurs, siz, regno, visited, test_callback, &offs);
+			}
+		}
+
+		//B) mov imm8 + shll8 trick . first, find mov : b'1110nnnniiiiiiii'
+		if (!try_shll8) continue;
+		if ((opc & 0xF000) == 0xE000) {
+			if (shll8_base != (opc & 0xFF)) continue;
+
+			u32 s8_offs;
+			int regno = sh_getopcode_dest(opc);
+			u32 stopcond = romcurs + FINDREFS_SHLL8_MAXDIST;
+				/* naively assume that the shll8 should be pretty soon after the mov.s8 */
+			if (stopcond > siz) stopcond = siz;
+			for (s8_offs = 2; (romcurs + s8_offs) < stopcond; s8_offs += 2) {
+				u16 shll8_maybe;
+				shll8_maybe = reconst_16(&src[romcurs + s8_offs]);
+
+				if (regno == sh_getopcode_dest(shll8_maybe)) break;	//check for clobber
+
+				// shll8: 0100nnnn00011000
+				if (shll8_maybe == (0x4018 | regno << 8)) {
+					//match ! start recursion.
+					memset(visited, 0, siz);
+					printf("Entering 00.%6lX.R%d with mov+shll8\n", (unsigned long) romcurs + s8_offs, regno);
+					sh_track_reg(src, romcurs + s8_offs, siz, regno, visited, test_callback, &offs);
+				}
 			}
 		}
 

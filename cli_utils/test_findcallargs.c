@@ -3,9 +3,9 @@
  * The way this works is:
  *
  * 1- there's a cool function, maybe "set_DTC(dtc_index)".
- *   - We know the func address
+ *   - We know that func's address
  *   - the interesting argument is passed in r4
- * 2- the cool function is called from many many places
+ * 2- the cool func is called from many many places
  * 3- we want to find the place(s) where the func is called with a certain argument,
  *   ex. set_DTC(0xB0)
  *
