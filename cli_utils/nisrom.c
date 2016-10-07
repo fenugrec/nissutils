@@ -504,7 +504,6 @@ long find_ramf(struct romfile *rf) {
 		}
 	}
 
-	free(rf->buf);
 	if ((rf->p_acstart >= rf->siz) ||
 		(rf->p_acend >= rf->siz) ||
 		(rf->p_ivt2 >= rf->siz)) {
