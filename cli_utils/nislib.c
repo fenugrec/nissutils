@@ -808,7 +808,7 @@ u32 sh_extsw(u16 val) {
  *
  * @return 0 if failed; 32-bit immediate otherwise
  *
- * handles multiple-mov sequences, and "shll", "shlr16", "extu.b", "add #imm8",  too.
+ * handles multiple-mov sequences, and "shll", "shll2", "shlr16", "extu.b", "add #imm8",  too.
  */
 
 uint32_t sh_bt_immload(const uint8_t *buf, long min, long start,
@@ -863,15 +863,21 @@ uint32_t sh_bt_immload(const uint8_t *buf, long min, long start,
 			}
 		}
 
-		// 2d) shll : recurse and shift before returning
-		if (opc  == (0x4000 | (regno << 8))) {
+		// 2d) shll, shll2 : recurse and shift before returning
+		if ((opc & 0xFFF7)  == (0x4000 | (regno << 8))) {
 			u32 new_bt;
+			bool is_shll2 = (opc & 0x0008);
+
 			start -= 2;
 			//printf("\t\t***********shll @ %lX\n", (unsigned long) start);
 			new_bt = sh_bt_immload(buf, min, start, regno);
 
 			if (new_bt) {
-				return (new_bt <<1);
+				if (is_shll2) {
+					return (new_bt << 2);
+				} else {
+					return (new_bt << 1);
+				}
 			}
 		}
 
