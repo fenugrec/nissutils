@@ -162,11 +162,11 @@ void test_r0rn(const u8 *buf, u32 pos, u32 offs, int regno) {
 
 	// two cases : the correct base was either in R0, or Rx
 	if (regno == 0) {
-		disp = sh_bt_immload(buf, pos - R0RN_MAXBT, pos, newreg);
+		if (!sh_bt_immload(&disp, buf, pos - R0RN_MAXBT, pos, newreg)) return;
 	} else {
 		//then mmmm needs to match regno
 		if (newreg != regno) return;
-		disp = sh_bt_immload(buf, pos - R0RN_MAXBT, pos, R0);
+		if (!sh_bt_immload(&disp, buf, pos - R0RN_MAXBT, pos, R0)) return;
 	}
 
 	if (offs == disp) {

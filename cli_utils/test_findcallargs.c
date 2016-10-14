@@ -72,8 +72,10 @@ void test_goodcall(const u8 *buf, u32 pos, int regno, void *data) {
 	if (regno != GET_TARGET_REG(code)) return;
 
 	//cool, now we need to find what the value of r4 was. Start at pos + 2 because of delay slot !
-	u32 r4val = sh_bt_immload(buf, pos - JSR_R4_MAXBT, pos + 2, 4);
-	if (r4val == glob_arg) report_hit(pos);
+	u32 r4val;
+	if (sh_bt_immload(&r4val, buf, pos - JSR_R4_MAXBT, pos + 2, 4)) {
+		if (r4val == glob_arg) report_hit(pos);
+	}
 	return;
 }
 
@@ -89,9 +91,11 @@ void bsr_callback(const u8 *buf, u32 pos, void *data) {
 	struct bsrcb_data *bcbd = data;
 
 	//cool, now we need to find what the value of r4 was. Start at pos + 2 because of delay slot !
-	u32 r4val = sh_bt_immload(buf, pos - BSR_R4_MAXBT, pos + 2, 4);
-	if (r4val == bcbd->expected_r4val) {
-		report_hit(pos);
+	u32 r4val;
+	if (sh_bt_immload(&r4val, buf, pos - BSR_R4_MAXBT, pos + 2, 4)) {
+		if (r4val == bcbd->expected_r4val) {
+			report_hit(pos);
+		}
 	}
 	return;
 }

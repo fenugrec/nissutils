@@ -800,18 +800,10 @@ u32 sh_extsw(u16 val) {
 	return val;
 }
 
-/* recursive backtrack inside function to find a "mov imm16, Rn", "mov imm32, Rn" or "movi20 #imm20, rn" instruction.
- *
- * regno : n from "Rn"
- * min : don't backtrack further than buf[min]
- *
- *
- * @return 0 if failed; 32-bit immediate otherwise
- *
- * handles multiple-mov sequences, and "shll", "shll2", "shlr16", "extu.b", "add #imm8",  too.
- */
 
-uint32_t sh_bt_immload(const uint8_t *buf, long min, long start,
+
+
+int sh_bt_immload(u32 *imm, const uint8_t *buf, long min, long start,
 				int regno) {
 	uint16_t opc;
 	while (start >= min) {
@@ -824,14 +816,12 @@ uint32_t sh_bt_immload(const uint8_t *buf, long min, long start,
 		// 2a) if we're copying from another reg, we need to recurse. opc format :
 		// mov Rm, R(regno) [6n m3]
 		if ((opc & 0xFF0F) == (0x6003 | (regno << 8))) {
-			u32 new_bt;
 			start -= 2;
 			new_regno = (opc & 0xF0) >> 4;
-			new_bt = sh_bt_immload(buf, min, start, new_regno);
 
-			if (new_bt) {
+			if (sh_bt_immload(imm, buf, min, start, new_regno)) {
 				//Suxxess : found literal
-				return new_bt;
+				return 1;
 			}
 			// recurse failed; probably loaded from arglist or some other shit
 			return 0;
@@ -841,11 +831,11 @@ uint32_t sh_bt_immload(const uint8_t *buf, long min, long start,
 		if (opc == (0x4029 | (regno << 8))) {
 			u32 new_bt;
 			start -= 2;
-			new_bt = sh_bt_immload(buf, min, start, regno);
 
-			if (new_bt) {
+			if (sh_bt_immload(&new_bt, buf, min, start, regno)) {
 				//Suxxess : found literal
-				return new_bt >> 16;
+				*imm = new_bt >> 16;
+				return 1;
 			}
 			// recurse failed; probably loaded from arglist or some other shit
 			return 0;
@@ -856,11 +846,12 @@ uint32_t sh_bt_immload(const uint8_t *buf, long min, long start,
 			u32 new_bt;
 			new_regno = (opc >> 4) & 0x0F;	//follow Rm
 			start -= 2;
-			new_bt = sh_bt_immload(buf, min, start, new_regno);
 
-			if (new_bt) {
-				return (new_bt & 0xFF);
+			if (sh_bt_immload(&new_bt, buf, min, start, new_regno)) {
+				*imm = new_bt & 0xFF;
+				return 1;
 			}
+			return 0;
 		}
 
 		// 2d) shll, shll2 : recurse and shift before returning
@@ -870,15 +861,16 @@ uint32_t sh_bt_immload(const uint8_t *buf, long min, long start,
 
 			start -= 2;
 			//printf("\t\t***********shll @ %lX\n", (unsigned long) start);
-			new_bt = sh_bt_immload(buf, min, start, regno);
 
-			if (new_bt) {
+			if (sh_bt_immload(&new_bt, buf, min, start, regno)) {
 				if (is_shll2) {
-					return (new_bt << 2);
+					*imm = (new_bt << 2);
 				} else {
-					return (new_bt << 1);
+					*imm = (new_bt << 1);
 				}
+				return 1;
 			}
+			return 0;
 		}
 
 		// 2e) add imm8: recurse and add before returning. b'0111nnnniiiiiiii'
@@ -888,11 +880,12 @@ uint32_t sh_bt_immload(const uint8_t *buf, long min, long start,
 			add_s8 = sh_extsb(opc & 0xFF);
 			start -= 2;
 			//printf("\t\t***********add @ %lX\n", (unsigned long) start);
-			new_bt = sh_bt_immload(buf, min, start, regno);
 
-			if (new_bt) {
-				return (new_bt + add_s8);
+			if (sh_bt_immload(&new_bt, buf, min, start, regno)) {
+				*imm = (new_bt + add_s8);
+				return 1;
 			}
+			return 0;
 		}
 
 		// 3) no recursion : try to find load_immediate.
@@ -904,7 +897,8 @@ uint32_t sh_bt_immload(const uint8_t *buf, long min, long start,
 		uint16_t prevop = reconst_16(&buf[start - 2]);
 		if ((prevop & 0xFF0F) == (regno << 8)) {
 			//movi20 match. just keep lower 16 bits sign-extended
-			return sh_extsw(opc);
+			*imm = sh_extsw(opc);
+			return 1;
 		}
 		uint8_t ic_top = (opc & 0xFF00) >> 8;
 		uint32_t imloc = start; //location of mov instruction
@@ -914,18 +908,20 @@ uint32_t sh_bt_immload(const uint8_t *buf, long min, long start,
 			/* essential : align 4 !!! */
 			imloc &= ~0x03;
 			//printf("retrieve &er() from 0x%0X\n", jackpot);
-			imloc = reconst_32(&buf[imloc]);
-			return imloc;
+			*imm = reconst_32(&buf[imloc]);
+			return 1;
 		}
 		if (ic_top == (0x90 | regno)) {
 			//imm16
 			imloc += ((opc & 0xFF) * 2) + 4;
 			//printf("retrieve &er() from 0x%0X\n", jackpot);
-			return sh_extsw(reconst_16(&buf[imloc]));
+			*imm = sh_extsw(reconst_16(&buf[imloc]));
+			return 1;
 		}
 		if (ic_top == (0xE0 | regno)) {
 			//imm8
-			return sh_extsb(opc & 0xFF);
+			*imm = sh_extsb(opc & 0xFF);
+			return 1;
 		}
 
 
@@ -965,12 +961,11 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, long bsr_offs) {
 			// but skip anything related to r15
 			if ((opc & 0xFFF0) == 0x81F0) goto next;
 			regno = 0;
-			uint16_t rv;
-			rv = (u16) sh_bt_immload(buf, min, cur - 2, regno);
-			if (rv) {
+			u32 rv;
+			if (sh_bt_immload(&rv, buf, min, cur - 2, regno)) {
 				//printf("imm->mem(gbr) store %d : %X\n", occ, rv);
 				occ_dist[occ] = opc & 0xFF;
-				h[occ] = rv;
+				h[occ] = (u16) rv;
 				occ += 1;
 			}
 		}
@@ -978,12 +973,11 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, long bsr_offs) {
 			//"mov.w Rm, @Rn" form. skip if @r15
 			if ((opc & 0xFF00) == 0x2F00) goto next;
 			regno = (opc & 0xF0) >> 4;
-			uint16_t rv;
-			rv = (u16) sh_bt_immload(buf, min, cur - 2, regno);
-			if (rv) {
+			u32 rv;
+			if (sh_bt_immload(&rv, buf, min, cur - 2, regno)) {
 				//printf("imm->mem(Rn) store #%d : %X\n", occ, rv);
 				occ_dist[occ] = 0;
-				h[occ] = rv;
+				h[occ] = (u16) rv;
 				occ += 1;
 			}
 		}
@@ -1093,7 +1087,7 @@ bool find_s27_hardcore(const uint8_t *buf, long siz, uint32_t *s27k, uint32_t *s
 		uint32_t patpos;
 		patpos = find_pattern(&buf[swapf_cur], siz - swapf_cur,
 			S27_SPF_PATLEN, spf_pattern, spf_mask);
-		if (patpos == -1) break;
+		if (patpos == (u32) -1) break;
 		patpos += swapf_cur;	//re-adjust !
 		swapf_instances +=1 ;
 		//printf("got 1 swapf @ %0lX;\n", patpos + 0UL);

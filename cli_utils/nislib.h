@@ -160,8 +160,19 @@ bool find_s27_hardcore(const uint8_t *buf, long siz, uint32_t *s27k, uint32_t *s
 
 /************** SH analysis helpers */
 
-uint32_t sh_bt_immload(const uint8_t *buf, long min, long start,
-				int regno);
+/** backtrack search for immediate value
+ *
+ * Recursive backtrack inside code to find the root value loaded by "mov imm16, Rn", "mov imm32, Rn" or "movi20 #imm20, rn" instructions.
+ *
+ * regno : n from "Rn"
+ * min : don't backtrack further than buf[min]
+ *
+ *
+ * @return 0 if failed. 32-bit immediate is written to *imm if succesful
+ *
+ * handles multiple-mov sequences, and "shll", "shll2", "shlr16", "extu.b", "add #imm8",  too.
+ */
+int sh_bt_immload(uint32_t *imm, const uint8_t *buf, long min, long start, int regno);
 
 /** return the immediate value loaded by PC-relative opcode (mov.w or mov.l only)
  * caller must have ensured opcode is a mov.x (@PC, disp), Rn opcode
