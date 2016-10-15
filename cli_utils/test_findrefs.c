@@ -18,6 +18,16 @@
  *
  * This should really be compiled at -O2
  *
+ * Example run (piped through grep to filter the ridiculously verbose output)
+> tfr 0xffff1f4c 0xffff1f00 ../CF43D.bin | grep "@"
+                **** R @ 0x01D638 : 0xFFFF1F10 + 0x3C
+                **** W @ 0x031910 : 0xFFFF1F10 + 0x3C
+                **** W @ 0x031922 : 0xFFFF1F10 + 0x3C
+                **** R @ 0x031964 : 0xFFFF1F10 + 0x3C
+                **** R @ 0x0847AA : 0xFFFF1F10 + 0x3C
+>
+ * This shows that location ffff1f4c is written from two places in the code (0x031910 and 0x031922), via a 0xffff1f10 base and 0x3c offset.
+ *
  *
  * (c) fenugrec 2016
  * GPLv3
