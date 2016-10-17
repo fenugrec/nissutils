@@ -11,11 +11,15 @@ struct ecuid_klist_t {
 extern const struct ecuid_klist_t ecuid_list[];
 
 
+struct ecuid_keymatch_t {
+	uint32_t key;
+	int dist;
+};
+
 /** Fill list with best key match candidates
-Caller must provide
-	u32 key_candidates[candidates];	//for the best N keys found
-	int keyc_dists[candidates];
+Caller must provide this array:
+	struct ecuid_keymatch_t k_candidates[candidates];	//for the best N keys found
 */
-void ecuid_getkeys(const char *ECUID, uint32_t *key_candidates, int *keyc_dists, unsigned candidates);
+void ecuid_getkeys(const char *ECUID, struct ecuid_keymatch_t *k, const unsigned candidates);
 
 #endif

@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>	//for sortage
 
 #include "ecuid_list.h"
 #include "stypes.h"
@@ -225,16 +226,22 @@ static int ecuid_calcdiff(const char *ecuid, const char *item) {
 }
 
 
+//gadget to use qsort()
+static int bs_compar(const void *a, const void *b) {
+	const struct ecuid_keymatch_t *ka, *kb;
+	ka = a;
+	kb = b;
+	return ka->dist - kb->dist;
+}
 
-
-void ecuid_getkeys(const char *ECUID, u32 *key_candidates, int *keyc_dists, unsigned candidates) {
+void ecuid_getkeys(const char *ECUID, struct ecuid_keymatch_t *kclist, unsigned candidates) {
 	
 	#define MAXDIST 100
 	int i;
 
 	for (i = 0; i < candidates; i++) {
-		key_candidates[i] = 0;
-		keyc_dists[i] = MAXDIST;
+		kclist[i].key = 0;
+		kclist[i].dist = MAXDIST;
 	}
 
 
@@ -252,11 +259,11 @@ void ecuid_getkeys(const char *ECUID, u32 *key_candidates, int *keyc_dists, unsi
 		for (loopc = 0; loopc < candidates; loopc += 1) {
 			int idxmod = loopc;
 
-			if (key_candidates[idxmod] == ecuid_list[i].s27k) {
+			if (kclist[idxmod].key == ecuid_list[i].s27k) {
 				already_there = 1;
 				//already in list: better distance?
-				if (dist < keyc_dists[idxmod]) {
-					keyc_dists[idxmod] = dist;
+				if (dist < kclist[idxmod].dist) {
+					kclist[idxmod].dist = dist;
 				}
 				break;
 			}
@@ -269,14 +276,16 @@ void ecuid_getkeys(const char *ECUID, u32 *key_candidates, int *keyc_dists, unsi
 			for (loopc = 0; loopc < candidates; loopc += 1) {
 				int idxmod = loopc;
 	
-				if (keyc_dists[idxmod] > maxdist) {
-					maxdist = keyc_dists[idxmod];
+				if (kclist[idxmod].dist > maxdist) {
+					maxdist = kclist[idxmod].dist;
 					maxdist_idx = idxmod;
 				}
 			}
 			
-			key_candidates[maxdist_idx] = ecuid_list[i].s27k;
-			keyc_dists[maxdist_idx] = dist;
+			kclist[maxdist_idx].key = ecuid_list[i].s27k;
+			kclist[maxdist_idx].dist = dist;
 		}
 	}
+	qsort(kclist, candidates, sizeof(struct ecuid_keymatch_t), bs_compar);
+	return;
 }
