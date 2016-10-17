@@ -3,6 +3,7 @@
  * GPLv3
  */
 
+#include <stdio.h>	//just for FILE
 #include <stdint.h>
 #include <stdbool.h>
 
