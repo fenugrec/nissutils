@@ -15,6 +15,7 @@
 
 #include "nissan_romdefs.h"
 #include "nislib.h"
+#include "stypes.h"
 
 #define DBG_OUTFILE	"nisrom_dbg.log"	//default log file
 
@@ -765,7 +766,7 @@ int main(int argc, char *argv[])
 	uint32_t ctpos = 0;
 	while (1) {
 		ctpos = find_calltable(rf.buf, ctpos + ctlen * 4, rf.siz, &ctlen);
-		if (ctpos == -1) break;
+		if (ctpos == (u32) -1) break;
 		fprintf(dbg_stream, "possible calltable @ %lX, len=0x%X\n", (unsigned long) ctpos, ctlen);
 	}
 

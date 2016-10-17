@@ -39,7 +39,7 @@ const uint8_t *u16memstr(const uint8_t *buf, long buflen, const uint16_t needle)
 /** search a <buflen> u8 buffer for a 32-bit aligned uint32_t value, in SH endianness
  *
  */
-const uint8_t *uint32_tmemstr(const uint8_t *buf, long buflen, const uint32_t needle);
+const uint8_t *u32memstr(const uint8_t *buf, long buflen, const uint32_t needle);
 
 
 /** Find opcode pattern... bleh
