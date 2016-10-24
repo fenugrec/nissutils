@@ -46,24 +46,6 @@
 
 FILE *dbg_stream;
 
-// hax, get file length but restore position
-static long flen(FILE *hf) {
-	long siz;
-	long orig;
-
-	if (!hf) return 0;
-	orig = ftell(hf);
-	if (orig < 0) return 0;
-
-	if (fseek(hf, 0, SEEK_END)) return 0;
-
-	siz = ftell(hf);
-	if (siz < 0) siz=0;
-	if (fseek(hf, orig, SEEK_SET)) return 0;
-	return siz;
-}
-
-
 static void report_hit(bool is_write, u32 pos, u32 base, u32 offs) {
 	if (is_write) {
 		printf("\t\t**** W @ 0x%06lX : 0x%08lX + 0x%lX\n", (unsigned long) pos,
@@ -85,7 +67,7 @@ u32 glob_base;	//fugly shit to have access throughout all levels
 void test_gbrref(const u8 *buf, u32 pos, u32 offs) {
 	u16 opc = reconst_16(&buf[pos]);
 	int dir = 0;	//0 : R. 1: W
-	int mul = 0;
+	unsigned mul = 0;
 
 	if (IS_MOVB_R0_GBRREF(opc) || IS_MOVW_R0_GBRREF(opc) || IS_MOVL_R0_GBRREF(opc)) {
 		dir = 1;
@@ -104,7 +86,7 @@ void test_gbrref(const u8 *buf, u32 pos, u32 offs) {
 }
 
 //test @(disp,Rn) forms
-void test_rnrel(const u8 *buf, u32 pos, u32 offs, int regno) {
+void test_rnrel(const u8 *buf, u32 pos, u32 offs, unsigned regno) {
 	u16 opc = reconst_16(&buf[pos]);
 	u32 disp = 0;
 	int dir = 0;	//0 : R. 1: W
@@ -143,10 +125,10 @@ void test_rnrel(const u8 *buf, u32 pos, u32 offs, int regno) {
 
 // @(R0, Rn) forms
 #define R0RN_MAXBT	10	//how far back to search for an immediate load for the offset
-void test_r0rn(const u8 *buf, u32 pos, u32 offs, int regno) {
+void test_r0rn(const u8 *buf, u32 pos, u32 offs, unsigned regno) {
 	u16 opc = reconst_16(&buf[pos]);
 	int dir = 0;	//0 : R. 1: W
-	int newreg;
+	unsigned newreg;
 	u32 disp = 0;
 
 	//0000nnnnmmmm0100 mov.b <REG_M>,@(R0,<REG_N>)
@@ -186,9 +168,9 @@ void test_r0rn(const u8 *buf, u32 pos, u32 offs, int regno) {
 }
 
 /* test "@Rn, Rm" and "Rn, @Rm" variants (REGREF) */
-void test_regref(const u8 *buf, u32 pos, u32 offs, int regno) {
+void test_regref(const u8 *buf, u32 pos, u32 offs, unsigned regno) {
 	int dir = 0;
-	int newreg;
+	unsigned newreg;
 	u16 opc=reconst_16(&buf[pos]);
 
 	// offset must be 0 for these to work
@@ -222,7 +204,7 @@ void test_regref(const u8 *buf, u32 pos, u32 offs, int regno) {
 }
 
 // This is run on every position where <regno> is of interest.
-void test_callback(const u8 *buf, u32 pos, int regno, void *data) {
+void test_callback(const u8 *buf, u32 pos, unsigned regno, void *data) {
 	u32 offs = *(u32 *)data;
 	if (regno == GBR) {
 		test_gbrref(buf, pos, offs);
@@ -286,7 +268,7 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 			u32 imm = sh_get_PCimm(src, romcurs);
 			if (imm == base) {
 				// match ! start recursion.
-				int regno = sh_getopcode_dest(opc);
+				unsigned regno = sh_getopcode_dest(opc);
 				memset(visited, 0, siz);
 				printf("Entering 00.%6lX.R%d\n", (unsigned long) romcurs, regno);
 				sh_track_reg(src, romcurs, siz, regno, visited, test_callback, &offs);
@@ -299,7 +281,7 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 			if (shll8_base != (opc & 0xFF)) continue;
 
 			u32 s8_offs;
-			int regno = sh_getopcode_dest(opc);
+			unsigned regno = sh_getopcode_dest(opc);
 			u32 stopcond = romcurs + FINDREFS_SHLL8_MAXDIST;
 				/* naively assume that the shll8 should be pretty soon after the mov.s8 */
 			if (stopcond > siz) stopcond = siz;
@@ -354,12 +336,12 @@ int main(int argc, char * argv[]) {
 		return 0;
 	}
 
-	long file_len;
+	u32 file_len;
 
 	rewind(i_file);
 	file_len = flen(i_file);
-	if ((file_len <= 0) || (file_len > 3*1024*1024L)) {
-		printf("huge file (length %ld)\n", file_len);
+	if ((!file_len) || (file_len > 3*1024*1024UL)) {
+		printf("huge file (length %lu)\n", (unsigned long) file_len);
 	}
 
 	u8 *src = malloc(file_len);
