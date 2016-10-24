@@ -237,7 +237,7 @@ static int bs_compar(const void *a, const void *b) {
 void ecuid_getkeys(const char *ECUID, struct ecuid_keymatch_t *kclist, unsigned candidates) {
 	
 	#define MAXDIST 100
-	int i;
+	unsigned i;
 
 	for (i = 0; i < candidates; i++) {
 		kclist[i].key = 0;
@@ -255,9 +255,9 @@ void ecuid_getkeys(const char *ECUID, struct ecuid_keymatch_t *kclist, unsigned 
 		//find the first slot with the same key and a worse distance
 		//check if key already in the candidate list
 		bool already_there = 0;
-		int loopc;
+		unsigned loopc;
 		for (loopc = 0; loopc < candidates; loopc += 1) {
-			int idxmod = loopc;
+			unsigned idxmod = loopc;
 
 			if (kclist[idxmod].key == ecuid_list[i].s27k) {
 				already_there = 1;
