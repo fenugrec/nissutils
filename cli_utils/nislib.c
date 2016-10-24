@@ -124,8 +124,8 @@ uint32_t dec1(uint32_t data, uint32_t scode) {
 
 
 //Painfully unoptimized, because it's easy to get it wrong
-const uint8_t *u8memstr(const uint8_t *buf, long buflen, const uint8_t *needle, long nlen) {
-	long hcur;
+const uint8_t *u8memstr(const uint8_t *buf, uint32_t buflen, const uint8_t *needle, unsigned nlen) {
+	uint32_t hcur;
 	if (!buf || !needle || (nlen > buflen)) return NULL;
 
 	for (hcur=0; hcur < (buflen - nlen); hcur++) {
@@ -138,9 +138,9 @@ const uint8_t *u8memstr(const uint8_t *buf, long buflen, const uint8_t *needle, 
 }
 
 /* manual, aligned search for u16 val */
-const uint8_t *u16memstr(const uint8_t *buf, long buflen, const uint16_t needle) {
+const uint8_t *u16memstr(const uint8_t *buf, uint32_t buflen, const uint16_t needle) {
 	buflen &= ~1;
-	long cur;
+	uint32_t cur;
 	for (cur = 0; cur < buflen; cur += 2) {
 		if (reconst_16(&buf[cur]) == needle) return &buf[cur];
 	}
@@ -148,9 +148,9 @@ const uint8_t *u16memstr(const uint8_t *buf, long buflen, const uint16_t needle)
 }
 
 /* manual, aligned search instead of calling u8memstr; should be faster */
-const uint8_t *u32memstr(const uint8_t *buf, long buflen, const uint32_t needle) {
+const uint8_t *u32memstr(const uint8_t *buf, uint32_t buflen, const uint32_t needle) {
 	buflen &= ~3;
-	long cur;
+	uint32_t cur;
 	for (cur = 0; cur < buflen; cur += 4) {
 		if (reconst_32(&buf[cur]) == needle) return &buf[cur];
 	}
@@ -368,8 +368,8 @@ const struct keyset_t known_keys[] = {
 	};
 
 /* sum and xor all u32 values in *buf, read with SH endianness */
-void sum32(const uint8_t *buf, long siz, uint32_t *sum, uint32_t *xor) {
-	long bufcur;
+void sum32(const uint8_t *buf, u32 siz, uint32_t *sum, uint32_t *xor) {
+	u32 bufcur;
 	uint32_t sumt, xort;
 
 	if (!buf || !sum || !xor) return;
@@ -394,22 +394,22 @@ void sum32(const uint8_t *buf, long siz, uint32_t *sum, uint32_t *xor) {
 //		this gives xort=ckx ^ ckx ^ cks = cks (so we found the real ck_sum)
 //	B) we can SUM everything (including cks and ckx), we get sumt=cks(real sum) + cks + ckx = 2*cks + ckx.
 //	so we get ckx= sumt - 2*ckx, and then we try to locate cks and ckx in the ROM.
-int checksum_alt2(const uint8_t *buf, long siz, long *p_ack_s, long *p_ack_x,
-				long p_skip1, long p_skip2) {
+int checksum_alt2(const uint8_t *buf, uint32_t siz, uint32_t *p_ack_s, uint32_t *p_ack_x,
+				uint32_t p_skip1, uint32_t p_skip2) {
 	uint32_t sumt,xort, cks, ckx;
 
-	if (!buf || (siz & 0x3) || !p_ack_s || !p_ack_x || (siz <= 0)) {
+	if (!buf || (siz & 0x3) || !p_ack_s || !p_ack_x || !siz) {
 		return -1;
 	}
 
 	sumt = xort = 0;
 	sum32(buf, siz, &sumt, &xort);
 	/* Optionally skip 2 extra locations by compensating sumt and xort */
-	if (p_skip1 >= 0) {
+	if (p_skip1 != UINT32_MAX) {
 		sumt -= reconst_32(buf + p_skip1);
 		xort ^= reconst_32(buf + p_skip1);
 	}
-	if (p_skip2 >= 0) {
+	if (p_skip2 != UINT32_MAX) {
 		sumt -= reconst_32(buf + p_skip2);
 		xort ^= reconst_32(buf + p_skip2);
 	}
@@ -437,7 +437,7 @@ int checksum_alt2(const uint8_t *buf, long siz, long *p_ack_s, long *p_ack_x,
 }
 
 //Thin wrapper around more generic checksum_alt2
-int checksum_std(const uint8_t *buf, long siz, long *p_cks, long *p_ckx) {
+int checksum_std(const uint8_t *buf, uint32_t siz, uint32_t *p_cks, uint32_t *p_ckx) {
 	return checksum_alt2(buf, siz, p_cks, p_ckx, -1, -1);
 }
 
@@ -446,13 +446,14 @@ int checksum_std(const uint8_t *buf, long siz, long *p_cks, long *p_ckx) {
 // 1) set a,b,c to 0
 // 2) calculate actual sum and xor (skipping locs p_cks and p_ckx)
 // 3) determine correction values to bring actual sum and xor to the desired cks and ckx
-void checksum_fix(uint8_t *buf, long siz, long p_cks, long p_ckx, long p_a, long p_b, long p_c) {
+void checksum_fix(uint8_t *buf, uint32_t siz, uint32_t p_cks, uint32_t p_ckx,
+				uint32_t p_a, uint32_t p_b, uint32_t p_c) {
 	uint32_t cks, ckx;	//desired sum and xor
 	uint32_t ds, dx;	//actual/delta vals
 	uint32_t a, b, c;	//correction vals
 
 	//abort if siz not a multiple of 4, and other problems
-	if (!buf || (siz <= 0) || (siz & 3) ||
+	if (!buf || !siz || (siz & 3) ||
 		(p_cks >= siz) || (p_ckx >= siz) ||
 		(p_a >= siz) || (p_b >= siz)) return;
 
@@ -537,8 +538,8 @@ bool check_ivt(const uint8_t *buf) {
 }
 
 
-long find_ivt(const uint8_t *buf, long siz) {
-	long offs;
+uint32_t find_ivt(const uint8_t *buf, uint32_t siz) {
+	uint32_t offs;
 
 	if (!buf) return -1;
 
@@ -564,7 +565,7 @@ static const struct t_eep_iobound {
 		{0, 0}
 	};
 
-static bool analyze_eepread(const uint8_t *buf, long siz, uint32_t func, uint32_t *portreg) {
+static bool analyze_eepread(const uint8_t *buf, uint32_t siz, uint32_t func, uint32_t *portreg) {
 	/* algo : look for a mov.w (), Rn that loads an IO register address. This should cover both
 	 * bit-bang SPI  and SCI-based code.
 	 */
@@ -631,7 +632,7 @@ uint32_t sh_get_PCimm(const uint8_t *buf, uint32_t pos) {
 #define EEPREAD_JSRWINDOW 10	//search within a radius of _JSRWINDOW for identical jsr opcodes
 /* XXX todo : bounds check vs "siz" for the iterations within */
 
-uint32_t find_eepread(const uint8_t *buf, long siz, uint32_t *real_portreg) {
+uint32_t find_eepread(const uint8_t *buf, uint32_t siz, uint32_t *real_portreg) {
 	int occurences = 0;
 	uint32_t cur = 0;
 	uint32_t jackpot = 0;
@@ -762,11 +763,11 @@ uint32_t find_eepread(const uint8_t *buf, long siz, uint32_t *real_portreg) {
 /** Find opcode pattern... bleh
  * "patlen" is # of opcodes
  */
-uint32_t find_pattern(const uint8_t *buf, long siz, int patlen,
+uint32_t find_pattern(const uint8_t *buf, uint32_t siz, unsigned patlen,
 			const uint16_t *pat, const uint16_t *mask) {
-	long bcur = 0;	//base cursor for start of pattern
-	long hcur = 0;	//iterating cursor
-	int patcur = 0;	//cursor within pattern
+	uint32_t bcur = 0;	//base cursor for start of pattern
+	uint32_t hcur = 0;	//iterating cursor
+	unsigned patcur = 0;	//cursor within pattern
 
 	while (hcur < (siz - patlen * 2)) {
 		uint16_t val;
@@ -805,11 +806,11 @@ u32 sh_extsw(u16 val) {
 
 
 
-int sh_bt_immload(u32 *imm, const uint8_t *buf, long min, long start,
-				int regno) {
+int sh_bt_immload(u32 *imm, const uint8_t *buf, uint32_t min, uint32_t start,
+				unsigned regno) {
 	uint16_t opc;
 	while (start >= min) {
-		int new_regno;
+		unsigned new_regno;
 		opc = reconst_16(&buf[start]);
 
 		// 1) limit search to function head. Problem : sometimes this opcode is not at the head of the function !
@@ -945,8 +946,8 @@ int sh_bt_immload(u32 *imm, const uint8_t *buf, long min, long start,
  * @return the key if found, 0 otherwise
  */
 #define S27_IMM_MAXBT	0x70	//max # of bytes to backtrack
-static uint32_t fs27_bt_stmem(const uint8_t *buf, long bsr_offs) {
-	const long min = bsr_offs - S27_IMM_MAXBT;
+static uint32_t fs27_bt_stmem(const uint8_t *buf, uint32_t bsr_offs) {
+	const uint32_t min = bsr_offs - S27_IMM_MAXBT;
 	int occ = 0;
 	int occ_dist[2] = {0,0}; //find out which 16-bit key half is loaded at a lower RAM address
 	uint32_t key = 0;
@@ -955,7 +956,7 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, long bsr_offs) {
 	uint32_t cur = bsr_offs;
 	while ((cur >= min) && (occ < 2)) {
 		uint16_t opc;
-		int regno;
+		unsigned regno;
 		opc = reconst_16(&buf[cur]);
 
 		if (	((opc & 0xFF00) == 0xC100) ||
@@ -1073,7 +1074,7 @@ void found_bsr_swapf(const u8 *buf, u32 pos, void *data) {
 static const uint16_t spf_pattern[]={0x6001, 0x6001, 0x2001, 0x000b, 0x2001};
 static const uint16_t spf_mask[]={0xf00f, 0xf00f, 0xf00f, 0xffff, 0xf00f};
 
-bool find_s27_hardcore(const uint8_t *buf, long siz, uint32_t *s27k, uint32_t *s36k) {
+bool find_s27_hardcore(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k) {
 	uint32_t swapf_cur = 0;
 	int swapf_instances = 0;
 
@@ -1126,11 +1127,11 @@ static bool sh_isprologue(const uint8_t *buf) {
 #define FCALLTABLE_PROLOGS 10		//ugly hack to recognize function prologues
 #define FCALLTABLE_MAXDUPS 10		//discard table if too many duplicate ptrs (like in IVTs)
 
-long find_calltable(const uint8_t *buf, long skip, long siz, unsigned *ctlen) {
-	long cur;
+uint32_t find_calltable(const uint8_t *buf, uint32_t skip, uint32_t siz, unsigned *ctlen) {
+	uint32_t cur;
 	unsigned consec = 0;
 	unsigned good_prologs = 0;
-	long table_start;
+	uint32_t table_start;
 	uint32_t dupcheck = 0;
 	unsigned dupcount = 0;
 
@@ -1269,8 +1270,8 @@ enum opcode_dest sh_getopcode_dest(u16 code) {
 
 
 /* recursive reg tracker */
-void sh_track_reg(const u8 *buf, u32 pos, u32 siz, int regno, u8 *visited,
-			void (*tracker_cb)(const uint8_t *buf, uint32_t pos, int regno, void *data), void *cbdata) {
+void sh_track_reg(const u8 *buf, u32 pos, u32 siz, unsigned regno, u8 *visited,
+			void (*tracker_cb)(const uint8_t *buf, uint32_t pos, unsigned regno, void *data), void *cbdata) {
 
 	static int recurselevel = 0;
 	recurselevel += 1;

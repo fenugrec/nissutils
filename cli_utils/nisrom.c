@@ -7,6 +7,7 @@
  */
 
 #include <assert.h>	//TODO : replace _Static_assert() with static_assert()
+#include <limits.h>
 #include <stddef.h>	//for offsetof()
 #include <stdint.h>
 #include <stdio.h>
@@ -22,19 +23,19 @@
 _Static_assert(sizeof(char) == 1, "HAH ! a non-8bit char system. This may not work.");
 FILE *dbg_stream;
 
-// generic ROM struct
+// generic ROM struct. For the file offsets in here, UINT32_MAX ((u32) -1) signals invalid / inexistant target
 struct romfile {
 	FILE *hf;
-	long siz;	//in bytes
+	u32 siz;	//in bytes
 	uint8_t *buf;	//copied here
 	//and some metadata
-	long p_loader;	//struct loader
+	u32 p_loader;	//struct loader
 	enum loadvers_t loader_v;	//version (10, 50, 60 etc)
 
-	long p_fid;	//location of struct fid_base
+	u32 p_fid;	//location of struct fid_base
 	enum fidtype_ic fidtype;
-	long sfid_size;	//sizeof correct struct fid_base
-	long p_ramf;	//location of struct ramf
+	u32 sfid_size;	//sizeof correct struct fid_base
+	u32 p_ramf;	//location of struct ramf
 	int	ramf_offset;	//RAMF struct wasn't found where expected (offset != 0)
 
 	/* these point in buf, and so are not necessarily 0-terminated strings */
@@ -42,23 +43,23 @@ struct romfile {
 	const uint8_t *fid;	//firmware ID itself
 	const uint8_t *fid_cpu;	//FID CPU code
 
-	long p_cks;	//position of std_checksum sum
-	long p_ckx;	//position of std_checksum xor
+	u32 p_cks;	//position of std_checksum sum
+	u32 p_ckx;	//position of std_checksum xor
 
-	long p_acs;	//pos of alt_cks sum
-	long p_acx;	//pos of alt_cks xor
+	u32 p_acs;	//pos of alt_cks sum
+	u32 p_acx;	//pos of alt_cks xor
 
-	long p_a2cs;
-	long p_a2cx;	//pos of alt2 cks sum, xor
+	u32 p_a2cs;
+	u32 p_a2cx;	//pos of alt2 cks sum, xor
 
 	/* real metadata here. Unknown values must be set to -1 */
-	long p_ivt2;	//pos of alt. vector table
-	long p_acstart;	//start of alt_cks block
-	long p_acend;	//end of alt_cks block
+	u32 p_ivt2;	//pos of alt. vector table
+	u32 p_acstart;	//start of alt_cks block
+	u32 p_acend;	//end of alt_cks block
 
-	long p_ac2start;	//start of alt2 cks block (end is always ROMEND ?)
+	u32 p_ac2start;	//start of alt2 cks block (end is always ROMEND ?)
 
-	long	p_eepread;	//address of eeprom_read() func
+	u32	p_eepread;	//address of eeprom_read() func
 	uint32_t	eep_port;	//PORT reg used for EEPROM pins
 
 	/* some flags */
@@ -72,7 +73,7 @@ struct romfile {
 };
 
 // hax, get file length but restore position
-static long flen(FILE *hf) {
+static u32 flen(FILE *hf) {
 	long siz;
 	long orig;
 
@@ -84,8 +85,13 @@ static long flen(FILE *hf) {
 
 	siz = ftell(hf);
 	if (siz < 0) siz=0;
+		//the rest of the code just won't work if siz = UINT32_MAX
+	#if (LONG_MAX >= UINT32_MAX)
+		if ((long long) siz == (long long) UINT32_MAX) siz = 0;
+	#endif
+
 	if (fseek(hf, orig, SEEK_SET)) return 0;
-	return siz;
+	return (u32) siz;
 }
 
 //load ROM to a new buffer
@@ -94,7 +100,7 @@ static long flen(FILE *hf) {
 static int open_rom(struct romfile *rf, const char *fname) {
 	FILE *fbin;
 	uint8_t *buf;	//load whole ROM
-	long file_len;
+	u32 file_len;
 
 	rf->hf = NULL;	//not needed
 
@@ -104,9 +110,9 @@ static int open_rom(struct romfile *rf, const char *fname) {
 	}
 
 	file_len = flen(fbin);
-	if ((file_len <= 0) || (file_len > 2048*1024L)) {
+	if ((!file_len) || (file_len > 2048*1024UL)) {
 		/* TODO : add "-f" flag ? */
-		printf("huge file (length %ld)\n", file_len);
+		printf("huge file (length %lu)\n", (unsigned long) file_len);
 		fclose(fbin);
 		return -1;
 	}
@@ -131,8 +137,8 @@ static int open_rom(struct romfile *rf, const char *fname) {
 	fclose(fbin);
 
 
-	if ((file_len != 1024*1024L) && (file_len !=512*1024L)
-		&& (file_len != 256 * 1024L)) {
+	if ((file_len != 1024*1024UL) && (file_len !=512*1024UL)
+		&& (file_len != 256 * 1024UL)) {
 		printf("warning: not a 256k/512k/1M ROM !\n");
 	}
 
@@ -189,9 +195,9 @@ bool find_s27k(struct romfile *rf, int *key_idx, bool thorough) {
 	#endif
 
 	keyset = 0;
-	long kpl_cur = 0;
-	long kph_cur = 0;
-	long key_offs;
+	u32 kpl_cur = 0;
+	u32 kph_cur = 0;
+	u32 key_offs;
 	int occurences = 0;
 	#define SPLITKEY_MAXDIST	16
 	while (known_keys[keyset].s27k != 0) {
@@ -260,7 +266,7 @@ bool find_s27k(struct romfile *rf, int *key_idx, bool thorough) {
 
 //find offset of LOADER struct, update romfile struct
 //ret -1 if not ok
-long find_loader(struct romfile *rf) {
+u32 find_loader(struct romfile *rf) {
 	const uint8_t loadstr[]="LOADER";
 	const uint8_t *sl;
 	int loadv;
@@ -283,7 +289,7 @@ long find_loader(struct romfile *rf) {
 	}
 
 	//convert to file offset
-	rf->p_loader = (long) (sl - rf->buf) - offsetof(struct loader_t, loader);
+	rf->p_loader = (u32) (sl - rf->buf) - offsetof(struct loader_t, loader);
 
 	// this is the same for all loader verions:
 	rf->loader_cpu = &rf->buf[rf->p_loader + offsetof(struct loader_t, cpu)];
@@ -323,11 +329,11 @@ static void parse_ramf(struct romfile *rf) {
 
 //find offset of FID struct, parse & update romfile struct. find_loader() must have been run before calling this.
 //ret -1 if not ok
-long find_fid(struct romfile *rf) {
+u32 find_fid(struct romfile *rf) {
 	const uint8_t dbstr[]="DATAB";
 	const uint8_t loadstr[]="LOADER";
 	const uint8_t *sf;
-	long sf_offset;	//offset in file
+	u32 sf_offset;	//offset in file
 	int fid_idx;
 
 	if (!rf) return -1;
@@ -422,8 +428,8 @@ int validate_altcks(struct romfile *rf) {
 
 	if (!rf) return -1;
 	if (!(rf->buf)) return -1;
-	if ((rf->p_acstart < 0) ||
-		(rf->p_acend < 0) ||
+	if ((rf->p_acstart == UINT32_MAX) ||
+		(rf->p_acend == UINT32_MAX) ||
 		(rf->p_acstart >= rf->p_acend)) {
 		rf->cks_alt_present = 0;
 		return -1;
@@ -439,10 +445,10 @@ int validate_altcks(struct romfile *rf) {
 		fprintf(dbg_stream, "altcks values not found in ROM, possibly unskipped vals or bad algo\n");
 		return -1;
 	} else {
-		rf->p_acs = (unsigned long) (pacs - rf->buf);
-		rf->p_acx = (unsigned long) (pacx - rf->buf);
+		rf->p_acs = (u32) (pacs - rf->buf);
+		rf->p_acx = (u32) (pacx - rf->buf);
 		fprintf(dbg_stream, "confirmed altcks values found : acs @ 0x%lX, acx @ 0x%lX\n",
-				rf->p_acs, rf->p_acx);
+				(unsigned long) rf->p_acs, (unsigned long) rf->p_acx);
 		rf->cks_alt_good = 1;
 		//TODO : validate altcks val offsets VS end-of-IVT2, i.e. they seem to be always @
 		// IVT2 + 0x400
@@ -459,13 +465,13 @@ int validate_altcks(struct romfile *rf) {
  * loader and fid structs found (find_loader, find_fid)
  */
 
-long find_ramf(struct romfile *rf) {
+u32 find_ramf(struct romfile *rf) {
 	uint32_t testval;
 	const struct fidtype_t *ft;	//helper
 
 	if (!rf) return -1;
 	if (!(rf->buf)) return -1;
-	if (rf->p_fid <= 0) return -1;
+	if (rf->p_fid == (u32) -1) return -1;
 
 	rf->p_ramf = rf->p_fid + rf->sfid_size;
 	ft = &fidtypes[rf->fidtype];
@@ -506,15 +512,17 @@ long find_ramf(struct romfile *rf) {
 	}
 
 	if ((rf->p_acstart >= rf->siz) ||
-		(rf->p_acend >= rf->siz) ||
-		(rf->p_ivt2 >= rf->siz)) {
-		fprintf(dbg_stream, "warning : altcks / IVT2 values out of bounds, probably due to unusual RAMF structure.\n");
+		(rf->p_acend >= rf->siz)) {
+		fprintf(dbg_stream, "warning : altcks values out of bounds, probably due to unusual RAMF structure.\n");
 		rf->p_acstart = -1;
 		rf->p_acend = -1;
+	}
+	if (rf->p_ivt2 >= rf->siz) {
+		fprintf(dbg_stream, "warning : IVT2 value out of bound, probably due to unusual RAMF structure.\n");
 		rf->p_ivt2 = -1;
 	}
 
-	if (rf->p_ivt2 >= 0) {
+	if (rf->p_ivt2 != (u32) -1) {
 		if (!check_ivt(&rf->buf[rf->p_ivt2])) {
 			fprintf(dbg_stream, "Unlikely IVT2 location 0x%06lX :\n", (unsigned long) rf->p_ivt2);
 			fprintf(dbg_stream, "%08lX %08lX %08lX %08lX...\n", (unsigned long) reconst_32(&rf->buf[rf->p_ivt2+0]),
@@ -532,19 +540,20 @@ long find_ramf(struct romfile *rf) {
 		rf->p_acend = -1;
 	}
 
-	if (rf->p_acstart >= 0) {
+	if (rf->p_acstart != (u32) -1) {
 		(void) validate_altcks(rf);
 	}
 
-	long pecurec = -1;
+	u32 pecurec = UINT32_MAX;
 	//display some LOADER > 80 specific garbage
 	if (fidtypes[rf->fidtype].pECUREC) {
 		pecurec = reconst_32(&rf->buf[rf->p_ramf + fidtypes[rf->fidtype].pECUREC]);
 		testval = reconst_32(&rf->buf[rf->p_ramf + fidtypes[rf->fidtype].pROMend]);
 
 		//parse ECUREC
-		if ((pecurec < 0) || ((pecurec + 6) > rf->siz)) {
+		if ((pecurec > (UINT32_MAX - 7)) || (pecurec + 6) > rf->siz) {
 			fprintf(dbg_stream, "unlikely pecurec = %lX\n", (unsigned long) pecurec);
+			pecurec = UINT32_MAX;
 			rf->cks_alt2_present = 0;
 		} else {
 			//skip leading '1'
@@ -565,12 +574,12 @@ long find_ramf(struct romfile *rf) {
 		} else {
 			fprintf(dbg_stream, "RIPEMD-160 hash function not found ??\n");
 		}
-		if ((pecurec < 0) || (pecurec >= rf->siz)) goto no_ripemd;
+		if ((pecurec >= rf->siz)) goto no_ripemd;
 
 		/* Locate cks_alt2 checksum */
-		long p_as = 0, p_ax = 0;
-		long p_skip1, p_skip2;
-		p_skip1 = (pecurec - 4) - pecurec;
+		u32 p_as = 0, p_ax = 0;
+		u32 p_skip1, p_skip2;
+		p_skip1 = (u32) -1;
 		p_skip2 = (rf->p_ivt2 - 4) - pecurec;
 		if (checksum_alt2(&rf->buf[pecurec], rf->siz - pecurec, &p_as, &p_ax, p_skip1, p_skip2) == 0) {
 			fprintf(dbg_stream, "alt2 checksum found; sum @ 0x%lX, xor @ 0x%lX\n",
@@ -604,9 +613,9 @@ int main(int argc, char *argv[])
 {
 	bool	dbg_file;	//flag if dbgstream is a real file
 	struct romfile rf = {0};
-	long loaderpos;
-	long fidpos;
-	long ramfpos;
+	u32 loaderpos;
+	u32 fidpos;
+	u32 ramfpos;
 
 	if (argc !=2) {
 		printf("%s <ROMFILE> : analyze ROM dump.\n",argv[0]);
@@ -642,11 +651,11 @@ int main(int argc, char *argv[])
 		);
 
 	/* output file name + size */
-	printf("%s\t%ldk\t", argv[1], rf.siz / 1024);
+	printf("%s\t%luk\t", argv[1], (unsigned long) rf.siz / 1024);
 
 	/* output LOADER info : ##, pos, CPU, CPUcode*/
 	loaderpos=find_loader(&rf);
-	if (loaderpos >= 0) {
+	if (loaderpos != UINT32_MAX) {
 		const char *scpu;
 		scpu = (const char *) rf.loader_cpu;
 		printf("%02d\t0x%lX\t", rf.loader_v, (unsigned long) loaderpos);
@@ -656,7 +665,7 @@ int main(int argc, char *argv[])
 	}
 
 	fidpos = find_fid(&rf);
-	if (fidpos >= 0) {
+	if (fidpos != UINT32_MAX) {
 		const char *sfid;
 		const char *scpu;
 		sfid = (const char *) rf.fid;
@@ -671,20 +680,20 @@ int main(int argc, char *argv[])
 
 	//"RAMF_off\RAMjump entry\tIVT2\tIVT2 confidence\t"
 	ramfpos = find_ramf(&rf);
-	if (ramfpos >= 0) {
+	if (ramfpos != UINT32_MAX) {
 		int ivt_conf = 0;
 		printf("%+d\t0x%08X\t", rf.ramf_offset, rf.ramf.pRAMjump);
-		if (rf.p_ivt2 > 0) {
+		if (rf.p_ivt2 != (u32) -1) {
 			ivt_conf = 99;
 		} else {
-			long iter;
+			u32 iter;
 			fprintf(dbg_stream, "no IVT2 ?? wtf. Last resort, brute force technique:\n");
 			iter = 0x100;	//skip power-on IVT
 			bool ivtfound = 0;
 			while ((iter + 0x400) < rf.siz) {
-				long new_offs;
+				u32 new_offs;
 				new_offs = find_ivt(rf.buf + iter, rf.siz - iter);
-				if (new_offs < 0) {
+				if (new_offs == (u32) -1) {
 					if (ivtfound) break;
 					fprintf(dbg_stream, "\t no IVT2 found.\n");
 					break;

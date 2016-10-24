@@ -120,7 +120,7 @@ void unpack_dat(FILE *outf, uint8_t *dest, const uint8_t *src, long siz) {
 	uint8_t *orig_dest = dest;
 	uint32_t curaddr = 0;
 
-	long plsiz = 0;	//total payload bytes
+	unsigned plsiz = 0;	//total payload bytes
 
 	psrc = u8memstr(src, siz, pm, 3);
 	if (!psrc) return;

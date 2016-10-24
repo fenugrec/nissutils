@@ -33,20 +33,20 @@ void write_32b(uint32_t val, uint8_t *buf);
  *
  * Painfully unoptimized, because it's easy to get it wrong
  */
-const uint8_t *u8memstr(const uint8_t *buf, long buflen, const uint8_t *needle, long nlen);
+const uint8_t *u8memstr(const uint8_t *buf, uint32_t buflen, const uint8_t *needle, unsigned nlen);
 
-const uint8_t *u16memstr(const uint8_t *buf, long buflen, const uint16_t needle);
+const uint8_t *u16memstr(const uint8_t *buf, uint32_t buflen, const uint16_t needle);
 
 /** search a <buflen> u8 buffer for a 32-bit aligned uint32_t value, in SH endianness
  *
  */
-const uint8_t *u32memstr(const uint8_t *buf, long buflen, const uint32_t needle);
+const uint8_t *u32memstr(const uint8_t *buf, uint32_t buflen, const uint32_t needle);
 
 
 /** Find opcode pattern... bleh
  * "patlen" is # of opcodes
  */
-uint32_t find_pattern(const uint8_t *buf, long siz, int patlen,
+uint32_t find_pattern(const uint8_t *buf, uint32_t siz, unsigned patlen,
 			const uint16_t *pat, const uint16_t *mask);
 
 
@@ -78,7 +78,7 @@ extern const struct keyset_t known_keys[];
  * @param [out] *xor
  * @param [out] *sum
  */
-void sum32(const uint8_t *buf, long siz, uint32_t *sum, uint32_t *xor);
+void sum32(const uint8_t *buf, uint32_t siz, uint32_t *sum, uint32_t *xor);
 
 /** calculate checksums and find their location
  *
@@ -89,7 +89,7 @@ void sum32(const uint8_t *buf, long siz, uint32_t *sum, uint32_t *xor);
  *
  * Uses "standard" algo
  */
-int checksum_std(const uint8_t *buf, long siz, long *p_cks, long *p_ckx);
+int checksum_std(const uint8_t *buf, uint32_t siz, uint32_t *p_cks, uint32_t *p_ckx);
 
 /** calculate alt2 checksum and find its location
  *
@@ -104,8 +104,8 @@ int checksum_std(const uint8_t *buf, long siz, long *p_cks, long *p_ckx);
  * This is the same algo as "std checksum", but assumes a loop that
  * skips 4 locations (sum,xor, skip1, skip2).
  */
-int checksum_alt2(const uint8_t *buf, long siz, long *p_ack_s, long *p_ack_x,
-				long p_skip1, long p_skip2);
+int checksum_alt2(const uint8_t *buf, uint32_t siz, uint32_t *p_ack_s, uint32_t *p_ack_x,
+				uint32_t p_skip1, uint32_t p_skip2);
 
 /** Calculate correction values to give a known checksum
  *
@@ -118,8 +118,8 @@ int checksum_alt2(const uint8_t *buf, long siz, long *p_ack_s, long *p_ack_x,
  *
  * This calculates and sets values a,b,c so that the checksums match the original sum and xor.
  */
-void checksum_fix(uint8_t *buf, long siz, long p_cks, long p_ckx,
-		long p_a, long p_b, long p_c);
+void checksum_fix(uint8_t *buf, uint32_t siz, uint32_t p_cks, uint32_t p_ckx,
+		uint32_t p_a, uint32_t p_b, uint32_t p_c);
 
 
 /** Verify if a vector table (IVT) is sane.
@@ -139,23 +139,25 @@ bool check_ivt(const uint8_t *buf);
  * @param siz length of *buf, in bytes
  * @return offset of IVT if successful, -1 otherwise
  */
-long find_ivt(const uint8_t *buf, long siz);
+uint32_t find_ivt(const uint8_t *buf, uint32_t siz);
 
 
 /** find the main calltable (large array of function pointers polled in a loop)
  * @return offset if succesful, -1 otherwise; length of table (in # of entries) written to *ctlen
  * @param skip : start at &buf[skip]
 */
-long find_calltable(const uint8_t *buf, long skip, long siz, unsigned *ctlen);
+uint32_t find_calltable(const uint8_t *buf, uint32_t skip, uint32_t siz, unsigned *ctlen);
 
-/** find EEPROM read_byte(addr, &dest) function address and IO port used */
-uint32_t find_eepread(const uint8_t *buf, long siz, uint32_t *real_portreg);
+/** find EEPROM read_byte(addr, &dest) function address and IO port used
+ * returns address of eepread() function, otherwise 0 if nothing found
+ */
+uint32_t find_eepread(const uint8_t *buf, uint32_t siz, uint32_t *real_portreg);
 
 /** try to find sid27 key through code analysis
  * @param s27k : output
  * @param s36k : output
  */
-bool find_s27_hardcore(const uint8_t *buf, long siz, uint32_t *s27k, uint32_t *s36k);
+bool find_s27_hardcore(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k);
 
 
 
@@ -173,7 +175,7 @@ bool find_s27_hardcore(const uint8_t *buf, long siz, uint32_t *s27k, uint32_t *s
  *
  * handles multiple-mov sequences, and "shll", "shll2", "shlr16", "extu.b", "add #imm8",  too.
  */
-int sh_bt_immload(uint32_t *imm, const uint8_t *buf, long min, long start, int regno);
+int sh_bt_immload(uint32_t *imm, const uint8_t *buf, uint32_t min, uint32_t start, unsigned regno);
 
 /** return the immediate value loaded by PC-relative opcode (mov.w or mov.l only)
  * caller must have ensured opcode is a mov.x (@PC, disp), Rn opcode
@@ -209,6 +211,6 @@ enum opcode_dest sh_getopcode_dest(uint16_t code);
  * start at <pos> in buffer; updates the <visited> array (provided as =={0} by caller)
  * on every instruction, invokes the tracker_cb callback while passing it <cbdata> as a generic holder.
  */
-void sh_track_reg(const uint8_t *buf, uint32_t pos, uint32_t siz, int regno, uint8_t *visited,
-			void (*tracker_cb)(const uint8_t *buf, uint32_t pos, int regno, void *data), void *cbdata);
+void sh_track_reg(const uint8_t *buf, uint32_t pos, uint32_t siz, unsigned regno, uint8_t *visited,
+			void (*tracker_cb)(const uint8_t *buf, uint32_t pos, unsigned regno, void *data), void *cbdata);
 
