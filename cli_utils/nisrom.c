@@ -72,27 +72,6 @@ struct romfile {
 	struct ramf_unified ramf;	//not useful atm
 };
 
-// hax, get file length but restore position
-static u32 flen(FILE *hf) {
-	long siz;
-	long orig;
-
-	if (!hf) return 0;
-	orig = ftell(hf);
-	if (orig < 0) return 0;
-
-	if (fseek(hf, 0, SEEK_END)) return 0;
-
-	siz = ftell(hf);
-	if (siz < 0) siz=0;
-		//the rest of the code just won't work if siz = UINT32_MAX
-	#if (LONG_MAX >= UINT32_MAX)
-		if ((long long) siz == (long long) UINT32_MAX) siz = 0;
-	#endif
-
-	if (fseek(hf, orig, SEEK_SET)) return 0;
-	return (u32) siz;
-}
 
 //load ROM to a new buffer
 //ret 0 if OK

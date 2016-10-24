@@ -12,6 +12,9 @@
 /* this needs to be valid; debugging output is written to this.*/
 extern FILE *dbg_stream;	//such as as stdout or stderr
 
+/** get file length but restore position */
+uint32_t flen(FILE *hf);
+
 /** Read uint32 at *buf with SH endianness
 */
 uint32_t reconst_32(const uint8_t *buf);

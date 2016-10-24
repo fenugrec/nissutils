@@ -158,6 +158,29 @@ const uint8_t *u32memstr(const uint8_t *buf, uint32_t buflen, const uint32_t nee
 }
 
 
+// hax, get file length but restore position
+u32 flen(FILE *hf) {
+	long siz;
+	long orig;
+
+	if (!hf) return 0;
+	orig = ftell(hf);
+	if (orig < 0) return 0;
+
+	if (fseek(hf, 0, SEEK_END)) return 0;
+
+	siz = ftell(hf);
+	if (siz < 0) siz=0;
+		//the rest of the code just won't work if siz = UINT32_MAX
+	#if (LONG_MAX >= UINT32_MAX)
+		if ((long long) siz == (long long) UINT32_MAX) siz = 0;
+	#endif
+
+	if (fseek(hf, orig, SEEK_SET)) return 0;
+	return (u32) siz;
+}
+
+
 const struct fidtype_t fidtypes[] = {
 	[FID705101] = {	.fti = FID705101,
 			.FIDIC = "SH705101",
