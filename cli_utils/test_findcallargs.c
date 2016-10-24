@@ -31,23 +31,6 @@
 
 FILE *dbg_stream;
 
-// hax, get file length but restore position
-static long flen(FILE *hf) {
-	long siz;
-	long orig;
-
-	if (!hf) return 0;
-	orig = ftell(hf);
-	if (orig < 0) return 0;
-
-	if (fseek(hf, 0, SEEK_END)) return 0;
-
-	siz = ftell(hf);
-	if (siz < 0) siz=0;
-	if (fseek(hf, orig, SEEK_SET)) return 0;
-	return siz;
-}
-
 
 static void report_hit(u32 pos) {
 	printf("\t\t**** @ 0x%06lX\n", (unsigned long) pos);
@@ -62,7 +45,7 @@ u32 glob_arg;	//fugly shit to have access throughout all levels
 
 /* test for "jsr @regno" */
 #define JSR_R4_MAXBT	10	//how far back to search for r4 loadage
-void test_goodcall(const u8 *buf, u32 pos, int regno, void *data) {
+void test_goodcall(const u8 *buf, u32 pos, unsigned regno, void *data) {
 	(void) data;	//unused
 	u16 code = reconst_16(&buf[pos]);
 
@@ -123,14 +106,14 @@ void findcalls(FILE *i_file, u32 base, u32 arg) {
 	uint8_t *src;
 	u8 *visited;	//array of bytes, set to 1 when a certain area is "visited"
 
-	long file_len;
+	u32 file_len;
 
 	glob_base = base;
 	glob_arg = arg;
 
 	file_len = flen(i_file);
-	if ((file_len <= 0) || (file_len > 3*1024*1024L)) {
-		printf("huge file (length %ld)\n", file_len);
+	if ((!file_len) || (file_len > 3*1024*1024UL)) {
+		printf("huge file (length %lu)\n", (unsigned long) file_len);
 	}
 
 	src = malloc(file_len * 2);	//cheat : allocate both bufs
@@ -163,7 +146,7 @@ void findcalls(FILE *i_file, u32 base, u32 arg) {
 			u32 imm = sh_get_PCimm(src, romcurs);
 			if (imm == base) {
 				// match ! start recursion.
-				int regno = sh_getopcode_dest(opc);
+				unsigned regno = sh_getopcode_dest(opc);
 				memset(visited, 0, file_len);
 				printf("Entering 00.%6lX.R%d\n", (unsigned long) romcurs, regno);
 				sh_track_reg(src, romcurs, file_len, regno, visited, test_goodcall, NULL);

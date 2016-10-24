@@ -6,7 +6,7 @@
  * nisrom <romfile>
  */
 
-#include <assert.h>	//TODO : replace _Static_assert() with static_assert()
+#include <assert.h>
 #include <limits.h>
 #include <stddef.h>	//for offsetof()
 #include <stdint.h>
@@ -20,7 +20,10 @@
 
 #define DBG_OUTFILE	"nisrom_dbg.log"	//default log file
 
-_Static_assert(sizeof(char) == 1, "HAH ! a non-8bit char system. This may not work.");
+#if (CHAR_BIT != 8)
+#error HAH ! a non-8bit char system. Some of this will not work
+#endif
+
 FILE *dbg_stream;
 
 // generic ROM struct. For the file offsets in here, UINT32_MAX ((u32) -1) signals invalid / inexistant target
