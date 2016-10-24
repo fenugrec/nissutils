@@ -39,7 +39,7 @@ int main(int argc, char * argv[]) {
 		return 0;
 	}
 
-	for (key=0; key != -1; key++) {
+	for (key=0; key != (uint32_t) -1; key++) {
 		if (dec1(enc, key) == dec) {
 			printf("found key=%#lx\n", (unsigned long) key);
 		}

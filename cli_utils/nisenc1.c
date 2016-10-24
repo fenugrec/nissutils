@@ -66,11 +66,15 @@ uint16_t nis_encrypt1(FILE *ifh, FILE *ofh, uint32_t scode) {
 	return cks;
 }
 
+FILE *dbg_stream;
+
 int main(int argc, char * argv[]) {
 	uint32_t scode;
 	const char *ofn;	//output file name
 	uint16_t cks16;
 	FILE *i_file, *o_file;
+
+	dbg_stream = stderr;
 
 	if (argc < 3) {
 		printf("%s <scode> <in_file> [<out_file>]\n\tscode is uint32. Uses Algo 01"

@@ -12,34 +12,19 @@
 #include <string.h>	//memcpy
 
 #include "nislib.h"
+#include "stypes.h"
 
 FILE *dbg_stream;
 
 
 struct datfile {
 	FILE *hf;
-	long siz;	//size of .dat, in bytes
+	u32 siz;	//size of .dat, in bytes
 	uint8_t *buf;	//copied here
 	
 	uint8_t *dbuf;	//unpacked data
 };
 
-// hax, get file length but restore position
-static long flen(FILE *hf) {
-	long siz;
-	long orig;
-
-	if (!hf) return 0;
-	orig = ftell(hf);
-	if (orig < 0) return 0;
-
-	if (fseek(hf, 0, SEEK_END)) return 0;
-
-	siz = ftell(hf);
-	if (siz < 0) siz=0;
-	if (fseek(hf, orig, SEEK_SET)) return 0;
-	return siz;
-}
 
 //load ROM to a new buffer
 //ret 0 if OK
@@ -47,7 +32,7 @@ static long flen(FILE *hf) {
 static int open_dat(struct datfile *rf, const char *fname) {
 	FILE *fbin;
 	uint8_t *buf;	//load whole ROM
-	long file_len;
+	u32 file_len;
 
 	rf->hf = NULL;	//not needed
 
@@ -57,8 +42,8 @@ static int open_dat(struct datfile *rf, const char *fname) {
 	}
 
 	file_len = flen(fbin);
-	if ((file_len <= 0) || (file_len > 3*1024*1024L)) {
-		printf("huge file (length %ld)\n", file_len);
+	if ((!file_len) || (file_len > 3*1024*1024L)) {
+		printf("empty, or huge file (length %lu)\n", (unsigned long) file_len);
 	}
 	rf->siz = file_len;
 
@@ -88,8 +73,8 @@ static int open_dat(struct datfile *rf, const char *fname) {
 	rf->buf = buf;
 	fclose(fbin);
 
-	if ((file_len != 1024*1024L) && (file_len !=512*1024L)
-		&& (file_len != 256 * 1024L)) {
+	if ((file_len != 1024*1024UL) && (file_len !=512*1024UL)
+		&& (file_len != 256 * 1024UL)) {
 		printf("warning: not a 256k/512k/1M ROM !\n");
 	}
 
@@ -113,7 +98,7 @@ void close_dat(struct datfile *rf) {
 #define DCHUNK_SIZE 0x8D	//chunk size is very happy
 #define DCHUNK_DLEN 0x80	//bytes of payload
 // "FMT SRC TGT LEN 34 82 AH AM AL CL <CL bytes of data> <CRC1> <CRC2> <CKS>"
-void unpack_dat(FILE *outf, uint8_t *dest, const uint8_t *src, long siz) {
+void unpack_dat(FILE *outf, uint8_t *dest, const uint8_t *src, u32 siz) {
 	// 1- search for "88 34 82"
 	const uint8_t pm[]={0x88, 0x34, 0x82};
 	const uint8_t *psrc;	//misc pointer inside src buf
@@ -146,7 +131,7 @@ void unpack_dat(FILE *outf, uint8_t *dest, const uint8_t *src, long siz) {
 		plsiz += DCHUNK_DLEN;
 		psrc += (DCHUNK_SIZE - 4); //realign to AH
 	}
-	printf("total %ld bytes in PL.\n", plsiz);
+	printf("total %lu bytes in PL.\n", (unsigned long) plsiz);
 	fwrite(orig_dest, 1, plsiz, outf);
 	return;
 }

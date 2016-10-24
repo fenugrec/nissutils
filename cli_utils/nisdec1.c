@@ -66,10 +66,13 @@ void nis_decrypt1(FILE *ifh, FILE *ofh, uint32_t scode) {
 	}
 }
 
+FILE *dbg_stream;
+
 int main(int argc, char * argv[]) {
 	uint32_t scode;
 	const char *ofn;	//output file name
 	FILE *i_file, *o_file;
+	dbg_stream = stderr;
 
 	if (argc < 3) {
 		printf("%s <scode> <in_file> [<out_file>]\n\tscode is uint32. Uses NPT_DDL algo"
