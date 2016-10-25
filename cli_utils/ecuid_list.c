@@ -1,3 +1,9 @@
+/* Functionality for matching ECUIDs to most likely keyset.
+ *
+ * Copyright (c) fenugrec 2016
+ * Licensed under GPLv3
+ */
+
 
 
 #include <stdbool.h>
@@ -8,7 +14,12 @@
 #include "stypes.h"
 
 
-/* export from master list */
+struct ecuid_klist_t {
+	const char *ecuid;
+	uint32_t s27k;
+};
+
+/* export from master list : */
 
 const struct ecuid_klist_t ecuid_list[] = {
 	{"1EA1A", 0x917B43A8},

@@ -1,15 +1,13 @@
 #ifndef _ECUID_LIST_H
 #define _ECUID_LIST_H
 
+/* Functionality for matching ECUIDs to most likely keyset.
+ *
+ * Copyright (c) fenugrec 2016
+ * Licensed under GPLv3
+ */
+
 #include <stdint.h>
-
-struct ecuid_klist_t {
-	const char *ecuid;
-	uint32_t s27k;
-	};
-
-extern const struct ecuid_klist_t ecuid_list[];
-
 
 struct ecuid_keymatch_t {
 	uint32_t key;
