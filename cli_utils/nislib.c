@@ -482,11 +482,11 @@ void checksum_fix(uint8_t *buf, uint32_t siz, uint32_t p_cks, uint32_t p_ckx,
 
 	cks = reconst_32(&buf[p_cks]);
 	ckx = reconst_32(&buf[p_ckx]);
-	printf("desired cks=%X, ckx=%X\n", cks, ckx);
+	fprintf(dbg_stream, "desired cks=%X, ckx=%X\n", cks, ckx);
 	if ((cks & 1) != (ckx &1)) {
 		//Major problem, since both those bits should *always* match
 		// (bit 0 of an addition is the XOR of all "bit 0"s !! )
-		printf("Warning : unlikely original checksums; unmatched LSBs\n");
+		fprintf(dbg_stream, "Warning : unlikely original checksums; unmatched LSBs\n");
 	}
 
 	// 1) set correction vals to 0
@@ -501,12 +501,12 @@ void checksum_fix(uint8_t *buf, uint32_t siz, uint32_t p_cks, uint32_t p_ckx,
 	// do not count orig cks and ckx
 	ds = ds - (cks + ckx);
 	dx = dx ^ cks ^ ckx;
-	printf("actual s=%X, x=%X\n", ds, dx);
+	fprintf(dbg_stream, "actual s=%X, x=%X\n", ds, dx);
 
 	//required corrections :
 	ds = cks - ds;
 	dx = ckx ^ dx;
-	printf("corrections ds=%X, dx=%X\n", ds, dx);
+	fprintf(dbg_stream, "corrections ds=%X, dx=%X\n", ds, dx);
 	// 3) solve thus :
 	//	- find 'c' such that c ^ dx == 0; easy : c = dx.
 	//	- the new sum correction is now (ds - c)
@@ -519,7 +519,7 @@ void checksum_fix(uint8_t *buf, uint32_t siz, uint32_t p_cks, uint32_t p_ckx,
 	a = b = ds / 2;
 	//aaaand... that's it !?
 
-	printf("Correction vals a=%X, b=%X, c=%X\n", a,b,c);
+	fprintf(dbg_stream, "Correction vals a=%X, b=%X, c=%X\n", a,b,c);
 	//write correction vals
 	write_32b(a, &buf[p_a]);
 	write_32b(b, &buf[p_b]);
@@ -530,9 +530,9 @@ void checksum_fix(uint8_t *buf, uint32_t siz, uint32_t p_cks, uint32_t p_ckx,
 	ds = ds - (cks + ckx);
 	dx = dx ^ cks ^ ckx;
 	if ((ds == cks) && (dx == ckx)) {
-		printf("checksum fixed !\n");
+		fprintf(dbg_stream, "checksum fixed !\n");
 	} else {
-		printf("could not fix checksum !!\n");
+		fprintf(dbg_stream, "could not fix checksum !!\n");
 	}
 
 	return;
@@ -1317,13 +1317,13 @@ void sh_track_reg(const u8 *buf, u32 pos, u32 siz, unsigned regno, u8 *visited,
 			if ((opc & 0xF0FF) == ((regno << 4) | 0x6003)) {
 				//regno is copied to a new one.
 				int newreg = (opc & 0xF00) >> 8;
-				printf("Entering %4d.%6lX MOV\n", recurselevel, (unsigned long) pos);
+				fprintf(dbg_stream, "Entering %4d.%6lX MOV\n", recurselevel, (unsigned long) pos);
 				sh_track_reg(buf, pos, siz, newreg, visited, tracker_cb, cbdata);
 			}
 
 			//new recurse if we copy to gbr
 			if ((opc & 0xF0FF) == (0x401E | (regno << 8))) {
-				printf("Entering %4d.%6lX LDC GBR\n", recurselevel, (unsigned long) pos);
+				fprintf(dbg_stream, "Entering %4d.%6lX LDC GBR\n", recurselevel, (unsigned long) pos);
 				sh_track_reg(buf, pos, siz, GBR, visited, tracker_cb, cbdata);
 			}
 		}
@@ -1332,7 +1332,7 @@ void sh_track_reg(const u8 *buf, u32 pos, u32 siz, unsigned regno, u8 *visited,
 			//new recurse if we STC gbr, Rn
 			if ((opc & 0xF0FF) == 0x0012) {
 				int newreg = (opc >> 8) & 0xF;
-				printf("Entering %4d.%6lX STC GBR\n", recurselevel, (unsigned long) pos);
+				fprintf(dbg_stream, "Entering %4d.%6lX STC GBR\n", recurselevel, (unsigned long) pos);
 				sh_track_reg(buf, pos, siz, newreg, visited, tracker_cb, cbdata);
 			}
 		}
@@ -1340,7 +1340,7 @@ void sh_track_reg(const u8 *buf, u32 pos, u32 siz, unsigned regno, u8 *visited,
 		//new recurse if bt/bf
 		if (IS_BT_OR_BF(opc)) {
 			u32 newpos = disarm_8bit_offset(pos, GET_BTF_OFFSET(opc));
-			printf("Branch %4d.%6lX BT/BF to %6lX\n", recurselevel, (unsigned long) pos, (unsigned long) newpos);
+			fprintf(dbg_stream, "Branch %4d.%6lX BT/BF to %6lX\n", recurselevel, (unsigned long) pos, (unsigned long) newpos);
 			sh_track_reg(buf, newpos - 2, siz, regno, visited, tracker_cb, cbdata);
 		}
 
@@ -1349,7 +1349,7 @@ void sh_track_reg(const u8 *buf, u32 pos, u32 siz, unsigned regno, u8 *visited,
 		//bra : don't recurse, just alter path
 		if (IS_BRA(opc)) {
 			bra_newpos = disarm_12bit_offset(pos, GET_BRA_OFFSET(opc));
-			printf("Branch %4d.%6lX BRA to %6lX\n", recurselevel, (unsigned long) pos, (unsigned long) bra_newpos);
+			fprintf(dbg_stream, "Branch %4d.%6lX BRA to %6lX\n", recurselevel, (unsigned long) pos, (unsigned long) bra_newpos);
 			isbra = 1;
 		}
 
