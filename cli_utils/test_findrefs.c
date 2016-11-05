@@ -46,6 +46,11 @@
 
 FILE *dbg_stream;
 
+//silence some debug output
+#define DEBUG 0
+#define dbgprint(fmt, ...) \
+            do { if (DEBUG) fprintf(stderr, fmt, __VA_ARGS__); } while (0)
+
 static void report_hit(bool is_write, u32 pos, u32 base, u32 offs) {
 	if (is_write) {
 		printf("\t\t**** W @ 0x%06lX : 0x%08lX + 0x%lX\n", (unsigned long) pos,
@@ -270,7 +275,7 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 				// match ! start recursion.
 				unsigned regno = sh_getopcode_dest(opc);
 				memset(visited, 0, siz);
-				printf("Entering 00.%6lX.R%d\n", (unsigned long) romcurs, regno);
+				dbgprint("Entering 00.%6lX.R%d\n", (unsigned long) romcurs, regno);
 				sh_track_reg(src, romcurs, siz, regno, visited, test_callback, &offs);
 			}
 		}
@@ -295,7 +300,7 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 				if (shll8_maybe == (0x4018 | regno << 8)) {
 					//match ! start recursion.
 					memset(visited, 0, siz);
-					printf("Entering 00.%6lX.R%d with mov+shll8\n", (unsigned long) romcurs + s8_offs, regno);
+					dbgprint("Entering 00.%6lX.R%d with mov+shll8\n", (unsigned long) romcurs + s8_offs, regno);
 					sh_track_reg(src, romcurs + s8_offs, siz, regno, visited, test_callback, &offs);
 				}
 			}
@@ -311,8 +316,6 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 int main(int argc, char * argv[]) {
 	unsigned long tgt, minbase, base, offs;
 	FILE *i_file;
-
-	dbg_stream = stdout;
 
 	if (argc != 4) {
 		printf("%s <tgt> <minbase> <in_file>"
@@ -338,6 +341,12 @@ int main(int argc, char * argv[]) {
 
 	u32 file_len;
 
+	dbg_stream = tmpfile();	//before calling nislib funcs
+	if (dbg_stream == NULL) {
+		printf("problem creating temp file!?\n");
+		return 1;
+	}
+
 	rewind(i_file);
 	file_len = flen(i_file);
 	if ((!file_len) || (file_len > 3*1024*1024UL)) {
@@ -347,6 +356,8 @@ int main(int argc, char * argv[]) {
 	u8 *src = malloc(file_len);
 	if (!src) {
 		printf("malloc choke\n");
+		fclose(i_file);
+		fclose(dbg_stream);
 		return 0;
 	}
 
@@ -354,6 +365,7 @@ int main(int argc, char * argv[]) {
 	if (fread(src,1,file_len,i_file) != file_len) {
 		printf("trouble reading\n");
 		free(src);
+		fclose(dbg_stream);
 		return 0;
 	}
 	fclose(i_file);
@@ -364,7 +376,7 @@ int main(int argc, char * argv[]) {
 	}
 
 	free(src);
-
+	fclose(dbg_stream);
 	return 0;
 }
 
