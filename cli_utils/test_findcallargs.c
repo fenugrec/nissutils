@@ -148,7 +148,7 @@ void findcalls(FILE *i_file, u32 base, u32 arg) {
 				// match ! start recursion.
 				unsigned regno = sh_getopcode_dest(opc);
 				memset(visited, 0, file_len);
-				printf("Entering 00.%6lX.R%d\n", (unsigned long) romcurs, regno);
+				fprintf(dbg_stream, "Entering 00.%6lX.R%d\n", (unsigned long) romcurs, regno);
 				sh_track_reg(src, romcurs, file_len, regno, visited, test_goodcall, NULL);
 			}
 		}
@@ -170,8 +170,6 @@ int main(int argc, char * argv[]) {
 	unsigned long tgt, r4val;
 	FILE *i_file;
 
-	dbg_stream = stdout;
-
 	if (argc != 4) {
 		printf("%s <tgt> <r4val> <in_file>"
 			"\n\tExample: %s 0x56738 0x66 rom.bin\n", argv[0], argv[0]);
@@ -188,15 +186,23 @@ int main(int argc, char * argv[]) {
 		return 0;
 	}
 
+	dbg_stream = tmpfile();	//before calling nislib funcs
+	if (dbg_stream == NULL) {
+		printf("problem creating temp file!?\n");
+		return 1;
+	}
+
 	//input file
 	if ((i_file=fopen(argv[3],"rb"))==NULL) {
 		printf("error opening %s.\n", argv[3]);
-		return 0;
+		fclose(dbg_stream);
+		return 1;
 	}
 
 	rewind(i_file);
 	findcalls(i_file, tgt, r4val);
 
+	fclose(dbg_stream);
 	fclose(i_file);
 
 	return 0;
