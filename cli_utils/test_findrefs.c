@@ -12,14 +12,16 @@
  * For the example above, the other frequent occurence could be 0xFFFF400F + 0xF0 == 0xFFFF40FF.
  *
  * 3- run this utility, with "tgt" being the location you want to track,
- * and "minbase" the smallest likely base address. All the possible base addresses will be
+ * and optionally "minbase" the smallest likely base address. All the possible base addresses will be
  * tested. In the above case, I could specify minbase = 0xFFFF4000 and the utility will
  * test a total of 255 base + offset permutations.
+ * if minbase is not specified, this uses a built-in default minbase=(tgt - DEFAULT_MAXDIST) .
+ * See below for definition of DEFAULT_MAXDIST
  *
  * This should really be compiled at -O2
  *
- * Example run (piped through grep to filter the ridiculously verbose output)
-> tfr 0xffff1f4c 0xffff1f00 ../CF43D.bin | grep "@"
+ * Example with minbase:
+> tfr 0xffff1f4c 0xffff1f00 ../CF43D.bin
                 **** R @ 0x01D638 : 0xFFFF1F10 + 0x3C
                 **** W @ 0x031910 : 0xFFFF1F10 + 0x3C
                 **** W @ 0x031922 : 0xFFFF1F10 + 0x3C
@@ -29,9 +31,21 @@
  * This shows that location ffff1f4c is written from two places in the code (0x031910 and 0x031922), via a 0xffff1f10 base and 0x3c offset.
  *
  *
+ * example with no minbase:
+> tfr 0xffff9fea ..\8U92A
+		**** R @ 0x05945C : 0xFFFF9FE8 + 0x2
+		**** R @ 0x0594DA : 0xFFFF9FE8 + 0x2
+		**** R @ 0x0594BE : 0xFFFF9FE8 + 0x2
+		**** R @ 0x059470 : 0xFFFF9FE8 + 0x2
+		**** R @ 0x05AA68 : 0xFFFF9FE8 + 0x2
+>
+ *
+ *
  * (c) fenugrec 2016
  * GPLv3
  */
+
+#define DEFAULT_MAXDIST 0x300	//see above comments. Used to calculate minbase
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -316,25 +330,34 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 int main(int argc, char * argv[]) {
 	unsigned long tgt, minbase, base, offs;
 	FILE *i_file;
+	int file_argc;
 
-	if (argc != 4) {
-		printf("%s <tgt> <minbase> <in_file>"
+	if ((argc < 3) || (argc > 4)) {
+		printf("%s <tgt> [<minbase>] <in_file>"
 			"\n\tExample: %s 0xffff40ff 0xffff4000 rom.bin\n", argv[0], argv[0]);
 		return 0;
 	}
 
-	// arg 1,2 : orig checksum locations
 	if (sscanf(argv[1], "%lx", &tgt) != 1) {
 		printf("did not understand %s\n", argv[1]);
 		return 0;
 	}
-	if (sscanf(argv[2], "%lx", &minbase) != 1) {
-		printf("did not understand %s\n", argv[2]);
-		return 0;
+
+	if (argc == 4) {
+		//minbase was specified:
+		file_argc = 3;
+		if (sscanf(argv[2], "%lx", &minbase) != 1) {
+			printf("did not understand %s\n", argv[2]);
+			return 0;
+		}
+	} else {
+		//calc default minbase
+		file_argc = 2;
+		minbase = tgt - DEFAULT_MAXDIST;
 	}
 
 	//input file
-	if ((i_file=fopen(argv[3],"rb"))==NULL) {
+	if ((i_file=fopen(argv[file_argc],"rb"))==NULL) {
 		printf("error opening %s.\n", argv[3]);
 		return 0;
 	}
