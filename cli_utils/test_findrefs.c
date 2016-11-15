@@ -21,7 +21,7 @@
  * This should really be compiled at -O2
  *
  * Example with minbase:
-> tfr 0xffff1f4c 0xffff1f00 ../CF43D.bin
+> tfr ../CF43D.bin 0xffff1f4c 0xffff1f00
                 **** R @ 0x01D638 : 0xFFFF1F10 + 0x3C
                 **** W @ 0x031910 : 0xFFFF1F10 + 0x3C
                 **** W @ 0x031922 : 0xFFFF1F10 + 0x3C
@@ -32,7 +32,7 @@
  *
  *
  * example with no minbase:
-> tfr 0xffff9fea ..\8U92A
+> tfr ..\8U92A 0xffff9fea
 		**** R @ 0x05945C : 0xFFFF9FE8 + 0x2
 		**** R @ 0x0594DA : 0xFFFF9FE8 + 0x2
 		**** R @ 0x0594BE : 0xFFFF9FE8 + 0x2
@@ -330,34 +330,31 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 int main(int argc, char * argv[]) {
 	unsigned long tgt, minbase, base, offs;
 	FILE *i_file;
-	int file_argc;
 
 	if ((argc < 3) || (argc > 4)) {
-		printf("%s <tgt> [<minbase>] <in_file>"
+		printf("%s <in_file> <tgt> [<minbase>]"
 			"\n\tExample: %s 0xffff40ff 0xffff4000 rom.bin\n", argv[0], argv[0]);
 		return 0;
 	}
 
-	if (sscanf(argv[1], "%lx", &tgt) != 1) {
+	if (sscanf(argv[2], "%lx", &tgt) != 1) {
 		printf("did not understand %s\n", argv[1]);
 		return 0;
 	}
 
 	if (argc == 4) {
 		//minbase was specified:
-		file_argc = 3;
-		if (sscanf(argv[2], "%lx", &minbase) != 1) {
+		if (sscanf(argv[3], "%lx", &minbase) != 1) {
 			printf("did not understand %s\n", argv[2]);
 			return 0;
 		}
 	} else {
 		//calc default minbase
-		file_argc = 2;
 		minbase = tgt - DEFAULT_MAXDIST;
 	}
 
 	//input file
-	if ((i_file=fopen(argv[file_argc],"rb"))==NULL) {
+	if ((i_file=fopen(argv[1],"rb"))==NULL) {
 		printf("error opening %s.\n", argv[3]);
 		return 0;
 	}
