@@ -1309,6 +1309,8 @@ void sh_track_reg(const u8 *buf, u32 pos, u32 siz, unsigned regno, u8 *visited,
 
 		//end recursion if we hit RTS
 		if (IS_RTS(opc) || IS_RTE(opc)) {
+			//go check next opcode for delay slot
+			tracker_cb(buf, pos + 2, regno, cbdata);
 			goto endrec;
 		}
 
