@@ -48,6 +48,8 @@ const uint8_t *u32memstr(const uint8_t *buf, uint32_t buflen, const uint32_t nee
 
 /** Find opcode pattern... bleh
  * "patlen" is # of opcodes
+ *
+ * @return (u32) -1 if failed
  */
 uint32_t find_pattern(const uint8_t *buf, uint32_t siz, unsigned patlen,
 			const uint16_t *pat, const uint16_t *mask);
