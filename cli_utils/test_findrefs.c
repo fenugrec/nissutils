@@ -143,7 +143,7 @@ void test_rnrel(const u8 *buf, u32 pos, u32 offs, unsigned regno) {
 
 
 // @(R0, Rn) forms
-#define R0RN_MAXBT	10	//how far back to search for an immediate load for the offset
+#define R0RN_MAXBT	20	//how far back (in bytes) to search for an immediate load for the offset
 void test_r0rn(const u8 *buf, u32 pos, u32 offs, unsigned regno) {
 	u16 opc = reconst_16(&buf[pos]);
 	int dir = 0;	//0 : R. 1: W
