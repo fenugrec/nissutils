@@ -950,6 +950,10 @@ int sh_bt_immload(u32 *imm, const uint8_t *buf, uint32_t min, uint32_t start,
 			return 1;
 		}
 
+		if (sh_getopcode_dest(opc) == regno) {
+			//Rn clobbered
+			return 0;
+		}
 
 		start -= 2;
 
@@ -1323,8 +1327,8 @@ void sh_track_reg(const u8 *buf, u32 pos, u32 siz, unsigned regno, u8 *visited,
 				sh_track_reg(buf, pos, siz, newreg, visited, tracker_cb, cbdata);
 			}
 
-			//new recurse if we copy to gbr
-			if ((opc & 0xF0FF) == (0x401E | (regno << 8))) {
+			//new recurse if we copy to gbr ( LDC Rm,GBR 0100mmmm00011110 )
+			if (opc == (0x401E | (regno << 8))) {
 				fprintf(dbg_stream, "Entering %4d.%6lX LDC GBR\n", recurselevel, (unsigned long) pos);
 				sh_track_reg(buf, pos, siz, GBR, visited, tracker_cb, cbdata);
 			}
