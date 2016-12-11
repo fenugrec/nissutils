@@ -914,6 +914,25 @@ int sh_bt_immload(u32 *imm, const uint8_t *buf, uint32_t min, uint32_t start,
 			return 0;
 		}
 
+		// 2f) add Rm, R<regno>: recurse for Rm and regno again; add before ret
+		//ADD Rm,Rn 0011nnnnmmmm1100 Rn + Rm => Rn
+		if ((opc & 0xFF0F) == (0x300C | (regno << 8))) {
+			u32 add_src, add_src2;
+
+			start -= 2;
+			printf("add rm, regno : recurs @ %X\n", start);
+			new_regno = (opc >> 4) & 0x0F;
+			if (sh_bt_immload(&add_src, buf, min, start, new_regno)) {
+				//found Rm
+				if (sh_bt_immload(&add_src2, buf, min, start, regno)) {
+					//found Rn too
+					*imm = (add_src + add_src2);
+					return 1;
+				}
+			}
+			return 0;
+		}
+
 		// 3) no recursion : try to find load_immediate.
 		// "mov #imm8, R<regno>"	[E<regno> <i>]
 		// "mov.w @(disp, PC), R<regno> 	[9<regno> <disp/2>]
