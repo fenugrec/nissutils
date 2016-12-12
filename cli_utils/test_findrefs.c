@@ -222,11 +222,30 @@ void test_regref(const u8 *buf, u32 pos, u32 offs, unsigned regno) {
 	return;
 }
 
+//test [logic].b  #imm, @(R0, GBR) forms
+#define LOGICGBR_MAXBT	20
+void test_logicgbr(const u8 *buf, u32 pos, u32 offs) {
+	u16 opc=reconst_16(&buf[pos]);
+	u32 r0val;
+
+	// patterns:
+	//AND.B #imm,@(R0,GBR) 11001101iiiiiiii
+	// OR.B #imm,@(R0,GBR) 11001111iiiiiiii
+	//TST.B #imm,@(R0,GBR) 11001100iiiiiiii
+	//XOR.B #imm,@(R0,GBR) 11001110iiiiiiii
+
+	if ((opc & 0xFC00) != 0xCC00) return;
+	if (!sh_bt_immload(&r0val, buf, pos - LOGICGBR_MAXBT, pos - 2, 0)) return;
+	if (offs == r0val) report_hit(1, pos, glob_base, offs);
+	return;
+}
+
 // This is run on every position where <regno> is of interest.
 void test_callback(const u8 *buf, u32 pos, unsigned regno, void *data) {
 	u32 offs = *(u32 *)data;
 	if (regno == GBR) {
 		test_gbrref(buf, pos, offs);
+		test_logicgbr(buf, pos, offs);
 	} else {
 		test_rnrel(buf, pos, offs, regno);	//test naive @(disp+Rn) forms
 		test_r0rn(buf, pos, offs, regno);	//test @(R0,Rn) forms
