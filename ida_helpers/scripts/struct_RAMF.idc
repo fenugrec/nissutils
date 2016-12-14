@@ -28,9 +28,7 @@ static Structures_0(id) {
 
 	id = GetStrucIdByName("RAMF");
 	AddStrucMember(id,"pRAM1?",	0x00,	0x20500400,	0X0,	4);
-	SetMemberComment(id,	0x00,	"rxbuf?",	1);
 	AddStrucMember(id,"pRAMexec2?",	0x04,	0x20500400,	0X0,	4);
-	SetMemberComment(id,	0x04,	"RAMexec?",	1);
 	AddStrucMember(id,"pRAM_unk1",	0x08,	0x20500400,	0X0,	4);
 	AddStrucMember(id,"pRAM_unk1b",	0x0c,	0x20500400,	0X0,	4);
 	SetMemberComment(id,	0x08,	"unk1...unk1b = zone",	0);
@@ -53,7 +51,7 @@ static Structures_0(id) {
 	AddStrucMember(id,"pRAM_unk5",	0X44,	0x20500400,	0X0,	4);
 	AddStrucMember(id,"pRAM_unk6",	0X48,	0x20500400,	0X0,	4);
 	AddStrucMember(id,"altcks_start",	0x4c,	0x20500400,	0X0,	4);
-	AddStrucMember(id,"pTHIS",	0x50,	0x20500400,	0X0,	4);
+	AddStrucMember(id,"altcks_end",	0x50,	0x20500400,	0X0,	4);
 //	AddStrucMember(id,"pECUID?",	0x54,	0x20500400,	0X0,	4);
 //	AddStrucMember(id,"pad_B2",	0x4c,	0x20500400,	0X0,	4);
 	AddStrucMember(id,"pIVECT2",	0x54,	0x20500400,	0X0,	4);
