@@ -73,8 +73,7 @@ static main() {
 	ea = ScreenEA();
 
 	if (!isStruct(GetFlags(ea))) {
-		Message("Current selection not a struct!\n");
-		return;
+		Warning("Current selection not a struct!\n");
 	}
 
 	sprompt = form("Converting \"%s\" to individual members. Enter struct idx:", GetTrueName(ea));
