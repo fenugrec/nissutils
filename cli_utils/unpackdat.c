@@ -73,11 +73,6 @@ static int open_dat(struct datfile *rf, const char *fname) {
 	rf->buf = buf;
 	fclose(fbin);
 
-	if ((file_len != 1024*1024UL) && (file_len !=512*1024UL)
-		&& (file_len != 256 * 1024UL)) {
-		printf("warning: not a 256k/512k/1M ROM !\n");
-	}
-
 	return 0;
 }
 
@@ -105,7 +100,8 @@ void unpack_dat(FILE *outf, uint8_t *dest, const uint8_t *src, u32 siz) {
 	uint8_t *orig_dest = dest;
 	uint32_t curaddr = 0;
 
-	unsigned plsiz = 0;	//total payload bytes
+	unsigned long plsiz = 0;	//total payload bytes
+	unsigned pl_numc = 0;	//# of chunks
 
 	psrc = u8memstr(src, siz, pm, 3);
 	if (!psrc) return;
@@ -114,12 +110,12 @@ void unpack_dat(FILE *outf, uint8_t *dest, const uint8_t *src, u32 siz) {
 	psrc += 3;
 	while ( psrc < &src[siz - 1] ) {
 		// parse AH:AM:AL
-		uint32_t tv = reconst_32(psrc);
-		tv >>= 8;
-		if (tv != (curaddr + DCHUNK_DLEN)) {
-			printf("addr skip @ %lX\n", (unsigned long) tv);
+		uint32_t temp_addr = reconst_32(psrc);
+		temp_addr >>= 8;
+		if (temp_addr != (curaddr + DCHUNK_DLEN)) {
+			printf("addr skip @ %lX\n", (unsigned long) temp_addr);
 		}
-		curaddr = tv;
+		curaddr = temp_addr;
 		psrc += 3;	//seek to "CL"
 		if (*psrc != DCHUNK_DLEN) {
 			printf("bad chunk len ?\n");
@@ -127,11 +123,13 @@ void unpack_dat(FILE *outf, uint8_t *dest, const uint8_t *src, u32 siz) {
 		}
 		psrc += 1;	//seek to payload data
 		memcpy(dest, psrc, DCHUNK_DLEN);
+		pl_numc += 1;
 		dest += DCHUNK_DLEN;
 		plsiz += DCHUNK_DLEN;
 		psrc += (DCHUNK_SIZE - 4); //realign to AH
 	}
-	printf("total %lu bytes in PL.\n", (unsigned long) plsiz);
+	printf("total: %u chunks; %lu (0x%06lX) bytes in PL.\n",
+			pl_numc, plsiz, plsiz);
 	fwrite(orig_dest, 1, plsiz, outf);
 	return;
 }
