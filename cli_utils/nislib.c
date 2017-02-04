@@ -1088,12 +1088,14 @@ struct s27_keyfinding {
 	int swapf_xrefs;	//# of occurences
 	bool s27_found;
 	bool s36_found;
+	u32 s27k_pos;	//position in ROM
+	u32 s36k_pos;
 	uint32_t *s27k;
 	uint32_t *s36k;		//where to store the keys found
 };
 
 /* callback for every "bsr swapf" hit */
-void found_bsr_swapf(const u8 *buf, u32 pos, void *data) {
+static void found_bsr_swapf(const u8 *buf, u32 pos, void *data) {
 	struct s27_keyfinding *skf = data;
 
 	skf->swapf_xrefs += 1;
@@ -1104,9 +1106,11 @@ void found_bsr_swapf(const u8 *buf, u32 pos, void *data) {
 	key = fs27_bt_stmem(buf, pos);
 	if (key && skf->s36_found) {
 		*skf->s27k = key;
+		skf->s27k_pos = pos;
 		skf->s27_found = 1;
 	} else if (key) {
 		*skf->s36k = key;
+		skf->s36k_pos = pos;
 		skf->s36_found = 1;
 	}
 }
@@ -1150,7 +1154,11 @@ bool find_s27_hardcore(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_
 		swapf_cur = patpos + 2;
 
 	}
-	if (skf.s27_found && skf.s36_found) return 1;
+	if (skf.s27_found && skf.s36_found) {
+		fprintf(dbg_stream, "keys guessed: s27k @ 0x%06lX, s36k1 @ 0x%06lX\n",
+				(unsigned long) skf.s27k_pos, (unsigned long) skf.s36k_pos);
+		return 1;
+	}
 	return 0;
 
 }
