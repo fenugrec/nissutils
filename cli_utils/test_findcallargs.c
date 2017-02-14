@@ -15,7 +15,7 @@
  * Example: test_findcallargs.exe 0x56738 0xB0 rom.bin
  *
  *
- * (c) fenugrec 2016
+ * (c) fenugrec 2016-2017
  * GPLv3
  */
 
@@ -171,6 +171,9 @@ int main(int argc, char * argv[]) {
 	FILE *i_file;
 
 	if (argc != 4) {
+		printf(	"**** %s\n"
+			"**** Find function calls with matching r4 argument\n"
+			"**** (c) 2015-2017 fenugrec\n", argv[0]);
 		printf("%s <tgt> <r4val> <in_file>"
 			"\n\tExample: %s 0x56738 0x66 rom.bin\n", argv[0], argv[0]);
 		return 0;

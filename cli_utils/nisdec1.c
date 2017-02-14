@@ -1,5 +1,5 @@
 /* nisdec1: decrypt binary file using algo_1 (NPT_DDL)
- * (c) fenugrec 2015
+ * (c) fenugrec 2015-2017
  * GPLv3
  * Needs the 32-bit scode to decrypt.
  * usage : nisdec1 <scode> <in_file> [<out_file>]
@@ -73,6 +73,10 @@ int main(int argc, char * argv[]) {
 	const char *ofn;	//output file name
 	FILE *i_file, *o_file;
 	dbg_stream = stderr;
+
+	printf(	"**** %s\n"
+		"**** Decrypt file using Nissan algo\n"
+		"**** (c) 2015-2017 fenugrec\n", argv[0]);
 
 	if (argc < 3) {
 		printf("%s <scode> <in_file> [<out_file>]\n\tscode is uint32. Uses NPT_DDL algo"

@@ -1,5 +1,5 @@
 /*bruteforce scode, given encrypted + decrypted data.
- * (c) fenugrec 2015
+ * (c) fenugrec 2015-2017
  * GPLv3
  * Note : because of the algo, there can be many (or no) key possibilities for any given 4-byte-in, 4-byte-out combination.
  * Should be compiled with -O3
@@ -21,6 +21,10 @@ FILE *dbg_stream;
 int main(int argc, char * argv[]) {
 	uint32_t enc,dec,key;
 	dbg_stream = stdout;
+
+	printf(	"**** %s\n"
+		"**** List possible keys that encode a given pair of u32 values\n"
+		"**** (c) 2015-2017 fenugrec\n", argv[0]);
 
 	if (argc < 3) {
 		printf("%s <enc> <dec>\n\tboth args are uint32, in hex.\n", argv[0]);

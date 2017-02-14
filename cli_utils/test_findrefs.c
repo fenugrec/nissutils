@@ -41,7 +41,7 @@
 >
  *
  *
- * (c) fenugrec 2016
+ * (c) fenugrec 2016-2017
  * GPLv3
  */
 
@@ -351,6 +351,10 @@ int main(int argc, char * argv[]) {
 	FILE *i_file;
 
 	if ((argc < 3) || (argc > 4)) {
+		printf(	"**** %s\n"
+			"**** Find memory accesses to a given address.\n"
+			"**** (c) 2015-2017 fenugrec\n", argv[0]);
+
 		printf("%s <in_file> <tgt> [<minbase>]"
 			"\n\tExample: %s 0xffff40ff 0xffff4000 rom.bin\n", argv[0], argv[0]);
 		return 0;

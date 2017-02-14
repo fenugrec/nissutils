@@ -1,4 +1,4 @@
-/* (c) fenugrec 2015-2016
+/* (c) fenugrec 2015-2017
  * Gather information about a ROM, from metadata and heuristics
  * GPLv3
  *
@@ -600,7 +600,10 @@ int main(int argc, char *argv[])
 	u32 ramfpos;
 
 	if (argc !=2) {
-		printf("%s <ROMFILE> : analyze ROM dump.\n",argv[0]);
+		printf(	"**** %s\n"
+			"**** Analyze Nissan ROM\n"
+			"**** (c) 2015-2017 fenugrec\n", argv[0]);
+		printf("Usage:\t%s <ROMFILE> : analyze ROM dump.\n",argv[0]);
 		return 0;
 	}
 

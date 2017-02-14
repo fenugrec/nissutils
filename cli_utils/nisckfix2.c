@@ -64,6 +64,10 @@ int main(int argc, char * argv[]) {
 
 	dbg_stream = stdout;
 
+	printf(	"**** %s\n"
+		"**** Fix std checksum (strategy: rewrite values)\n"
+		"**** (c) 2015-2017 fenugrec\n", argv[0]);
+
 	if (argc < 4) {
 		printf("%s <&cks_s> <&cks_x> <in_file> [<out_file>]"
 			"\n\tIf out_file is omitted, output is written to %s"

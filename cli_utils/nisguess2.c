@@ -1,5 +1,5 @@
 /*bruteforce scode, given encrypted + decrypted data.
- * (c) fenugrec 2015
+ * (c) fenugrec 2015-2017
  * GPLv3
  * This version allows to converge on a precise key that works for a given set of u32 vals. (nisguess only gives all possible keys)
  * Note : because of the algo, there can be many (or no) key possibilities for any given 4-byte-in, 4-byte-out combination.
@@ -113,6 +113,10 @@ void find_key(FILE *efh, FILE *dfh) {
 int main(int argc, char * argv[]) {
 	FILE *efh, *dfh;
 	dbg_stream = stdout;
+
+	printf(	"**** %s\n"
+		"**** Attemp to guess Nissan key based on decrypted + encrypted data\n"
+		"**** (c) 2015-2017 fenugrec\n", argv[0]);
 
 	if (argc < 3) {
 		printf("%s <enc_file> <dec_file>\n", argv[0]);

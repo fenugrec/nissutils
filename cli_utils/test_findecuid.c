@@ -1,4 +1,4 @@
-/* (c) fenugrec 2015-2016
+/* (c) fenugrec 2015-2017
  *
  * test heuristics to find ECUID in ROM
  *
@@ -108,6 +108,10 @@ int main(int argc, char *argv[])
 {
 	bool	dbg_file;	//flag if dbgstream is a real file
 	struct romfile rf = {0};
+
+	printf(	"**** %s\n"
+		"**** Try to find ECUID string in Nissan ROM\n"
+		"**** (c) 2015-2017 fenugrec\n", argv[0]);
 
 	if (argc !=2) {
 		printf("%s <ROMFILE> : analyze 512k or 1M ROM.\n",argv[0]);
