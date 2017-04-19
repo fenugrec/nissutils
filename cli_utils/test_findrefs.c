@@ -356,7 +356,7 @@ int main(int argc, char * argv[]) {
 			"**** (c) 2015-2017 fenugrec\n", argv[0]);
 
 		printf("%s <in_file> <tgt> [<minbase>]"
-			"\n\tExample: %s 0xffff40ff 0xffff4000 rom.bin\n", argv[0], argv[0]);
+			"\n\tExample: %s rom.bin 0xffff40ff 0xffff4000\n", argv[0], argv[0]);
 		return 0;
 	}
 
