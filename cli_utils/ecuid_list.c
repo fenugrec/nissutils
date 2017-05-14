@@ -149,6 +149,7 @@ const struct ecuid_klist_t ecuid_list[] = {
 	{"VC628", 0x211CE348},
 	{"VC85A", 0x211CE348},
 	{"VD70A", 0x211CE348},
+	{"WE85C", 0x7374BC6A},
 	{"Z31M2", 0xED19DF45},
 	{"ZB010", 0x3C24EB50},
 	{"ZB605", 0x3C24EB50},
