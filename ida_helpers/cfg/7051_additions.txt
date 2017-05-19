@@ -1,0 +1,127 @@
+; mem + interrupt vector definitions for basic SH7051
+; (see http://www.romraider.com/forum/viewtopic.php?f=40&t=5825)
+
+;The stuff below needs to be added in sh3.cfg in the correct sections,
+; but is incomplete (missing peripheral register defs)
+
+.SH7051
+;memory area defs
+area CODE ROM        0x00000000:0x0003FFFF   Internal ROM area
+area BSS  RESERVED    0x00040000:0xFFFF7FFF   Reserved area (nomemsland)
+area DATA IOREGS  0xFFFF8000:0xFFFF87FF On-chip periph regs
+area BSS RESERVED  0xFFFF8800:0xFFFFD7FF Reserved area (noramsland)
+area DATA RAM       0xFFFFD800:0xFFFFFFFF	Internal RAM area
+
+
+;Interrupt Vector Table (IVT)
+;interrupt Poweron_Reset 0x00000000 RESET	;should be defined last otherwise name can be overrided
+interrupt Illegal_instr 0x00000010 General Illegal instruction int
+interrupt Slot_illegal	0x00000018 Slot illegal instruction int
+interrupt CPUaddr_error	0x00000024 CPU addr error
+interrupt DMACaddr_error	0x00000028 DMAC addr error
+interrupt NMI	0x0000002C NMI interrupt
+interrupt usr_break	0x00000030 UBC User break interrupt
+interrupt INT_TRAPA32 	0x00000080 User TRAPA 32 interrupt
+interrupt INT_TRAPA33 	0x00000084 User TRAPA 33 interrupt
+interrupt INT_TRAPA34 	0x00000088 User TRAPA 34 interrupt
+interrupt INT_TRAPA35 	0x0000008c User TRAPA 35 interrupt
+interrupt INT_TRAPA36 	0x00000090 User TRAPA 36 interrupt
+interrupt INT_TRAPA37 	0x00000094 User TRAPA 37 interrupt
+interrupt INT_TRAPA38 	0x00000098 User TRAPA 38 interrupt
+interrupt INT_TRAPA39 	0x0000009c User TRAPA 39 interrupt
+interrupt INT_TRAPA40 	0x000000a0 User TRAPA 40 interrupt
+interrupt INT_TRAPA41 	0x000000a4 User TRAPA 41 interrupt
+interrupt INT_TRAPA42 	0x000000a8 User TRAPA 42 interrupt
+interrupt INT_TRAPA43 	0x000000ac User TRAPA 43 interrupt
+interrupt INT_TRAPA44 	0x000000b0 User TRAPA 44 interrupt
+interrupt INT_TRAPA45 	0x000000b4 User TRAPA 45 interrupt
+interrupt INT_TRAPA46 	0x000000b8 User TRAPA 46 interrupt
+interrupt INT_TRAPA47 	0x000000bc User TRAPA 47 interrupt
+interrupt INT_TRAPA48 	0x000000c0 User TRAPA 48 interrupt
+interrupt INT_TRAPA49 	0x000000c4 User TRAPA 49 interrupt
+interrupt INT_TRAPA50 	0x000000c8 User TRAPA 50 interrupt
+interrupt INT_TRAPA51 	0x000000cc User TRAPA 51 interrupt
+interrupt INT_TRAPA52 	0x000000d0 User TRAPA 52 interrupt
+interrupt INT_TRAPA53 	0x000000d4 User TRAPA 53 interrupt
+interrupt INT_TRAPA54 	0x000000d8 User TRAPA 54 interrupt
+interrupt INT_TRAPA55 	0x000000dc User TRAPA 55 interrupt
+interrupt INT_TRAPA56 	0x000000e0 User TRAPA 56 interrupt
+interrupt INT_TRAPA57 	0x000000e4 User TRAPA 57 interrupt
+interrupt INT_TRAPA58 	0x000000e8 User TRAPA 58 interrupt
+interrupt INT_TRAPA59 	0x000000ec User TRAPA 59 interrupt
+interrupt INT_TRAPA60 	0x000000f0 User TRAPA 60 interrupt
+interrupt INT_TRAPA61 	0x000000f4 User TRAPA 61 interrupt
+interrupt INT_TRAPA62 	0x000000f8 User TRAPA 62 interrupt
+interrupt INT_TRAPA63 	0x000000fc User TRAPA 63 interrupt
+interrupt INT_IRQ0	0x00000100 IRQ0 interrupt
+interrupt INT_IRQ1	0x00000104 IRQ1 interrupt
+interrupt INT_IRQ2	0x00000108 IRQ2 interrupt
+interrupt INT_IRQ3	0x0000010c IRQ3 interrupt
+interrupt INT_IRQ4	0x00000110 IRQ4 interrupt
+interrupt INT_IRQ5	0x00000114 IRQ5 interrupt
+interrupt INT_IRQ6	0x00000118 IRQ6 interrupt
+interrupt INT_IRQ7	0x0000011c IRQ7 interrupt
+interrupt INT_DMAC0_DEI0	0x00000120 DMAC0_DEI0 interrupt
+interrupt INT_DMAC1_DEI1	0x00000128 DMAC1_DEI1 interrupt
+interrupt INT_DMAC2_DEI2	0x00000130 DMAC2_DEI2 interrupt
+interrupt INT_DMAC3_DEI3	0x00000138 DMAC3_DEI3 interrupt
+interrupt INT_ATU01_ITV	0x00000140 ATU01_ITV interrupt
+interrupt INT_ATU02_ICI0A	0x00000150 ATU02_ICI0A interrupt
+interrupt INT_ATU02_ICI0B	0x00000154 ATU02_ICI0B interrupt
+interrupt INT_ATU02_ICI0C	0x00000158 ATU02_ICI0C interrupt
+interrupt INT_ATU02_ICI0D	0x0000015C ATU02_ICI0D interrupt
+interrupt INT_ATU03_OVIO	0x00000160 ATU03_OVIO interrupt
+interrupt INT_ATU11_IMI1A	0x00000170 ATU11_IMI1A interrupt
+interrupt INT_ATU11_IMI1B	0x00000174 ATU11_IMI1B interrupt
+interrupt INT_ATU11_IMI1C	0x00000178 ATU11_IMI1C interrupt
+interrupt INT_ATU12_IMI1D	0x00000180 ATU12_IMI1D interrupt
+interrupt INT_ATU12_IMI1E	0x00000184 ATU12_IMI1E interrupt
+interrupt INT_ATU12_IMI1F	0x00000188 ATU12_IMI1F interrupt
+interrupt INT_ATU13_OV11	0x00000190 ATU13_OV11 interrupt
+interrupt INT_ATU2_IMI2A	0x000001A0 ATU2_IMI2A interrupt
+interrupt INT_ATU2_IMI2B	0x000001A4 ATU2_IMI2B interrupt
+interrupt INT_ATU2_OV12	0x000001A8 ATU2_OV12 interrupt
+interrupt INT_ATU31_IMI3A	0x000001B0 ATU31_IMI3A interrupt
+interrupt INT_ATU31_IMI3B	0x000001B4 ATU31_IMI3B interrupt
+interrupt INT_ATU31_IMI3C	0x000001B8 ATU31_IMI3C interrupt
+interrupt INT_ATU31_IMI3D	0x000001BC ATU31_IMI3D interrupt
+interrupt INT_ATU32_OV13	0x000001C0 ATU32_OV13 interrupt
+interrupt INT_ATU41_IMI4A	0x000001D0 ATU41_IMI4A interrupt
+interrupt INT_ATU41_IMI4B	0x000001D4 ATU41_IMI4B interrupt
+interrupt INT_ATU41_IMI4C	0x000001D8 ATU41_IMI4C interrupt
+interrupt INT_ATU41_IMI4D	0x000001DC ATU41_IMI4D interrupt
+interrupt INT_ATU42_OV14	0x000001E0 ATU42_OV14 interrupt
+interrupt INT_ATU5_IMI5A	0x000001F0 ATU5_IMI5A interrupt
+interrupt INT_ATU5_IMI5B	0x000001F4 ATU5_IMI5B interrupt
+interrupt INT_ATU5_OV15	0x000001F8 ATU5_OV15 interrupt
+interrupt INT_ATU6_CMI6	0x00000200 ATU6_CMI6 interrupt
+interrupt INT_ATU7_CMI7	0x00000204 ATU7_CMI7 interrupt
+interrupt INT_ATU8_CMI8	0x00000208 ATU8_CMI8 interrupt
+interrupt INT_ATU9_CMI9	0x0000020C ATU9_CMI9 interrupt
+interrupt INT_ATU101_OSI10A	0x00000210 ATU101_OSI10A interrupt
+interrupt INT_ATU101_OSI10B	0x00000214 ATU101_OSI10B interrupt
+interrupt INT_ATU101_OSI10C	0x00000218 ATU101_OSI10C interrupt
+interrupt INT_ATU102_OSI10D	0x00000220 ATU102_OSI10D interrupt
+interrupt INT_ATU102_OSI10E	0x00000224 ATU102_OSI10E interrupt
+interrupt INT_ATU102_OSI10F	0x00000228 ATU102_OSI10F interrupt
+interrupt INT_ATU103_OSI10G	0x00000230 ATU103_OSI10G interrupt
+interrupt INT_ATU103_OSI10H	0x00000234 ATU103_OSI10H interrupt
+interrupt INT_CMT0_CMTI0	0x00000240 CMT0_CMTI0 interrupt
+interrupt INT_ADI0	0x00000244 ADI0 interrupt
+interrupt INT_CMT1_CMT11	0x00000250 CMT1_CMT11 interrupt
+interrupt INT_ADI1	0x00000254 ADI1 interrupt
+interrupt INT_SCI0_ERI0	0x00000260 SCI0_ERI0 interrupt
+interrupt INT_SCI0_RXI0	0x00000264 SCI0_RXI0 interrupt
+interrupt INT_SCI0_TXI0	0x00000268 SCI0_TXI0 interrupt
+interrupt INT_SCI0_TEI0	0x0000026C SCI0_TEI0 interrupt
+interrupt INT_SCI1_ERI1	0x00000270 SCI1_ERI1 interrupt
+interrupt INT_SCI1_RXI1	0x00000274 SCI1_RXI1 interrupt
+interrupt INT_SCI1_TXI1	0x00000278 SCI1_TXI1 interrupt
+interrupt INT_SCI1_TEI1	0x0000027C SCI1_TEI1 interrupt
+interrupt INT_SCI2_ERI2	0x00000280 SCI2_ERI2 interrupt
+interrupt INT_SCI2_RXI2	0x00000284 SCI2_RXI2 interrupt
+interrupt INT_SCI2_TXI2	0x00000288 SCI2_TXI2 interrupt
+interrupt INT_SCI2_TEI2	0x0000028C SCI2_TEI2 interrupt
+interrupt INT_WDT_ITI	0x00000290 WDT_ITI interrupt
+interrupt Poweron_Reset 0x00000000 RESET
+;*** END OF SH7051
