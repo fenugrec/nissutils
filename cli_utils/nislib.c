@@ -184,7 +184,7 @@ u32 flen(FILE *hf) {
 const struct fidtype_t fidtypes[] = {
 	[FID705101] = {	.fti = FID705101,
 			.FIDIC = "SH705101",
-			.pRAMF_maxdist = 0x300,
+			.pRAMF_maxdist = 0x380,
 			.RAMF_header = 0xFFFFD800,
 			.pRAMjump = 0x10,
 			.pRAM_DLAmax = 0,
