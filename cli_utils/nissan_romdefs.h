@@ -104,6 +104,7 @@ enum fidtype_ic {
 struct fidtype_t {
 	enum fidtype_ic fti;
 	uint8_t FIDIC[8];	//such as "SH705507"
+	uint32_t ROMsize;	//in units of 1024B
 	int	pRAMF_maxdist;	//for some ROMs where the RAMF struct is super far from the FID
 	uint32_t	RAMF_header;	//first member to identify RAMF struct
 	int	pRAMjump;

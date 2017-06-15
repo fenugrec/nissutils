@@ -118,12 +118,6 @@ static int open_rom(struct romfile *rf, const char *fname) {
 
 	fclose(fbin);
 
-
-	if ((file_len != 1024*1024UL) && (file_len !=512*1024UL)
-		&& (file_len != 256 * 1024UL)) {
-		printf("warning: not a 256k/512k/1M ROM !\n");
-	}
-
 	return 0;
 }
 
@@ -369,6 +363,11 @@ u32 find_fid(struct romfile *rf) {
 	if (rf->fidtype == FID_UNK) {
 		fprintf(dbg_stream, "Unknown FID IC type %.8s ! Cannot proceed\n", rf->fid_cpu);
 		return -1;
+	}
+
+	if (rf->siz != (fidtypes[rf->fidtype].ROMsize * 1024)) {
+		fprintf(dbg_stream, "Warning : ROM size %uk, expected %uk; possibly incomplete dump\n",
+				rf->siz / 1024, fidtypes[rf->fidtype].ROMsize);
 	}
 
 	if ((rf->fidtype == FID705507) || (rf->fidtype == FID705101)) {
