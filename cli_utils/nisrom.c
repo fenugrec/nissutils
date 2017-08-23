@@ -375,27 +375,8 @@ u32 find_fid(struct romfile *rf) {
 		rf->loader_v = L_UNK;
 	}
 
-	switch (rf->fidtype) {
-	case FID7253332:
-		//TODO, until then use garbage
-	case FID705828:
-		rf->sfid_size = sizeof(struct fid_base2_t);
-		break;
-	case FID705927:
-		rf->sfid_size = sizeof(struct fid_base3_t);
-		break;
-	case FID705101:
-	case FID705507:
-	case FID705513:
-	case FID705519:
-	case FID705520:
-	case FID705821:
-	case FID705822:
-	case FID705823:
-	default:
-		rf->sfid_size = sizeof(struct fid_base1_t);
-		break;
-	}
+	rf->sfid_size = fidtypes[fid_idx].FIDbase_size;
+
 	return sf_offset;
 }
 

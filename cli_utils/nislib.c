@@ -185,6 +185,7 @@ const struct fidtype_t fidtypes[] = {
 	[FID705101] = {	.fti = FID705101,
 			.FIDIC = "SH705101",
 			.ROMsize = 256,
+			.FIDbase_size = sizeof(struct fid_base1_t),
 			.pRAMF_maxdist = 0x380,
 			.RAMF_header = 0xFFFFD800,
 			.pRAMjump = 0x10,
@@ -199,6 +200,7 @@ const struct fidtype_t fidtypes[] = {
 	[FID705415] = {	.fti = FID705415,
 			.FIDIC = "SH705415",
 			.ROMsize = 384,
+			.FIDbase_size = sizeof(struct fid_base1_t),
 			.pRAMF_maxdist = 0x0c,
 			.RAMF_header = 0xFFFF8000,
 			.pRAMjump = 0x10,
@@ -213,6 +215,7 @@ const struct fidtype_t fidtypes[] = {
 	[FID705507] = {	.fti = FID705507,
 			.FIDIC = "SH705507",
 			.ROMsize = 512,
+			.FIDbase_size = sizeof(struct fid_base1_t),
 			.pRAMF_maxdist = 0x300,
 			.RAMF_header = 0xFFFF8000,
 			.pRAMjump = 0x10,
@@ -227,6 +230,7 @@ const struct fidtype_t fidtypes[] = {
 	[FID705513] = {	.fti = FID705513,
 			.FIDIC = "SH705513",
 			.ROMsize = 512,
+			.FIDbase_size = sizeof(struct fid_base1_t),
 			.pRAMF_maxdist = 0x0c,
 			.RAMF_header = 0xFFFF8000,
 			.pRAMjump = 0x10,
@@ -241,6 +245,7 @@ const struct fidtype_t fidtypes[] = {
 	[FID705519] = {	.fti = FID705519,
 			.FIDIC = "SH705519",
 			.ROMsize = 512,
+			.FIDbase_size = sizeof(struct fid_base1_t),
 			.pRAMF_maxdist = 0x0c,
 			.RAMF_header = 0xFFFF8000,
 			.pRAMjump = 0x10,
@@ -255,6 +260,7 @@ const struct fidtype_t fidtypes[] = {
 	[FID705520] = {	.fti = FID705520,
 			.FIDIC = "SH705520",
 			.ROMsize = 512,
+			.FIDbase_size = sizeof(struct fid_base1_t),
 			.pRAMF_maxdist = 0x0c,
 			.RAMF_header = 0xFFFF8000,
 			.pRAMjump = 0x10,
@@ -269,6 +275,7 @@ const struct fidtype_t fidtypes[] = {
 	[FID705821] = {	.fti = FID705821,
 			.FIDIC = "SH705821",
 			.ROMsize = 1024,
+			.FIDbase_size = sizeof(struct fid_base1_t),
 			.pRAMF_maxdist = 0x0c,
 			.RAMF_header = 0xFFFF8000,
 			.pRAMjump = 0x18,
@@ -283,6 +290,7 @@ const struct fidtype_t fidtypes[] = {
 	[FID705822] = {	.fti = FID705822,
 			.FIDIC = "SH705822",
 			.ROMsize = 1024,
+			.FIDbase_size = sizeof(struct fid_base1_t),
 			.pRAMF_maxdist = 0x0c,
 			.RAMF_header = 0xFFFF8000,
 			.pRAMjump = 0x18,
@@ -297,6 +305,7 @@ const struct fidtype_t fidtypes[] = {
 	[FID705823] = {	.fti = FID705823,
 			.FIDIC = "SH705823",
 			.ROMsize = 1024,
+			.FIDbase_size = sizeof(struct fid_base1_t),
 			.pRAMF_maxdist = 0x0c,
 			.RAMF_header = 0xFFFF8000,
 			.pRAMjump = 0x18,
@@ -311,6 +320,7 @@ const struct fidtype_t fidtypes[] = {
 	[FID705828] = {	.fti = FID705828,
 			.FIDIC = "SH705828",
 			.ROMsize = 1024,
+			.FIDbase_size = sizeof(struct fid_base1_t) + 4,
 			.pRAMF_maxdist = 0x0c,
 			.RAMF_header = 0xFFFF8000,
 			.pRAMjump = 0x18,
@@ -325,6 +335,7 @@ const struct fidtype_t fidtypes[] = {
 	[FID705927] = {	.fti = FID705927,
 			.FIDIC = "SH705927",		/** tentative values here. */
 			.ROMsize = 1536,
+			.FIDbase_size = sizeof(struct fid_base1_t) + 8,
 			.pRAMF_maxdist = 0,	/* Assume FID_header will be a fixed size; otherwise we're screwned since */
 			.RAMF_header = 0xFFFE8000,	/* this is no longer a reliable way of finding RAMF ... */
 			.pRAMjump = 0x20,
@@ -339,6 +350,7 @@ const struct fidtype_t fidtypes[] = {
 	[FID7253331] = {	.fti = FID7253331,
 			.FIDIC = "S7253331",		/** very tentative values here */
 			.ROMsize = 2048,
+			.FIDbase_size = sizeof(struct fid_base1_t),	//not really; no MSTCR fields ?
 			.pRAMF_maxdist = 0x2000,
 			.RAMF_header = 0xFFF88000,
 			.pRAMjump = 0x18,
@@ -353,6 +365,7 @@ const struct fidtype_t fidtypes[] = {
 	[FID7253332] = {	.fti = FID7253332,
 			.FIDIC = "S7253332",		/** very tentative values here */
 			.ROMsize = 2048,
+			.FIDbase_size = sizeof(struct fid_base1_t),	//not really; no MSTCR fields ?
 			.pRAMF_maxdist = 0x2000,
 			.RAMF_header = 0xFFF88000,
 			.pRAMjump = 0x18,

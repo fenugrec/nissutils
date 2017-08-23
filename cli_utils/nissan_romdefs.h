@@ -36,8 +36,10 @@ struct loader_t {
 
 #define FID_MAXSIZE		0x100	//just for bounds checking
 
-/* basic firmware metadata struct; everything except LOADER80 ?*/
-/* Also some weird 705507 ROMs lack the MSTCR_* fields... */
+/* basic firmware metadata struct.
+ * Some weird 705507 ROMs lack the MSTCR_* fields;
+ * others (some LOADER80) have some extra u32 values at the end too.
+ */
 struct fid_base1_t {
 	uint8_t FID[17];	//firmware ID
 	uint8_t database[9];	//just "DATABASE", ASCIIz
@@ -54,46 +56,6 @@ struct fid_base1_t {
 	uint8_t pF2[4];		//&f2()
 	uint8_t MSTCR_1[2];
 	uint8_t MSTCR_2[2];
-} ;
-
-/* large firmware metadata struct. for certain LOADER80 */
-struct fid_base2_t {
-	uint8_t FID[17];	//firmware ID
-	uint8_t database[9];	//just "DATABASE", ASCIIz
-	uint8_t field_1C;
-	uint8_t field_1D;
-	uint8_t YN;
-	uint8_t pad2;
-	uint8_t cpu[10];	//like "SH705822N", ASCIIz
-	uint8_t field_2A[1];	//0x0F
-	uint8_t field_2B[14];
-	uint8_t field_39[9];
-	uint8_t pNOP[4];		//&nullfunc
-	uint8_t pF1[4];		//&f1()
-	uint8_t pF2[4];		//&f2()
-	uint8_t MSTCR_1[2];
-	uint8_t MSTCR_2[2];
-	uint8_t wtf[4];
-} ;
-
-/* FID base struct for other LOADER80 (705927 ?) */
-struct fid_base3_t {
-	uint8_t FID[17];	//firmware ID
-	uint8_t database[9];	//just "DATABASE", ASCIIz
-	uint8_t field_1C;
-	uint8_t field_1D;
-	uint8_t YN;
-	uint8_t pad2;
-	uint8_t cpu[10];	//like "SH705822N", ASCIIz
-	uint8_t field_2A[1];	//0x0F
-	uint8_t field_2B[14];
-	uint8_t field_39[9];
-	uint8_t pNOP[4];		//&nullfunc
-	uint8_t pF1[4];		//&f1()
-	uint8_t pF2[4];		//&f2()
-	uint8_t MSTCR_1[2];
-	uint8_t MSTCR_2[2];
-	uint8_t wtf[8];
 } ;
 
 
@@ -124,6 +86,7 @@ struct fidtype_t {
 	enum fidtype_ic fti;
 	uint8_t FIDIC[8];	//such as "SH705507"
 	uint32_t ROMsize;	//in units of 1024B
+	int	FIDbase_size;	//including bogus fields between MSTCR and RAMF start
 	int	pRAMF_maxdist;	//for some ROMs where the RAMF struct is super far from the FID
 	uint32_t	RAMF_header;	//first member to identify RAMF struct
 	int	pRAMjump;
