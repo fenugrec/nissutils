@@ -408,6 +408,7 @@ int validate_altcks(struct romfile *rf) {
 	 * But it seems those locs are always outside the block?
 	 */
 	uint32_t acs=0, acx=0;
+	u32 altcs_bsize;
 	const uint8_t *pacs, *pacx;
 
 	if (!rf) return -1;
@@ -419,7 +420,12 @@ int validate_altcks(struct romfile *rf) {
 		return -1;
 	}
 	rf->cks_alt_present = 1;
-	sum32(&rf->buf[rf->p_acstart], rf->p_acend - rf->p_acstart, &acs, &acx);
+		/* p_acstart is so far always u32 aligned, but not p_acend. This gives rise to some weird behavior where
+		 * sometimes the cks area includes the first u32 of the FID struct. I wonder if this was really intended by the Nissan devs ! */
+	altcs_bsize = (((rf->p_acend + 1) - rf->p_acstart) & (~0x03)) + 4;
+
+	sum32(&rf->buf[rf->p_acstart], altcs_bsize, &acs, &acx);
+
 	fprintf(dbg_stream, "alt cks block 0x%06lX - 0x%06lX: sumt=0x%08lX, xort=0x%08lX\n",
 		(unsigned long) rf->p_acstart, (unsigned long) rf->p_acend,
 			(unsigned long) acs, (unsigned long) acx);
