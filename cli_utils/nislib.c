@@ -323,18 +323,18 @@ const struct fidtype_t fidtypes[] = {
 			.pECUREC = 0x5c,
 			},
 	[FID705927] = {	.fti = FID705927,
-			.FIDIC = "SH705927",		/** very tentative / wrong values here */
+			.FIDIC = "SH705927",		/** tentative values here. */
 			.ROMsize = 1536,
-			.pRAMF_maxdist = 0x10,
-			.RAMF_header = 0xFFFE8000,
-			.pRAMjump = 0x18,
-			.pRAM_DLAmax = 0x1c,
-			.pRAMinit = 0x60,
-			.packs_start = 0x74,
-			.packs_end = 0x78,
-			.pIVT2 = 0x84,
-			.pROMend = 0x80,
-			.pECUREC = 0x7C,
+			.pRAMF_maxdist = 0,	/* Assume FID_header will be a fixed size; otherwise we're screwned since */
+			.RAMF_header = 0xFFFE8000,	/* this is no longer a reliable way of finding RAMF ... */
+			.pRAMjump = 0x20,
+			.pRAM_DLAmax = 0x4C,
+			.pRAMinit = 0x50,
+			.packs_start = 0x64,
+			.packs_end = 0x68,
+			.pIVT2 = 0x74,
+			.pROMend = 0x70,
+			.pECUREC = 0x6C,
 			},
 	[FID7253331] = {	.fti = FID7253331,
 			.FIDIC = "S7253331",		/** very tentative values here */

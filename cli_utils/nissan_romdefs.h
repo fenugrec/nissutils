@@ -73,9 +73,28 @@ struct fid_base2_t {
 	uint8_t pF2[4];		//&f2()
 	uint8_t MSTCR_1[2];
 	uint8_t MSTCR_2[2];
-	uint8_t wtf[4];		//not in EM62B !
+	uint8_t wtf[4];
 } ;
 
+/* FID base struct for other LOADER80 (705927 ?) */
+struct fid_base3_t {
+	uint8_t FID[17];	//firmware ID
+	uint8_t database[9];	//just "DATABASE", ASCIIz
+	uint8_t field_1C;
+	uint8_t field_1D;
+	uint8_t YN;
+	uint8_t pad2;
+	uint8_t cpu[10];	//like "SH705822N", ASCIIz
+	uint8_t field_2A[1];	//0x0F
+	uint8_t field_2B[14];
+	uint8_t field_39[9];
+	uint8_t pNOP[4];		//&nullfunc
+	uint8_t pF1[4];		//&f1()
+	uint8_t pF2[4];		//&f2()
+	uint8_t MSTCR_1[2];
+	uint8_t MSTCR_2[2];
+	uint8_t wtf[8];
+} ;
 
 
 /******** new technique for analyzing the RAMF struct

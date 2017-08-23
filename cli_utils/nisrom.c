@@ -381,6 +381,9 @@ u32 find_fid(struct romfile *rf) {
 	case FID705828:
 		rf->sfid_size = sizeof(struct fid_base2_t);
 		break;
+	case FID705927:
+		rf->sfid_size = sizeof(struct fid_base3_t);
+		break;
 	case FID705101:
 	case FID705507:
 	case FID705513:
