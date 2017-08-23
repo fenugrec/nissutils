@@ -290,7 +290,7 @@ const struct fidtype_t fidtypes[] = {
 	[FID705822] = {	.fti = FID705822,
 			.FIDIC = "SH705822",
 			.ROMsize = 1024,
-			.FIDbase_size = sizeof(struct fid_base1_t),
+			.FIDbase_size = sizeof(struct fid_base1_t),	/* some have 8 extra bytes */
 			.pRAMF_maxdist = 0x0c,
 			.RAMF_header = 0xFFFF8000,
 			.pRAMjump = 0x18,
@@ -320,7 +320,7 @@ const struct fidtype_t fidtypes[] = {
 	[FID705828] = {	.fti = FID705828,
 			.FIDIC = "SH705828",
 			.ROMsize = 1024,
-			.FIDbase_size = sizeof(struct fid_base1_t) + 4,
+			.FIDbase_size = sizeof(struct fid_base1_t) + 4,	/* some would need +8 here */
 			.pRAMF_maxdist = 0x0c,
 			.RAMF_header = 0xFFFF8000,
 			.pRAMjump = 0x18,
@@ -398,6 +398,7 @@ const struct keyset_t known_keys[] = {
 	{0x422DF45A, 0x2AFC4174, 0x0},
 	{0x4D38FE64, 0x35084C7E, 0x2A28E9A6},
 	{0x5414CDA6, 0xE303BF23, 0x0},
+	{0x624D157A, 0x4B1D6194, 0x0},
 	{0x634D157A, 0x4B1D6294, 0x403EFEBB},
 	{0x6BD9175D, 0x02581327, 0x0},
 	{0x705A2287, 0x582A6FA1, 0x4D4B0DC8},
