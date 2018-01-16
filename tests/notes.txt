@@ -1,0 +1,2 @@
+dummy test ROM for functional check of nissutil stuff.
+In particular nislib/test_findrefs.
