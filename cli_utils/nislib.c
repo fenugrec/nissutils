@@ -1371,13 +1371,19 @@ enum opcode_dest sh_getopcode_dest(u16 code) {
 }
 
 
-
+#define SH_TRACK_REG_MAXRECURSE 2000	//Hitting this limit is definitely abnormal and possibly indicates a bug
 /* recursive reg tracker */
 void sh_track_reg(const u8 *buf, u32 pos, u32 siz, unsigned regno, u8 *visited,
 			void (*tracker_cb)(const uint8_t *buf, uint32_t pos, unsigned regno, void *data), void *cbdata) {
 
 	static int recurselevel = 0;
 	recurselevel += 1;
+
+	if (recurselevel >= SH_TRACK_REG_MAXRECURSE) {
+		fprintf(stdout, "Warning : hit maximum recursion depth @ %lX!!\n", (unsigned long) pos);
+		goto endrec;
+	}
+
 	pos += 2;
 
 	for (; pos < siz; pos += 2) {
