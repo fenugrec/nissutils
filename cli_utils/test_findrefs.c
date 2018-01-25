@@ -81,11 +81,17 @@ static void report_hit(bool is_write, u32 pos, u32 base, u32 offs) {
 u32 glob_base;	//fugly shit to have access throughout all levels
 //TODO : move glob_* to this
 struct recursedata {
+	u32 siz;
 	//u32 base;
 	u32 offs;
 	void *visited;
 };
 
+void test_callback(const u8 *buf, u32 pos, unsigned regno, void *data);
+
+
+
+/*** test functions ***/
 
 //check and report if hit (GBR already == base)
 void test_gbrref(const u8 *buf, u32 pos, u32 offs) {
@@ -245,7 +251,42 @@ void test_logicgbr(const u8 *buf, u32 pos, u32 offs) {
 	return;
 }
 
-// This is run on every position where <regno> is of interest.
+
+/* check if reg has the offset added to it.
+ * Only checks "add imm8, <regno>". TODO maybe : "add  RM, Rn" ?
+ */
+void test_regadd(const u8 *buf, u32 pos, unsigned regno, struct recursedata *rd) {
+	u32 temp_base, temp_offs;
+	u16 opc=reconst_16(&buf[pos]);
+
+	/* 0111nnnni8*1.... add #<imm>,<REG_N>  */
+	if ((opc & 0xF000) != 0x7000) return;
+	if (rd->offs > 0x7F) return;	//signed imm8 !
+	if ((opc & 0xFF) == rd->offs) {
+		temp_base = glob_base;
+		temp_offs = rd->offs;
+
+		//start new partial recursion
+		glob_base = glob_base + rd->offs;
+		rd->offs = 0;
+		sh_track_reg(buf, pos + 2, rd->siz, regno, rd->visited, test_callback, rd);
+
+		// and resume
+		glob_base = temp_base;
+		rd->offs = temp_offs;
+		return;
+	}
+
+
+	/* 0011nnnnmmmm1100 add <REG_M>,<REG_N> */
+	return;
+}
+
+
+/* This is run on every position where <regno> is of interest.
+ * special feature : if we're adding the offset to the reg of interest,
+ * need to start another recursion with a temporary base + offset !
+ */
 void test_callback(const u8 *buf, u32 pos, unsigned regno, void *data) {
 	struct recursedata *rd = data;
 	u32 offs = rd->offs;
@@ -258,12 +299,13 @@ void test_callback(const u8 *buf, u32 pos, unsigned regno, void *data) {
 	test_r0rn(buf, pos, offs, regno);	//test @(R0,Rn) forms
 	test_regref(buf, pos, offs, regno);	//test @R, R forms
 
+	test_regadd(buf, pos, regno, rd);
 	return;
 }
 
 
 
-/*
+/**
  * core function. strategy:
  *
  * - locate mov.w or mov.l instructions that load the specified <base> value, or an evil trick like "mov #imm8, Rn" followed by "shll8 Rn" for when ((<base> & 0xFFFF00FF) == 0xFFFF0000)
@@ -293,6 +335,7 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 		return;
 	}
 
+	rd.siz = siz;
 	rd.visited = visited;
 	rd.offs = offs;
 
