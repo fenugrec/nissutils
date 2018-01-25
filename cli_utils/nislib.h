@@ -172,6 +172,7 @@ bool find_s27_hardcore(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_
  *
  * Recursive backtrack inside code to find the root value loaded by "mov imm16, Rn", "mov imm32, Rn" or "movi20 #imm20, rn" instructions.
  *
+ * start : offset in buf[] of first opcode to analyze
  * regno : n from "Rn"
  * min : don't backtrack further than buf[min]
  *
