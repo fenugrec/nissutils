@@ -274,7 +274,7 @@ void test_callback(const u8 *buf, u32 pos, unsigned regno, void *data) {
 
 #define FINDREFS_SHLL8_MAXDIST 10	//in bytes
 void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
-	u8 *visited;	//array of bytes, set to 1 when a certain area is "visited"
+	u16 *visited;	//array of bytes, set to 1 when a certain area is "visited"
 	u8 shll8_base;
 	bool try_shll8 = 0;
 
@@ -286,7 +286,7 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 		try_shll8 = 1;
 	}
 
-	visited = malloc(siz);
+	visited = malloc(siz * 2);
 	if (!visited) {
 		printf("malloc choke\n");
 		return;
@@ -307,9 +307,9 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 			if (imm == base) {
 				// match ! start recursion.
 				unsigned regno = sh_getopcode_dest(opc);
-				memset(visited, 0, siz);
-				dbgprint("Entering 00.%6lX.R%d\n", (unsigned long) romcurs, regno);
-				sh_track_reg(src, romcurs, siz, regno, visited, test_callback, &offs);
+				memset(visited, 0, siz * 2);
+				dbgprint("Entering 00.%6lX.R%d\n", (unsigned long) romcurs + 2, regno);
+				sh_track_reg(src, romcurs + 2, siz, regno, visited, test_callback, &offs);
 			}
 		}
 
@@ -332,9 +332,9 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 				// shll8: 0100nnnn00011000
 				if (shll8_maybe == (0x4018 | regno << 8)) {
 					//match ! start recursion.
-					memset(visited, 0, siz);
-					dbgprint("Entering 00.%6lX.R%d with mov+shll8\n", (unsigned long) romcurs + s8_offs, regno);
-					sh_track_reg(src, romcurs + s8_offs, siz, regno, visited, test_callback, &offs);
+					memset(visited, 0, siz * 2);
+					dbgprint("Entering 00.%6lX.R%d with mov+shll8\n", (unsigned long) romcurs + s8_offs + 2, regno);
+					sh_track_reg(src, romcurs + s8_offs + 2, siz, regno, visited, test_callback, &offs);
 				}
 			}
 		}

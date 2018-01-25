@@ -1372,8 +1372,12 @@ enum opcode_dest sh_getopcode_dest(u16 code) {
 
 
 #define SH_TRACK_REG_MAXRECURSE 2000	//Hitting this limit is definitely abnormal and possibly indicates a bug
-/* recursive reg tracker */
-void sh_track_reg(const u8 *buf, u32 pos, u32 siz, unsigned regno, u8 *visited,
+/* recursive reg tracker.
+ * The visited[] cells are bitfielsd : when a certain location has been parsed
+ * while tracking a certain reg, the corresponding bit (1 << regno) is set.
+ * To fit inside a u16 value, gbr is aliased to r15 since r15 is normally only
+ * used as a stack ptr. */
+void sh_track_reg(const u8 *buf, u32 pos, u32 siz, unsigned regno, u16 *visited,
 			void (*tracker_cb)(const uint8_t *buf, uint32_t pos, unsigned regno, void *data), void *cbdata) {
 
 	static int recurselevel = 0;
@@ -1384,12 +1388,15 @@ void sh_track_reg(const u8 *buf, u32 pos, u32 siz, unsigned regno, u8 *visited,
 		goto endrec;
 	}
 
-	pos += 2;
-
 	for (; pos < siz; pos += 2) {
-		if (visited[pos]) {
+		unsigned aliased_regno = regno;
+		if (aliased_regno > 15) aliased_regno = 15;
+
+		if (visited[pos] & (1 << aliased_regno)) {
+			//deja vu with this reg
 			goto endrec;
 		}
+		visited[pos] |= (1 << aliased_regno);
 
 		u16 opc = reconst_16(&buf[pos]);
 
@@ -1405,14 +1412,14 @@ void sh_track_reg(const u8 *buf, u32 pos, u32 siz, unsigned regno, u8 *visited,
 			if ((opc & 0xF0FF) == ((regno << 4) | 0x6003)) {
 				//regno is copied to a new one.
 				int newreg = (opc & 0xF00) >> 8;
-				fprintf(dbg_stream, "Entering %4d.%6lX MOV\n", recurselevel, (unsigned long) pos);
-				sh_track_reg(buf, pos, siz, newreg, visited, tracker_cb, cbdata);
+				fprintf(dbg_stream, "Entering %4d.%6lX MOV\n", recurselevel, (unsigned long) pos + 2);
+				sh_track_reg(buf, pos + 2, siz, newreg, visited, tracker_cb, cbdata);
 			}
 
 			//new recurse if we copy to gbr ( LDC Rm,GBR 0100mmmm00011110 )
 			if (opc == (0x401E | (regno << 8))) {
-				fprintf(dbg_stream, "Entering %4d.%6lX LDC GBR\n", recurselevel, (unsigned long) pos);
-				sh_track_reg(buf, pos, siz, GBR, visited, tracker_cb, cbdata);
+				fprintf(dbg_stream, "Entering %4d.%6lX LDC GBR\n", recurselevel, (unsigned long) pos + 2);
+				sh_track_reg(buf, pos + 2, siz, GBR, visited, tracker_cb, cbdata);
 			}
 		}
 
@@ -1420,20 +1427,21 @@ void sh_track_reg(const u8 *buf, u32 pos, u32 siz, unsigned regno, u8 *visited,
 			//new recurse if we STC gbr, Rn
 			if ((opc & 0xF0FF) == 0x0012) {
 				int newreg = (opc >> 8) & 0xF;
-				fprintf(dbg_stream, "Entering %4d.%6lX STC GBR\n", recurselevel, (unsigned long) pos);
-				sh_track_reg(buf, pos, siz, newreg, visited, tracker_cb, cbdata);
+				fprintf(dbg_stream, "Entering %4d.%6lX STC GBR\n", recurselevel, (unsigned long) pos + 2);
+				sh_track_reg(buf, pos + 2, siz, newreg, visited, tracker_cb, cbdata);
 			}
 		}
 
-		//new recurse if bt/bf
+		//new recurse if bt/bf. TODO : split case with a delay slot, since
+		//there is a corner case where it copies/alters the reg before jumping
 		if (IS_BT_OR_BF(opc)) {
 			u32 newpos = disarm_8bit_offset(pos, GET_BTF_OFFSET(opc));
 			fprintf(dbg_stream, "Branch %4d.%6lX BT/BF to %6lX\n", recurselevel, (unsigned long) pos, (unsigned long) newpos);
-			sh_track_reg(buf, newpos - 2, siz, regno, visited, tracker_cb, cbdata);
+			sh_track_reg(buf, newpos, siz, regno, visited, tracker_cb, cbdata);
 		}
 
 		bool isbra = 0;
-		u32 bra_newpos = pos;
+		u32 bra_newpos = pos + 2;
 		//bra : don't recurse, just alter path
 		if (IS_BRA(opc)) {
 			bra_newpos = disarm_12bit_offset(pos, GET_BRA_OFFSET(opc));
@@ -1445,21 +1453,17 @@ void sh_track_reg(const u8 *buf, u32 pos, u32 siz, unsigned regno, u8 *visited,
 
 		// almost done: check if we have a hit
 		if (isbra) {
-			visited[pos] = 1;	//cheat ! so we don't die in endlessloop
 				//go check next opcode for delay slot
 			tracker_cb(buf, pos + 2, regno, cbdata);
 			pos = bra_newpos -2;	//alter path
 			continue;
-		} else {
-			tracker_cb(buf, pos, regno, cbdata);
 		}
+		tracker_cb(buf, pos, regno, cbdata);
 
 		//end recursion if reg is clobbered
 		if (sh_getopcode_dest(opc) == regno) {
 			goto endrec;
 		}
-		visited[pos] = 1;
-
 	}	//for
 
 endrec:

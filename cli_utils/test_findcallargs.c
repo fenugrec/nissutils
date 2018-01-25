@@ -104,7 +104,7 @@ void bsr_callback(const u8 *buf, u32 pos, void *data) {
 
 void findcalls(FILE *i_file, u32 base, u32 arg) {
 	uint8_t *src;
-	u8 *visited;	//array of bytes, set to 1 when a certain area is "visited"
+	u16 *visited;
 
 	u32 file_len;
 
@@ -116,22 +116,23 @@ void findcalls(FILE *i_file, u32 base, u32 arg) {
 		printf("huge file (length %lu)\n", (unsigned long) file_len);
 	}
 
-	src = malloc(file_len * 2);	//cheat : allocate both bufs
+	src = malloc(file_len);
 	if (!src) {
 		printf("malloc choke\n");
 		return;
 	}
-	visited = src + file_len;	//use second half of alloc
-
-	/* load whole ROM */
-	if (fread(src,1,file_len,i_file) != file_len) {
-		printf("trouble reading\n");
+	visited = malloc(file_len * 2);
+	if (!visited) {
+		printf("malloc choke\n");
 		free(src);
 		return;
 	}
 
-	memset(visited, 0, file_len);
-
+	/* load whole ROM */
+	if (fread(src,1,file_len,i_file) != file_len) {
+		printf("trouble reading\n");
+		goto exitfc;
+	}
 
 	u32 romcurs = 0;
 	for (; romcurs < file_len; romcurs += 2) {
@@ -142,16 +143,20 @@ void findcalls(FILE *i_file, u32 base, u32 arg) {
 		//2 possible opcodes : -  mov.w @(i, pc), Rn  : (0x1001nnnn 0xii) , or
 		//  mov.l @(i, pc), Rn : (0x1101nnnn 0xii)
 		uint8_t optop = (opc & 0xB000) >> 8;
-		if (optop == 0x90) {
-			u32 imm = sh_get_PCimm(src, romcurs);
-			if (imm == base) {
-				// match ! start recursion.
-				unsigned regno = sh_getopcode_dest(opc);
-				memset(visited, 0, file_len);
-				fprintf(dbg_stream, "Entering 00.%6lX.R%d\n", (unsigned long) romcurs, regno);
-				sh_track_reg(src, romcurs, file_len, regno, visited, test_goodcall, NULL);
-			}
+		if (optop != 0x90) {
+			continue;
 		}
+
+		u32 imm = sh_get_PCimm(src, romcurs);
+		if (imm != base) {
+			continue;
+		}
+
+		// match ! start recursion.
+		unsigned regno = sh_getopcode_dest(opc);
+		memset(visited, 0, file_len * 2);
+		fprintf(dbg_stream, "Entering 00.%6lX.R%d\n", (unsigned long) romcurs + 2, regno);
+		sh_track_reg(src, romcurs + 2, file_len, regno, visited, test_goodcall, NULL);
 
 	}
 
@@ -161,7 +166,10 @@ void findcalls(FILE *i_file, u32 base, u32 arg) {
 	find_bsr(src, base, bsr_callback, &bcbd);
 
 
+exitfc:
 	free(src);
+	free(visited);
+	return;
 }
 
 

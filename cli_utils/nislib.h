@@ -213,9 +213,10 @@ enum opcode_dest sh_getopcode_dest(uint16_t code);
 
 
 /** recursively track usage of register <regno>.
- * start at <pos> in buffer; updates the <visited> array (provided as =={0} by caller)
+ * start at <pos> in buffer (typically opcode after the one setting regno);
+ * updates the <visited> array (provided as =={0} by caller)
  * on every instruction, invokes the tracker_cb callback while passing it <cbdata> as a generic holder.
  */
-void sh_track_reg(const uint8_t *buf, uint32_t pos, uint32_t siz, unsigned regno, uint8_t *visited,
+void sh_track_reg(const uint8_t *buf, uint32_t pos, uint32_t siz, unsigned regno, uint16_t *visited,
 			void (*tracker_cb)(const uint8_t *buf, uint32_t pos, unsigned regno, void *data), void *cbdata);
 
