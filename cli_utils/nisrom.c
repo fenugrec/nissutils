@@ -645,7 +645,7 @@ int main(int argc, char *argv[])
 		sfid = (const char *) rf.fid;
 		scpu = (const char *) rf.fid_cpu;
 		printf("0x%lX\t%.*s\t%.6s\t%.2s\t",
-			(unsigned long) rf.p_fid, sizeof(((struct fid_base1_t *)NULL)->FID), sfid, scpu, scpu+6);
+			(unsigned long) rf.p_fid, (int) sizeof(((struct fid_base1_t *)NULL)->FID), sfid, scpu, scpu+6);
 
 	} else {
 		fprintf(dbg_stream, "error: no FID struct !?\n");
