@@ -138,6 +138,8 @@ test_6008:
 test_6009:
 !recursive death by cross-jump
 	mov.w	u16var, r0
+	bt	test_6009_a
+	nop
 test_6009_a:
 	bt	test_6009_b
 	nop

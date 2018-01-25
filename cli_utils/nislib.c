@@ -1380,7 +1380,7 @@ void sh_track_reg(const u8 *buf, u32 pos, u32 siz, unsigned regno, u8 *visited,
 	recurselevel += 1;
 
 	if (recurselevel >= SH_TRACK_REG_MAXRECURSE) {
-		fprintf(stdout, "Warning : hit maximum recursion depth @ %lX!!\n", (unsigned long) pos);
+		printf("Warning : hit maximum recursion depth @ %lX!!\n", (unsigned long) pos);
 		goto endrec;
 	}
 
