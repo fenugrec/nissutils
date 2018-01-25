@@ -378,7 +378,7 @@ int main(int argc, char * argv[]) {
 
 	//input file
 	if ((i_file=fopen(argv[1],"rb"))==NULL) {
-		printf("error opening %s.\n", argv[3]);
+		printf("error opening %s.\n", argv[1]);
 		return 0;
 	}
 
