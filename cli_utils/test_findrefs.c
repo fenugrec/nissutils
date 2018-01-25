@@ -79,7 +79,12 @@ static void report_hit(bool is_write, u32 pos, u32 base, u32 offs) {
 /**** RECURSIV HELL ****/
 
 u32 glob_base;	//fugly shit to have access throughout all levels
-
+//TODO : move glob_* to this
+struct recursedata {
+	//u32 base;
+	u32 offs;
+	void *visited;
+};
 
 
 //check and report if hit (GBR already == base)
@@ -242,16 +247,18 @@ void test_logicgbr(const u8 *buf, u32 pos, u32 offs) {
 
 // This is run on every position where <regno> is of interest.
 void test_callback(const u8 *buf, u32 pos, unsigned regno, void *data) {
-	u32 offs = *(u32 *)data;
+	struct recursedata *rd = data;
+	u32 offs = rd->offs;
+
 	if (regno == GBR) {
 		test_gbrref(buf, pos, offs);
 		test_logicgbr(buf, pos, offs);
-	} else {
-		test_rnrel(buf, pos, offs, regno);	//test naive @(disp+Rn) forms
-		test_r0rn(buf, pos, offs, regno);	//test @(R0,Rn) forms
-		test_regref(buf, pos, offs, regno);	//test @R, R forms
 	}
+	test_rnrel(buf, pos, offs, regno);	//test naive @(disp+Rn) forms
+	test_r0rn(buf, pos, offs, regno);	//test @(R0,Rn) forms
+	test_regref(buf, pos, offs, regno);	//test @R, R forms
 
+	return;
 }
 
 
@@ -267,6 +274,7 @@ void test_callback(const u8 *buf, u32 pos, unsigned regno, void *data) {
 
 #define FINDREFS_SHLL8_MAXDIST 10	//in bytes
 void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
+	struct recursedata rd;
 	u16 *visited;	//array of bytes, set to 1 when a certain area is "visited"
 	u8 shll8_base;
 	bool try_shll8 = 0;
@@ -285,6 +293,8 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 		return;
 	}
 
+	rd.visited = visited;
+	rd.offs = offs;
 
 	u32 romcurs = 0;
 	for (; romcurs < siz; romcurs += 2) {
@@ -302,7 +312,7 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 				unsigned regno = sh_getopcode_dest(opc);
 				memset(visited, 0, siz * 2);
 				dbgprint("Entering 00.%6lX.R%d\n", (unsigned long) romcurs + 2, regno);
-				sh_track_reg(src, romcurs + 2, siz, regno, visited, test_callback, &offs);
+				sh_track_reg(src, romcurs + 2, siz, regno, visited, test_callback, &rd);
 			}
 		}
 
@@ -327,7 +337,7 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 				//match ! start recursion.
 				memset(visited, 0, siz * 2);
 				dbgprint("Entering 00.%6lX.R%d with mov+shll8\n", (unsigned long) romcurs + s8_offs + 2, regno);
-				sh_track_reg(src, romcurs + s8_offs + 2, siz, regno, visited, test_callback, &offs);
+				sh_track_reg(src, romcurs + s8_offs + 2, siz, regno, visited, test_callback, &rd);
 			}
 		}
 
