@@ -113,7 +113,7 @@ test_6006:
 	mov r0, r11
 	mov	#6, r2
 	add	r2, r1
-	mov.b	@r11, r5
+	mov.b	@(6, r11), r0
 	nop
 	nop
 
