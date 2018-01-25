@@ -260,14 +260,7 @@ void test_callback(const u8 *buf, u32 pos, unsigned regno, void *data) {
  * core function. strategy:
  *
  * - locate mov.w or mov.l instructions that load the specified <base> value, or an evil trick like "mov #imm8, Rn" followed by "shll8 Rn" for when ((<base> & 0xFFFF00FF) == 0xFFFF0000)
- * - follow code recursively with tracked register (sh_track_reg()). Ending conditions:
- *  - register clobbered (non exhaustive)
- *  - rts opcode
- *  - bt / bf / bra to visited areas
- *  - absolute max recurse depth ?
- * - recurse for every:
- *  - base register copy with "mov"
- *  - bt /bf / bra
+ * - follow code recursively with tracked register (sh_track_reg()).
  *
  * of course, print any base+offset matches, whether reading or writing.
  */
@@ -315,29 +308,29 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 
 		//B) mov imm8 + shll8 trick . first, find mov : b'1110nnnniiiiiiii'
 		if (!try_shll8) continue;
-		if ((opc & 0xF000) == 0xE000) {
-			if (shll8_base != (opc & 0xFF)) continue;
+		if ((opc & 0xF000) != 0xE000) continue;
+		if (shll8_base != (opc & 0xFF)) continue;
 
-			u32 s8_offs;
-			unsigned regno = sh_getopcode_dest(opc);
-			u32 stopcond = romcurs + FINDREFS_SHLL8_MAXDIST;
-				/* naively assume that the shll8 should be pretty soon after the mov.s8 */
-			if (stopcond > siz) stopcond = siz;
-			for (s8_offs = 2; (romcurs + s8_offs) < stopcond; s8_offs += 2) {
-				u16 shll8_maybe;
-				shll8_maybe = reconst_16(&src[romcurs + s8_offs]);
+		u32 s8_offs;
+		unsigned regno = sh_getopcode_dest(opc);
+		u32 stopcond = romcurs + FINDREFS_SHLL8_MAXDIST;
+			/* naively assume that the shll8 should be pretty soon after the mov.s8 */
+		if (stopcond > siz) stopcond = siz;
+		for (s8_offs = 2; (romcurs + s8_offs) < stopcond; s8_offs += 2) {
+			u16 shll8_maybe;
+			shll8_maybe = reconst_16(&src[romcurs + s8_offs]);
 
-				if (regno == sh_getopcode_dest(shll8_maybe)) break;	//check for clobber
+			if (regno == sh_getopcode_dest(shll8_maybe)) break;	//check for clobber
 
-				// shll8: 0100nnnn00011000
-				if (shll8_maybe == (0x4018 | regno << 8)) {
-					//match ! start recursion.
-					memset(visited, 0, siz * 2);
-					dbgprint("Entering 00.%6lX.R%d with mov+shll8\n", (unsigned long) romcurs + s8_offs + 2, regno);
-					sh_track_reg(src, romcurs + s8_offs + 2, siz, regno, visited, test_callback, &offs);
-				}
+			// shll8: 0100nnnn00011000
+			if (shll8_maybe == (0x4018 | regno << 8)) {
+				//match ! start recursion.
+				memset(visited, 0, siz * 2);
+				dbgprint("Entering 00.%6lX.R%d with mov+shll8\n", (unsigned long) romcurs + s8_offs + 2, regno);
+				sh_track_reg(src, romcurs + s8_offs + 2, siz, regno, visited, test_callback, &offs);
 			}
 		}
+
 
 	}
 
