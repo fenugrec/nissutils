@@ -31,7 +31,7 @@
 FILE *dbg_stream;
 
 // ret true if key works
-inline bool testkey_single(u32 enc, u32 dec, u32 key) {
+static inline bool testkey_single(u32 enc, u32 dec, u32 key) {
 	return (dec1(enc, key) == dec);
 }
 
