@@ -50,6 +50,7 @@ int main(int argc, char * argv[]) {
 		if (!(key & 0x3ffffff)) {
 			float status = 100.0 * key / ((uint32_t) -1);
 			printf("%3.f%% complete.\r", status);
+			fflush(stdout);
 		}
 	}
 	return 0;

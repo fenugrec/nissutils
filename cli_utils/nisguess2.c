@@ -66,6 +66,7 @@ bool brute_key(u32 enc, u32 dec, u32 *key) {
 		if (!(*key & 0x3ffffff)) {
 			float status = 100.0 * *key / ((uint32_t) -1);
 			printf("Search %3.f%% complete.\r", status);
+			fflush(stdout);
 		}
 	} while (*key != (u32) -1);
 
