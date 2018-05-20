@@ -79,6 +79,7 @@ enum fidtype_ic {
 		FID705927,
 		FID7253331,
 		FID7253332,
+		FID7254332,
 		FID_UNK
 };
 

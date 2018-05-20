@@ -377,6 +377,21 @@ const struct fidtype_t fidtypes[] = {
 			.pROMend = 0x80,
 			.pECUREC = 0x7C,
 			},
+	[FID7254332] = {	.fti = FID7254332,
+			.FIDIC = "S7254332",		/** some tentative values here */
+			.ROMsize = 2048,
+			.FIDbase_size = sizeof(struct fid_base1_t),	//not really; no MSTCR fields ?
+			.pRAMF_maxdist = 0x100,
+			.RAMF_header = 0xFFF88000,
+			.pRAMjump = 0x18,	/* not checked */
+			.pRAM_DLAmax = 0x1c,	/* not checked */
+			.pRAMinit = 0x94,
+			.packs_start = 0xA8,
+			.packs_end = 0xAC,
+			.pIVT2 = 0xB8,
+			.pROMend = 0xB4,
+			.pECUREC = 0xB0,
+			},
 	[FID_UNK] = {	.fti = FID_UNK,
 			},
 };	//fidtypes[]
