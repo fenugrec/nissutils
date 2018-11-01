@@ -26,15 +26,16 @@
 
 #include <idc.idc>
 static main() {
-	auto x,prevea,curea;
+	auto x,startea,prevea,curea;
 		
 	auto nbelems;
-	nbelems=AskLong(0,"nb de calls");
+	nbelems=AskLong(0,"nb of calltable entries");
 	
 	if (nbelems<=0) {
-		Warning("invalide");
+		Warning("invalid");
 		return;
 	}
+	startea=ScreenEA();	//just to restore cursor once finished
 	for (x=1; x<=nbelems; x=x+1) {
 		prevea=ScreenEA();
 		MakeUnknown(prevea,4,DOUNK_SIMPLE);		//current item may not already be an offset
@@ -55,4 +56,5 @@ static main() {
 		Wait();	//let auto-analysis finish before continuing
 		Jump(prevea+4);		//could probably wrap this up in a single "Jump(Dword(intial_addr + (i*4))); " but why bother
 	}
+	Jump(startea);	//restore cursor
 }
