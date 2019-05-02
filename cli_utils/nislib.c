@@ -348,7 +348,7 @@ const struct fidtype_t fidtypes[] = {
 			.pECUREC = 0x6C,
 			},
 	[FID7253331] = {	.fti = FID7253331,
-			.FIDIC = "S7253331",		/** very tentative values here */
+			.FIDIC = "S7253331",		/** very tentative values here. See 4EF2A for weirdness */
 			.ROMsize = 2048,
 			.FIDbase_size = sizeof(struct fid_base1_t),	//not really; no MSTCR fields ?
 			.pRAMF_maxdist = 0x2000,

@@ -500,6 +500,7 @@ u32 find_ramf(struct romfile *rf) {
 						(unsigned long) reconst_32(&rf->buf[rf->p_ivt2+4]),
 						(unsigned long) reconst_32(&rf->buf[rf->p_ivt2+8]),
 						(unsigned long) reconst_32(&rf->buf[rf->p_ivt2+12]));
+			rf->p_ivt2 = (u32) -1;	//run the bruteforce IVT2 search instead
 		}
 	}
 
