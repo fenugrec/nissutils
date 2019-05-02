@@ -126,6 +126,17 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
+//ret 1 if [0-9]
+static bool valid_dig(uint8_t tc) {
+	if ((tc >= '0') && (tc <= '9')) return 1;
+	return 0;
+}
+
+//ret 1 if [A-Z]
+static bool valid_char(uint8_t tc) {
+	if ((tc >= 'A') && (tc <= 'Z')) return 1;
+	return 0;
+}
 
 // ret 1 if tc is a valid char for ECUID : [0-9,A-Z]
 static bool valid_ecuidchar(uint8_t tc) {
@@ -135,44 +146,55 @@ static bool valid_ecuidchar(uint8_t tc) {
 }
 
 
-/* technique 1 : try to find ECUID string surrounded by invalid characters.
- * because ECUID string starts with '1', this should exclude false positives in the FID string.
+/* technique 2 : try to find ECUID string starting with a '1', and containing both digits and A-Z.
+ * because ECUID string (always?) starts with '1', this should exclude false positives in the FID string.
  */
 void find_ecuid(const uint8_t *buf, long siz) {
 	long cur = 0;
 	long pECUID = 0;
 	int elen = 0;
 	bool searching = 1;
+	bool has_dig = 0;
+	bool has_char = 0;
 	for (; cur < siz; cur++) {
 		uint8_t curchar = buf[cur];
 		if (searching) {
 			if (curchar == '1') {
 				//previous char needs to be invalid
-				if (valid_ecuidchar(buf[cur - 1])) continue;
+				//if (valid_ecuidchar(buf[cur - 1])) continue;
 				searching = 0;
 				pECUID = cur + 1;
 				continue;
 			}
 			continue;
 		}
-		if (elen == 5) {
+		if ((elen == 5) &&  has_dig && has_char){
 			//if we already have 5 valid chars, this one has to be invalid.
-			if (valid_ecuidchar(curchar)) {
+			//if (valid_ecuidchar(curchar)) {
+			if (0) {
 				searching = 1;
 				elen = 0;
+				has_dig = 0;
+				has_char = 0;
 				continue;
 			}
 			printf("possible ECUID found @ 0x%lX : %.*s\n",
 				pECUID, 5, (const char *) &buf[pECUID]);
 			searching = 1;
 			elen = 0;
+			has_dig = 0;
+			has_char = 0;
 			continue;
 		}
 		if (valid_ecuidchar(curchar)) {
+			if (valid_dig(curchar)) has_dig = 1;
+			if (valid_char(curchar)) has_char = 1;
 			elen += 1;
 			continue;
 		}
 		searching = 1;
 		elen = 0;
+		has_dig = 0;
+		has_char = 0;
 	}
 }
