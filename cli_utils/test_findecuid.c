@@ -20,26 +20,10 @@ FILE *dbg_stream;
 // generic ROM struct
 struct romfile {
 	FILE *hf;
-	long siz;	//in bytes
+	size_t siz;	//in bytes
 	uint8_t *buf;	//copied here
 };
 
-// hax, get file length but restore position
-static long flen(FILE *hf) {
-	long siz;
-	long orig;
-
-	if (!hf) return 0;
-	orig = ftell(hf);
-	if (orig < 0) return 0;
-
-	if (fseek(hf, 0, SEEK_END)) return 0;
-
-	siz = ftell(hf);
-	if (siz < 0) siz=0;
-	if (fseek(hf, orig, SEEK_SET)) return 0;
-	return siz;
-}
 
 //load ROM to a new buffer
 //ret 0 if OK
@@ -47,7 +31,7 @@ static long flen(FILE *hf) {
 static int open_rom(struct romfile *rf, const char *fname) {
 	FILE *fbin;
 	uint8_t *buf;	//load whole ROM
-	long file_len;
+	size_t file_len;
 
 	rf->hf = NULL;	//not needed
 
