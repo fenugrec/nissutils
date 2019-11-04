@@ -281,6 +281,7 @@ void ecuid_getkeys(const char *ECUID, struct ecuid_keymatch_t *kclist, unsigned 
 
 	for (i = 0; i < candidates; i++) {
 		kclist[i].key = 0;
+		kclist[i].kidx = 0;
 		kclist[i].dist = MAXDIST;
 	}
 
@@ -323,6 +324,7 @@ void ecuid_getkeys(const char *ECUID, struct ecuid_keymatch_t *kclist, unsigned 
 			}
 			
 			kclist[maxdist_idx].key = ecuid_list[i].s27k;
+			kclist[maxdist_idx].kidx = i;
 			kclist[maxdist_idx].dist = dist;
 		}
 	}

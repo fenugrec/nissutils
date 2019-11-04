@@ -11,6 +11,7 @@
 
 struct ecuid_keymatch_t {
 	uint32_t key;
+	unsigned kidx;	//index into ecuid_list[]
 	int dist;
 };
 
