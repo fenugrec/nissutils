@@ -170,6 +170,7 @@ const struct ecuid_klist_t ecuid_list[] = {
 	{"TK405", 0xED19DF45},
 	{"VC264", 0xC9DCA40A},
 	{"VC266", 0x211CE348},
+	{"VC269", 0x211CE348},
 	{"VC628", 0x211CE348},
 	{"VC85A", 0x211CE348},
 	{"VD70A", 0x211CE348},
@@ -217,7 +218,7 @@ const struct ecuid_klist_t ecuid_list[] = {
 	{"ZT28D", 0x1701C82E},
 	{"ZX56A", 0xE5D097FC},
 	{"ZX71C", 0x9F8A52B7},
-	{"ZY72C", 0x968148AD},
+	{"ZY7..", 0x968148AD},
 	{"", 0}
 	};
 
