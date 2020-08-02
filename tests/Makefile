@@ -42,7 +42,7 @@ LDSCRIPT = lkr_7055.ld
 
 ASRC = test1.s
 
-# SRC = cmd_parser.c eep_funcs.c main.c crc.c
+# SRC = main.c
 
 OBJS  = $(ASRC:.s=.o) $(SRC:.c=.o)
 
