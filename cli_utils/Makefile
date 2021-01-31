@@ -3,7 +3,7 @@ CFLAGS = -std=gnu99 -Wall -Wextra -Wpedantic -O2
 
 TGTLIST = test_ecuidlist nisckfix1 nisckfix2 nisdec1 nisenc1
 TGTLIST += nisguess nisguess2 nisrom unpackdat
-TGTLIST += test_findrefs test_findcallargs test_findcks
+TGTLIST += findrefs findcallargs test_findcks
 
 all: $(TGTLIST)
 
@@ -25,9 +25,9 @@ unpackdat: unpackdat.c nislib.c
 
 test_ecuidlist: test_ecuidlist.c ecuid_list.c
 
-test_findrefs: test_findrefs.c nislib.c
+findrefs: findrefs.c nislib.c
 
-test_findcallargs: test_findcallargs.c nislib.c
+findcallargs: findcallargs.c nislib.c
 
 test_findcks: test_findcks.c nislib.c
 
