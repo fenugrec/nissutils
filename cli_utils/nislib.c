@@ -1201,7 +1201,7 @@ bool find_s27_hardcore(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_
 	uint32_t swapf_cur = 0;
 	int swapf_instances = 0;
 
-	struct s27_keyfinding skf;
+	struct s27_keyfinding skf={0};
 	skf.s27k = s27k;
 	skf.s27_found = 0;
 	skf.s36k = s36k;
