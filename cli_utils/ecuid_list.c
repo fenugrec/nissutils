@@ -5,7 +5,6 @@
  */
 
 
-
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>	//for sortage
@@ -126,6 +125,7 @@ const struct ecuid_klist_t ecuid_list[] = {
 	{"CF43D", 0x634D157A},
 	{"CF44A", 0x634D157A},
 	{"CF44D", 0x3722E94F},
+	{"CF48D", 0x3722E94F},
 	{"CF90A", 0x422DF45A},
 	{"CF91A", 0x422DF45A},
 	{"CG060", 0x705A2287},
@@ -172,8 +172,14 @@ const struct ecuid_klist_t ecuid_list[] = {
 	{"JU0.A", 0xC6E19CF0},
 	{"M5113", 0x75B4C26D},
 	{"TK405", 0xED19DF45},
+	{"VC261", 0xC9DCA40A},
+	{"VC262", 0xC9DCA40A},
+	{"VC263", 0xC9DCA40A},
 	{"VC264", 0xC9DCA40A},
+	{"VC265", 0x211CE348},
 	{"VC266", 0x211CE348},
+	{"VC267", 0x211CE348},
+	{"VC268", 0x211CE348},
 	{"VC269", 0x211CE348},
 	{"VC628", 0x211CE348},
 	{"VC85A", 0x211CE348},
