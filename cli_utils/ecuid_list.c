@@ -21,6 +21,7 @@ struct ecuid_klist_t {
 /* export from master list : */
 
 const struct ecuid_klist_t ecuid_list[] = {
+	{"1A10A", 0x9CC487FA},
 	{"1A30D", 0x917B43A8},
 	{"1EA1A", 0x917B43A8},
 	{"1EA3A", 0x917B43A8},
@@ -32,6 +33,7 @@ const struct ecuid_klist_t ecuid_list[] = {
 	{"1MX6D", 0x9E8950B5},
 	{"1NA0A", 0x8FFD3C82},
 	{"1NA8C", 0x8FFD3C82},
+	{"2Y967", 0xE21D9C79},
 	{"3JV9B", 0xD2BD85E9},
 	{"4M860", 0x0371AEF4},
 	{"4ME6B", 0xE5D097FC},
@@ -139,6 +141,7 @@ const struct ecuid_klist_t ecuid_list[] = {
 	{"CM37A", 0x3722E94F},
 	{"CM41C", 0x634D157A},
 	{"CM4..", 0x3722E94F},
+	{"CR861", 0x99C740B0},
 	{"CS500", 0x0FF9C026},
 	{"CX800", 0x7374BC6A},
 	{"EA...", 0xEED9A107},
@@ -184,7 +187,9 @@ const struct ecuid_klist_t ecuid_list[] = {
 	{"VC628", 0x211CE348},
 	{"VC85A", 0x211CE348},
 	{"VD70A", 0x211CE348},
+	{"VG310", 0x432EF55B},
 	{"WE85C", 0x7374BC6A},
+	{"WL90B", 0x71DE1D63},
 	{"Z31M2", 0xED19DF45},
 	{"ZB010", 0x3C24EB50},
 	{"ZB060", 0x9F8A52B7},
