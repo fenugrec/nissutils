@@ -83,6 +83,9 @@ enum fidtype_ic {
 		FID_UNK
 };
 
+
+#define ECUREC_LEN	22	// typical (TBD) length of ECUREC string length
+
 struct fidtype_t {
 	enum fidtype_ic fti;
 	uint8_t FIDIC[8];	//such as "SH705507"

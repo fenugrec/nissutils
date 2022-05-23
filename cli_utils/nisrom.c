@@ -447,6 +447,12 @@ u32 find_ramf(struct romfile *rf) {
 	rf->p_ramf = rf->p_fid + rf->sfid_size;
 	ft = &fidtypes[rf->fidtype];
 
+	if (ft->RAMF_header == 0) {
+		// alternate RAMF search & parse
+		fprintf(dbg_stream, "not trying to find RAMF.\n");
+		return 0;
+	}
+
 	//1- sanity check first member, typically FFFF8000.
 	testval = reconst_32(&rf->buf[rf->p_ramf]);
 	if (testval != ft->RAMF_header) {

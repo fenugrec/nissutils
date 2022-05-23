@@ -336,7 +336,7 @@ const struct fidtype_t fidtypes[] = {
 			.FIDIC = "SH705927",		/** tentative values here. */
 			.ROMsize = 1536,
 			.FIDbase_size = sizeof(struct fid_base1_t) + 8,
-			.pRAMF_maxdist = 0,	/* Assume FID_header will be a fixed size; otherwise we're screwned since */
+			.pRAMF_maxdist = 0,	/* Assume FID_header will be a fixed size; otherwise we're screwed since */
 			.RAMF_header = 0xFFFE8000,	/* this is no longer a reliable way of finding RAMF ... */
 			.pRAMjump = 0x20,
 			.pRAM_DLAmax = 0x4C,
@@ -348,19 +348,16 @@ const struct fidtype_t fidtypes[] = {
 			.pECUREC = 0x6C,
 			},
 	[FID7253331] = {	.fti = FID7253331,
-			.FIDIC = "S7253331",		/** very tentative values here. See 4EF2A for weirdness */
+			.FIDIC = "S7253331",		/** tentative values here. See 4EF2A, 4CE1A */
 			.ROMsize = 2048,
 			.FIDbase_size = sizeof(struct fid_base1_t),	//not really; no MSTCR fields ?
-			.pRAMF_maxdist = 0x2000,
-			.RAMF_header = 0xFFF88000,
-			.pRAMjump = 0x18,
-			.pRAM_DLAmax = 0x1c,
-			.pRAMinit = 0x60,
-			.packs_start = 0x74,
-			.packs_end = 0x78,
-			.pIVT2 = 0x84,
-			.pROMend = 0x80,
-			.pECUREC = 0x7C,
+			.pRAMF_maxdist = 0x3200,
+			.RAMF_header = 0xFFF83110,	// 0xFFF83110 in 4EF2A. Probably unreliable
+			.packs_start = 0xA0,
+			.packs_end = 0xA4,
+			.pECUREC = 0xA8,
+			.pROMend = 0xAC,
+			.pIVT2 = 0xB0,
 			},
 	[FID7253332] = {	.fti = FID7253332,
 			.FIDIC = "S7253332",		/** very tentative values here */
