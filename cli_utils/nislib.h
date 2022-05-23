@@ -88,8 +88,8 @@ void sum32(const uint8_t *buf, uint32_t siz, uint32_t *sum, uint32_t *xor);
 /** calculate checksums and find their location
  *
  * @param siz : size of *buf in bytes
- * @param p_cks : sum location (offset in buf)
- * @param p_ckx : xor location (offset in buf)
+ * @param p_cks (output) sum location (offset in buf)
+ * @param p_ckx (output) xor location (offset in buf)
  * @return 0 if ok
  *
  * Uses "standard" algo

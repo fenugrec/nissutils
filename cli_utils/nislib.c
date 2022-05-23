@@ -499,7 +499,10 @@ int checksum_alt2(const uint8_t *buf, uint32_t siz, uint32_t *p_ack_s, uint32_t 
 				uint32_t p_skip1, uint32_t p_skip2) {
 	uint32_t sumt,xort, cks, ckx;
 
-	if (!buf || (siz & 0x3) || !p_ack_s || !p_ack_x || !siz) {
+	if (!buf || (siz & 0x3) || \
+			!p_ack_s || !p_ack_x || !siz || \
+			p_skip1 >= (siz - 4) || \
+			p_skip2 >= (siz - 4)) {
 		return -1;
 	}
 
