@@ -731,7 +731,6 @@ uint32_t sh_get_PCimm(const uint8_t *buf, uint32_t pos) {
 #define EEPREAD_MAXBT 25	//max backtrack to locate the mov that loads the function address
 #define EEPREAD_MINJ 1		//min # of identical, nearby calls to eepread()
 #define EEPREAD_JSRWINDOW 10	//search within a radius of _JSRWINDOW for identical jsr opcodes
-/* XXX todo : bounds check vs "siz" for the iterations within */
 
 uint32_t find_eepread(const uint8_t *buf, uint32_t siz, uint32_t *real_portreg) {
 	int occurences = 0;
@@ -742,7 +741,7 @@ uint32_t find_eepread(const uint8_t *buf, uint32_t siz, uint32_t *real_portreg) 
 
 	siz &= ~1;
 
-	for (cur = 0; cur < siz; cur += 2) {
+	for (cur = 0; cur <= (siz - 2); cur += 2) {
 		/* find E4 7B opcode, for every occurence check if the pattern is credible */
 		uint16_t opc;
 		int jumpreg;
@@ -758,10 +757,13 @@ uint32_t find_eepread(const uint8_t *buf, uint32_t siz, uint32_t *real_portreg) 
 		*/
 		found_seq = 0;
 		for (window = -1; window <= EEPREAD_POSTJSR; window ++) {
-			opc = reconst_16(&buf[cur + window * 2]);
+			uint32_t pos = (cur + window * 2);
+			if (pos >= (siz - 2)) break;
+
+			opc = reconst_16(&buf[pos]);
 			if ((opc & 0xF0FF) != 0x400B) continue;
 			//printf("found a mov + jsr sequence;");
-			jsr_loc = (cur + window * 2);
+			jsr_loc = (pos);
 			found_seq = 1;
 			break;
 		}
@@ -771,7 +773,10 @@ uint32_t find_eepread(const uint8_t *buf, uint32_t siz, uint32_t *real_portreg) 
 		/* backtrack to  find a "mov.x ..., Rn" */
 		found_seq = 0;
 		for (window -= 1; (window + EEPREAD_MAXBT) > 0; window--) {
-			opc = reconst_16(&buf[cur + window * 2]);
+			uint32_t pos = (cur + window * 2);
+			if (pos >= (siz - 2)) break;
+
+			opc = reconst_16(&buf[pos]);
 			if (opc == 0x4F22) break;	// "sts.l pr, @-r15"  :function entry; abort.
 
 			//2 possible opcodes : -  mov.w @(i, pc), Rn  : (0x9n 0xii) , or
