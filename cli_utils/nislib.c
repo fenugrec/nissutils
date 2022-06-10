@@ -801,7 +801,7 @@ uint32_t find_eepread(const uint8_t *buf, uint32_t siz, uint32_t *real_portreg) 
 		jackpot = sh_get_PCimm(buf, jackpot);
 
 		/* discard out-of-ROM addresses */
-		if (jackpot > (1024 * 1024 * 1024UL)) {
+		if (jackpot >= MAX_ROMSIZE) {
 			//printf("Occurence %d @ 0x%0X: bad; &eep_read() out of bounds (0x%0X)\n",
 			//	occurences, cur + window * 2, jackpot);
 			continue;

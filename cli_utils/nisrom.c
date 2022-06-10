@@ -92,7 +92,7 @@ static int open_rom(struct romfile *rf, const char *fname) {
 	}
 
 	file_len = flen(fbin);
-	if ((!file_len) || (file_len > 2048*1024UL)) {
+	if ((!file_len) || (file_len > MAX_ROMSIZE)) {
 		/* TODO : add "-f" flag ? */
 		printf("huge file (length %lu)\n", (unsigned long) file_len);
 		fclose(fbin);
