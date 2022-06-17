@@ -802,6 +802,61 @@ static struct printable_prop *new_properties(struct romfile *rf) {
 		fprintf(dbg_stream, "find_ramf() failed !!\n");
 	}
 
+	if (!checksum_std(rf->buf, rf->siz, &rf->p_cks, &rf->p_ckx)) {
+		utstring_printf(&props[RP_STD_CKS].rendered_value, "1");
+		utstring_printf(&props[RP_STD_S_OFS].rendered_value, "0x%lX", (unsigned long) rf->p_cks);
+		utstring_printf(&props[RP_STD_X_OFS].rendered_value, "0x%lX", (unsigned long) rf->p_ckx);
+	} else {
+		utstring_printf(&props[RP_STD_CKS].rendered_value, "0");
+	}
+
+	// some ambiguity : altcks can be absent, present && good, or present && bad
+	if (rf->cks_alt_present) {
+		utstring_printf(&props[RP_ALT_CKS].rendered_value, "%d", (int) rf->cks_alt_good);
+		utstring_printf(&props[RP_ALT_S_OFS].rendered_value, "0x%lX", (unsigned long) rf->p_acs);
+		utstring_printf(&props[RP_ALT_X_OFS].rendered_value, "0x%lX", (unsigned long) rf->p_acx);
+		utstring_printf(&props[RP_ALT_START].rendered_value, "0x%lX", (unsigned long) rf->p_acstart);
+		utstring_printf(&props[RP_ALT_END].rendered_value, "0x%lX", (unsigned long) rf->p_acend);
+	}
+
+	// some ambiguity : alt2 can be absent, present && good, or present && bad
+
+	if (rf->cks_alt2_present) {
+		utstring_printf(&props[RP_ALT2_CKS].rendered_value, "%d", (int) rf->cks_alt2_good);
+		utstring_printf(&props[RP_ALT2_S_OFS].rendered_value, "0x%lX", (unsigned long) rf->p_a2cs);
+		utstring_printf(&props[RP_ALT2_X_OFS].rendered_value, "0x%lX", (unsigned long) rf->p_a2cx);
+		utstring_printf(&props[RP_ALT2_START].rendered_value, "0x%lX", (unsigned long) rf->p_ac2start);
+		utstring_printf(&props[RP_RIPEMD160].rendered_value, "%d", (int) rf->has_rm160);
+	}
+
+	//known / guessed keysets
+	int key_idx;
+	if (find_s27k(rf, &key_idx, 0)) {
+		utstring_printf(&props[RP_KNOWN_KEYSET].rendered_value, "1");
+		utstring_printf(&props[RP_KNOWN_S27K].rendered_value, "0x%08lX",
+						(unsigned long) known_keys[key_idx].s27k);
+		utstring_printf(&props[RP_KNOWN_S36K].rendered_value, "0x%08lX",
+						(unsigned long) known_keys[key_idx].s36k1);
+	} else {
+		utstring_printf(&props[RP_KNOWN_KEYSET].rendered_value, "0");
+	}
+	uint32_t s27k, s36k;
+	if (find_s27_hardcore(rf->buf, rf->siz, &s27k, &s36k)) {
+		utstring_printf(&props[RP_GUESSED_KEYSET].rendered_value, "1");
+		utstring_printf(&props[RP_GUESSED_S27K].rendered_value, "0x%08lX", (unsigned long) s27k);
+		utstring_printf(&props[RP_GUESSED_S36K].rendered_value, "0x%08lX", (unsigned long) s36k);
+	} else {
+		utstring_printf(&props[RP_GUESSED_KEYSET].rendered_value, "0");
+	}
+
+	// EEPROM info
+	find_eep(rf);
+	if (rf->p_eepread) {
+		utstring_printf(&props[RP_EEP_READ_OFFS].rendered_value, "0x%lX",
+						(unsigned long) rf->p_eepread);
+		utstring_printf(&props[RP_EEP_PORT].rendered_value, "0x%08lX",
+						(unsigned long) rf->eep_port);
+	}
 	return props;
 }
 
@@ -907,60 +962,6 @@ int main(int argc, char *argv[])
 	}
 
 	free_properties(props);
-
-	//std cks	std_cks_s	std_cks_x
-	if (!checksum_std(rf.buf, rf.siz, &rf.p_cks, &rf.p_ckx)) {
-		printf("1\t0x%lX\t0x%lX\t",
-			(unsigned long) rf.p_cks, (unsigned long) rf.p_ckx);
-	} else {
-		printf("0\tN/A\tN/A\t");
-	}
-
-	//alt cks?\t&alt_s\t&alt_x\tack_start\t&ack_end\t
-	if (rf.cks_alt_present) {
-		printf("%d\t0x%lX\t0x%lX\t0x%lX\t0x%lX\t",
-			rf.cks_alt_good,
-			(unsigned long) rf.p_acs, (unsigned long) rf.p_acx,
-			(unsigned long) rf.p_acstart, (unsigned long) rf.p_acend);
-	} else {
-		printf("0\tN/A\tN/A\tN/A\tN/A\t");
-	}
-
-	//"alt2 cks?\t&alt2_s\t&alt2_x\talt2_start\tRIPEMD160\t"
-	if (rf.cks_alt2_present) {
-		printf("%d\t0x%lX\t0x%lX\t0x%lX\t%d\t",
-			rf.cks_alt2_good,
-			(unsigned long) rf.p_a2cs, (unsigned long) rf.p_a2cx,
-			(unsigned long) rf.p_ac2start, rf.has_rm160);
-	} else {
-		printf("0\tN/A\tN/A\tN/A\t%d\t", rf.has_rm160);
-	}
-
-
-	//known s27k s36k guessed s27k s36k
-	int key_idx;
-	if (find_s27k(&rf, &key_idx, 0)) {
-		printf("1\t0x%08lX\t0x%08lX\t",
-			(unsigned long) known_keys[key_idx].s27k, (unsigned long) known_keys[key_idx].s36k1);
-	} else {
-		printf("0\tN/A\tN/A\t");
-	}
-	uint32_t s27k, s36k;
-	if (find_s27_hardcore(rf.buf, rf.siz, &s27k, &s36k)) {
-		printf("1\t0x%08X\t0x%08X\t",
-			s27k, s36k);
-	} else {
-		printf("0\tN/A\tN/A\t");
-	}
-
-	// EEPROM info
-	find_eep(&rf);
-	if (rf.p_eepread) {
-		printf("0x%lX\t0x%08lX\t",
-			(unsigned long) rf.p_eepread, (unsigned long) rf.eep_port);
-	} else {
-		printf("N/A\tN/A\t");
-	}
 
 	//test : find calltable
 	unsigned ctlen = 0;
