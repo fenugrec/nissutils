@@ -19,6 +19,7 @@
 #include "nissan_romdefs.h"
 #include "nislib.h"
 #include "stypes.h"
+#include "utstring.h"
 
 #define DBG_OUTFILE	"nisrom_dbg.log"	//default log file
 
@@ -594,7 +595,7 @@ void find_eep(struct romfile *rf) {
 // for every property that will be shown, fill one of these
 struct printable_prop {
 	const char *csv_name;	//CSV column header. NULL to mark end of array
-	char *rendered_value;	//either quoted string or numeric value. Can be NULL, otherwise malloc'd + free'd
+	UT_string rendered_value;	//either quoted string or numeric value.
 };
 
 enum rom_properties {
@@ -637,42 +638,42 @@ enum rom_properties {
 };
 
 const struct printable_prop props_template[] = {
-	[RP_FILE] = {"file", NULL},
-	[RP_SIZE] = {"size", NULL},
-	[RP_LOADER] = {"LOADER ##", NULL},
-	[RP_LOADER_OFS] = {"LOADER ofs", NULL},
-	[RP_LOADER_CPU] = {"LOADER CPU", NULL},
-	[RP_LOADER_CPUCODE] = {"LOADER CPUcode", NULL},
-	[RP_FID] = {"&FID", NULL},
-	[RP_FID_OFS] = {"FID", NULL},
-	[RP_FID_CPU] = {"FID CPU", NULL},
-	[RP_FID_CPUCODE] = {"FID CPUcode", NULL},
-	[RP_RAMF_WEIRD] = {"RAMF_weird", NULL},
-	[RP_RAMJUMP] = {"RAMjump_entry", NULL},
-	[RP_IVT2] = {"IVT2", NULL},
-	[RP_IVT2_CONF] = {"IVT2 confidence", NULL},
-	[RP_STD_CKS] = {"std cks?", NULL},
-	[RP_STD_S_OFS] = {"&std_s", NULL},
-	[RP_STD_X_OFS] = {"&std_x", NULL},
-	[RP_ALT_CKS] = {"alt cks?", NULL},
-	[RP_ALT_S_OFS] = {"&alt_s", NULL},
-	[RP_ALT_X_OFS] = {"&alt_x", NULL},
-	[RP_ALT_START] = {"alt_start", NULL},
-	[RP_ALT_END] = {"alt_end", NULL},
-	[RP_ALT2_CKS] = {"alt2 cks?", NULL},
-	[RP_ALT2_S_OFS] = {"&alt2_s", NULL},
-	[RP_ALT2_X_OFS] = {"&alt2_x", NULL},
-	[RP_ALT2_START] = {"alt2_start", NULL},
-	[RP_RIPEMD160] = {"RIPEMD160", NULL},
-	[RP_KNOWN_KEYSET] = {"known keyset", NULL},
-	[RP_KNOWN_S27K] = {"s27k", NULL},
-	[RP_KNOWN_S36K] = {"s36k", NULL},
-	[RP_GUESSED_KEYSET] = {"guessed keyset", NULL},
-	[RP_GUESSED_S27K] = {"s27k", NULL},
-	[RP_GUESSED_S36K] = {"s36k", NULL},
-	[RP_EEP_READ_OFFS] = {"&EEPROM_read()", NULL},
-	[RP_EEP_PORT] = {"EEPROM PORT", NULL},
-	[RP_MAX] = {NULL, NULL},
+	[RP_FILE] = {"file", {0}},
+	[RP_SIZE] = {"size", {0}},
+	[RP_LOADER] = {"LOADER ##", {0}},
+	[RP_LOADER_OFS] = {"LOADER ofs", {0}},
+	[RP_LOADER_CPU] = {"LOADER CPU", {0}},
+	[RP_LOADER_CPUCODE] = {"LOADER CPUcode", {0}},
+	[RP_FID] = {"&FID", {0}},
+	[RP_FID_OFS] = {"FID", {0}},
+	[RP_FID_CPU] = {"FID CPU", {0}},
+	[RP_FID_CPUCODE] = {"FID CPUcode", {0}},
+	[RP_RAMF_WEIRD] = {"RAMF_weird", {0}},
+	[RP_RAMJUMP] = {"RAMjump_entry", {0}},
+	[RP_IVT2] = {"IVT2", {0}},
+	[RP_IVT2_CONF] = {"IVT2 confidence", {0}},
+	[RP_STD_CKS] = {"std cks?", {0}},
+	[RP_STD_S_OFS] = {"&std_s", {0}},
+	[RP_STD_X_OFS] = {"&std_x", {0}},
+	[RP_ALT_CKS] = {"alt cks?", {0}},
+	[RP_ALT_S_OFS] = {"&alt_s", {0}},
+	[RP_ALT_X_OFS] = {"&alt_x", {0}},
+	[RP_ALT_START] = {"alt_start", {0}},
+	[RP_ALT_END] = {"alt_end", {0}},
+	[RP_ALT2_CKS] = {"alt2 cks?", {0}},
+	[RP_ALT2_S_OFS] = {"&alt2_s", {0}},
+	[RP_ALT2_X_OFS] = {"&alt2_x", {0}},
+	[RP_ALT2_START] = {"alt2_start", {0}},
+	[RP_RIPEMD160] = {"RIPEMD160", {0}},
+	[RP_KNOWN_KEYSET] = {"known keyset", {0}},
+	[RP_KNOWN_S27K] = {"s27k", {0}},
+	[RP_KNOWN_S36K] = {"s36k", {0}},
+	[RP_GUESSED_KEYSET] = {"guessed keyset", {0}},
+	[RP_GUESSED_S27K] = {"s27k", {0}},
+	[RP_GUESSED_S36K] = {"s36k", {0}},
+	[RP_EEP_READ_OFFS] = {"&EEPROM_read()", {0}},
+	[RP_EEP_PORT] = {"EEPROM PORT", {0}},
+	[RP_MAX] = {NULL, {0}},
 };
 
 
@@ -693,9 +694,7 @@ static void print_csv_values(const struct printable_prop *props) {
 	const struct printable_prop *prop = props;
 
 	while (prop->csv_name != NULL) {
-		if (prop->rendered_value) {
-			printf("%s,", prop->rendered_value);
-		}
+		printf("%s,", utstring_body(&prop->rendered_value));
 		prop++;
 	}
 	printf("\n");
@@ -707,9 +706,7 @@ static void print_human(const struct printable_prop *props) {
 
 	while (prop->csv_name != NULL) {
 		printf("\n%s\t", prop->csv_name);
-		if (prop->rendered_value) {
-			printf("%s", prop->rendered_value);
-		}
+		printf("%s", utstring_body(&prop->rendered_value));
 		prop++;
 	}
 	printf("\n");
@@ -722,11 +719,17 @@ static void print_human(const struct printable_prop *props) {
  */
 static struct printable_prop *new_properties(const struct romfile *rf) {
 	assert(rf);
-	struct printable_prop *props;
+	struct printable_prop *prop, *props;
 	props = malloc(sizeof(props_template));
 	if (!props) return NULL;
 
 	memcpy(props, props_template, sizeof(props_template));
+
+	prop = props;
+	while (prop->csv_name != NULL) {
+		utstring_init(&prop->rendered_value);
+		prop++;
+	}
 	return props;
 }
 
@@ -736,11 +739,10 @@ static void free_properties(struct printable_prop *props) {
 	struct printable_prop *prop = props;
 
 	while (prop->csv_name != NULL) {
-		if (prop->rendered_value) {
-			free(prop->rendered_value);
-		}
+		utstring_done(&prop->rendered_value);
 		prop++;
 	}
+	free(props);
 	return;
 }
 
