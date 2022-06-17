@@ -22,6 +22,7 @@
 #include "utstring.h"
 
 #define DBG_OUTFILE	"nisrom_dbg.log"	//default log file
+#define ERR_PRINTF(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
 
 #if (CHAR_BIT != 8)
 #error HAH ! a non-8bit char system. Some of this will not work
@@ -93,7 +94,7 @@ static int open_rom(struct romfile *rf, const char *fname) {
 	rf->hf = NULL;	//not needed
 
 	if ((fbin=fopen(fname,"rb"))==NULL) {
-		printf("error opening %s.\n", fname);
+		ERR_PRINTF("error opening %s.\n", fname);
 		return -1;
 	}
 	rf->filename = fname;
@@ -101,7 +102,7 @@ static int open_rom(struct romfile *rf, const char *fname) {
 	file_len = flen(fbin);
 	if ((!file_len) || (file_len > MAX_ROMSIZE)) {
 		/* TODO : add "-f" flag ? */
-		printf("huge file (length %lu)\n", (unsigned long) file_len);
+		ERR_PRINTF("huge file (length %lu)\n", (unsigned long) file_len);
 		fclose(fbin);
 		return -1;
 	}
@@ -109,14 +110,14 @@ static int open_rom(struct romfile *rf, const char *fname) {
 
 	buf = malloc(file_len);
 	if (!buf) {
-		printf("malloc choke\n");
+		ERR_PRINTF("malloc choke\n");
 		fclose(fbin);
 		return -1;
 	}
 
 	/* load whole ROM */
 	if (fread(buf,1,file_len,fbin) != file_len) {
-		printf("trouble reading\n");
+		ERR_PRINTF("trouble reading\n");
 		free(buf);
 		fclose(fbin);
 		return -1;
@@ -926,7 +927,7 @@ int main(int argc, char *argv[])
 			filename = argv[optidx];
 			continue;
 		}
-		fprintf(stderr, "junk argument\n");
+		ERR_PRINTF("junk argument\n");
 		return -1;
 	}
 
@@ -944,7 +945,7 @@ int main(int argc, char *argv[])
 
 	if (open_rom(&rf, filename)) {
 		if (dbg_file) fclose(dbg_stream);
-		printf("Trouble in open_rom()\n");
+		ERR_PRINTF("Trouble in open_rom()\n");
 		return -1;
 	}
 
@@ -973,7 +974,6 @@ int main(int argc, char *argv[])
 		fprintf(dbg_stream, "possible calltable @ %lX, len=0x%X\n", (unsigned long) ctpos, ctlen);
 	}
 
-	printf("\n");
 	close_rom(&rf);
 	if (dbg_file) fclose(dbg_stream);
 	return 0;
