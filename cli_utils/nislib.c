@@ -802,7 +802,6 @@ uint32_t find_eepread(const uint8_t *buf, uint32_t siz, uint32_t *real_portreg) 
 		/* backtrack to find a "mov.x ..., Rn" */
 		found_seq = 0;
 		for (window -= 1; (window + EEPREAD_MAXBT) > 0; window--) {
-			// cppcheck-suppress integerOverflow
 			uint32_t pos = (cur + window * 2);
 			if (pos >= (siz - 2)) break;
 
@@ -948,13 +947,13 @@ u32 sh_extsw(u16 val) {
 
 int sh_bt_immload(u32 *imm, const uint8_t *buf, uint32_t min, uint32_t start,
 				unsigned regno) {
-	uint16_t opc;
+
 
 	assert(imm && buf && (regno <= 0x0F));
 
 	while (start >= min) {
 		unsigned new_regno;
-		opc = reconst_16(&buf[start]);
+		uint16_t opc = reconst_16(&buf[start]);
 
 		// 1) limit search to function head. Problem : sometimes this opcode is not at the head of the function !
 		//if (opc == 0x4F22) return 0;
