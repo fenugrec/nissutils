@@ -557,7 +557,7 @@ u32 find_ramf(struct romfile *rf) {
 		/* Locate cks_alt2 checksum */
 		u32 p_as = 0, p_ax = 0;
 		u32 p_skip1, p_skip2;
-		p_skip1 = (u32) -1;
+		p_skip1 = UINT32_MAX;
 		p_skip2 = (rf->p_ivt2 - 4) - pecurec;
 		if (checksum_alt2(&rf->buf[pecurec], rf->siz - pecurec, &p_as, &p_ax, p_skip1, p_skip2) == 0) {
 			fprintf(dbg_stream, "alt2 checksum found; sum @ 0x%lX, xor @ 0x%lX\n",

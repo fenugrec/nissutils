@@ -103,8 +103,8 @@ int checksum_std(const uint8_t *buf, uint32_t siz, uint32_t *p_cks, uint32_t *p_
  * @param siz : size of *buf in bytes
  * @param p_ack_s : sum location (offset in buf)
  * @param p_ack_x : xor location (offset in buf)
- * @param p_skip1 : if >= 0: first location to skip (offset in buf)
- * @param p_skip2 : if >= 0: second location to skip (offset in buf)
+ * @param p_skip1 : if != UINT32_MAX: first location to skip (offset in buf)
+ * @param p_skip2 : if != UINT32_MAX: second location to skip (offset in buf)
  *
  * @return 0 if ok
  *

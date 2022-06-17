@@ -511,7 +511,6 @@ int checksum_alt2(const uint8_t *buf, uint32_t siz, uint32_t *p_ack_s, uint32_t 
 	assert(buf && siz && (siz <= MAX_ROMSIZE) &&
 			p_ack_s && p_ack_x);
 
-	//XXX TODO : signed args ? this is gross
 	if (p_skip1 != UINT32_MAX) {
 		assert(p_skip1 < (siz - 4));
 	}
@@ -555,7 +554,7 @@ int checksum_alt2(const uint8_t *buf, uint32_t siz, uint32_t *p_ack_s, uint32_t 
 
 //Thin wrapper around more generic checksum_alt2
 int checksum_std(const uint8_t *buf, uint32_t siz, uint32_t *p_cks, uint32_t *p_ckx) {
-	return checksum_alt2(buf, siz, p_cks, p_ckx, -1, -1);
+	return checksum_alt2(buf, siz, p_cks, p_ckx, UINT32_MAX, UINT32_MAX);
 }
 
 
