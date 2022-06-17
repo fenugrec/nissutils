@@ -761,6 +761,7 @@ uint32_t find_eepread(const uint8_t *buf, uint32_t siz, uint32_t *real_portreg) 
 		*/
 		found_seq = 0;
 		for (window = -1; window <= EEPREAD_POSTJSR; window ++) {
+			// cppcheck-suppress integerOverflow
 			uint32_t pos = (cur + window * 2);
 			if (pos >= (siz - 2)) break;
 
@@ -777,6 +778,7 @@ uint32_t find_eepread(const uint8_t *buf, uint32_t siz, uint32_t *real_portreg) 
 		/* backtrack to  find a "mov.x ..., Rn" */
 		found_seq = 0;
 		for (window -= 1; (window + EEPREAD_MAXBT) > 0; window--) {
+			// cppcheck-suppress integerOverflow
 			uint32_t pos = (cur + window * 2);
 			if (pos >= (siz - 2)) break;
 
