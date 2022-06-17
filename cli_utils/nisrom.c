@@ -587,6 +587,106 @@ void find_eep(struct romfile *rf) {
 	}
 }
 
+// for every property that will be shown, fill one of these
+struct printable_prop {
+	const char *csv_name;	//CSV column header. NULL to mark end of array
+	char *rendered_value;	//either quoted string or numeric value
+};
+
+// it's ok if some values stay NULL
+const struct printable_prop props_template[] = {
+	{"file", NULL},
+	{"size", NULL},
+	{"LOADER ##", NULL},
+	{"LOADER ofs", NULL},
+	{"LOADER CPU", NULL},
+	{"LOADER CPUcode", NULL},
+	{"&FID", NULL},
+	{"FID CPU", NULL},
+	{"FID CPUcode", NULL},
+	{"RAMF_weird", NULL},
+	{"RAMjump_entry", NULL},
+	{"IVT2", NULL},
+	{"IVT2 confidence", NULL},
+	{"std cks?", NULL},
+	{"&std_s", NULL},
+	{"&std_x", NULL},
+	{"alt cks?", NULL},
+	{"&alt_s", NULL},
+	{"&alt_x", NULL},
+	{"alt_start", NULL},
+	{"alt_end", NULL},
+	{"alt2 cks?", NULL},
+	{"&alt2_s", NULL},
+	{"&alt2_x", NULL},
+	{"alt2_start", NULL},
+	{"RIPEMD160", NULL},
+	{"known keyset", NULL},
+	{"s27k", NULL},
+	{"s36k", NULL},
+	{"guessed keyset", NULL},
+	{"s27k", NULL},
+	{"s36k", NULL},
+	{"&EEPROM_read()", NULL},
+	{"EEPROM PORT", NULL},
+	{NULL,NULL},
+};
+
+
+void print_csv_header(const struct printable_prop *props) {
+	assert(props);
+	const struct printable_prop *prop = props;
+
+	while (prop->csv_name != NULL) {
+		printf("\"%s\",", prop->csv_name);
+		prop++;
+	}
+	printf("\n");
+	return;
+}
+
+void print_csv_values(const struct printable_prop *props) {
+	assert(props);
+	const struct printable_prop *prop = props;
+
+	while (prop->csv_name != NULL) {
+		if (prop->rendered_value) {
+			printf("%s,", prop->rendered_value);
+		}
+		prop++;
+	}
+	printf("\n");
+}
+
+/** alloc + fill a new array of properties.
+ * must be free'd with free_properties()
+ *
+ * return NULL if error
+ */
+struct printable_prop *new_properties(const struct romfile *rf) {
+	assert(rf);
+	struct printable_prop *props;
+	props = malloc(sizeof(props_template));
+	if (!props) return NULL;
+
+	return props;
+}
+
+/** free array of properties and the value strings */
+void free_properties(struct printable_prop *props) {
+	assert(props);
+	struct printable_prop *prop = props;
+
+	while (prop->csv_name != NULL) {
+		if (prop->rendered_value) {
+			free(prop->rendered_value);
+		}
+		prop++;
+	}
+	return;
+}
+
+
 int main(int argc, char *argv[])
 {
 	bool	dbg_file;	//flag if dbgstream is a real file
