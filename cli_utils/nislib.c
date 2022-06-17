@@ -3,6 +3,7 @@
  * GPLv3
  */
 
+#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>	//for printf(); probably can go away someday
 #include <string.h>
@@ -126,7 +127,7 @@ uint32_t dec1(uint32_t data, uint32_t scode) {
 //Painfully unoptimized, because it's easy to get it wrong
 const uint8_t *u8memstr(const uint8_t *buf, uint32_t buflen, const uint8_t *needle, unsigned nlen) {
 	uint32_t hcur;
-	if (!buf || !needle || (nlen > buflen)) return NULL;
+	assert(buf && needle && buflen && nlen && (nlen <= buflen));
 
 	for (hcur=0; hcur < (buflen - nlen); hcur++) {
 		if (memcmp(buf + hcur, needle, nlen)==0) {
@@ -140,6 +141,8 @@ const uint8_t *u8memstr(const uint8_t *buf, uint32_t buflen, const uint8_t *need
 /* manual, aligned search for u16 val */
 const uint8_t *u16memstr(const uint8_t *buf, uint32_t buflen, const uint16_t needle) {
 	buflen &= ~1;
+	assert(buf && buflen);
+
 	uint32_t cur;
 	for (cur = 0; cur < buflen; cur += 2) {
 		if (reconst_16(&buf[cur]) == needle) return &buf[cur];
@@ -150,6 +153,8 @@ const uint8_t *u16memstr(const uint8_t *buf, uint32_t buflen, const uint16_t nee
 /* manual, aligned search instead of calling u8memstr; should be faster */
 const uint8_t *u32memstr(const uint8_t *buf, uint32_t buflen, const uint32_t needle) {
 	buflen &= ~3;
+	assert(buf && buflen);
+
 	uint32_t cur;
 	for (cur = 0; cur < buflen; cur += 4) {
 		if (reconst_32(&buf[cur]) == needle) return &buf[cur];
@@ -163,7 +168,8 @@ u32 flen(FILE *hf) {
 	long siz;
 	long orig;
 
-	if (!hf) return 0;
+	assert(hf);
+
 	orig = ftell(hf);
 	if (orig < 0) return 0;
 
@@ -474,7 +480,8 @@ void sum32(const uint8_t *buf, u32 siz, uint32_t *sum, uint32_t *xor) {
 	u32 bufcur;
 	uint32_t sumt, xort;
 
-	if (!buf || !sum || !xor) return;
+	assert(buf && siz && sum && xor && (siz <= MAX_ROMSIZE));
+
 	sumt=0;
 	xort=0;
 	for (bufcur=0; bufcur < siz; bufcur += 4) {
@@ -500,11 +507,16 @@ int checksum_alt2(const uint8_t *buf, uint32_t siz, uint32_t *p_ack_s, uint32_t 
 				uint32_t p_skip1, uint32_t p_skip2) {
 	uint32_t sumt,xort, cks, ckx;
 
-	if (!buf || (siz & 0x3) || \
-			!p_ack_s || !p_ack_x || !siz || \
-			p_skip1 >= (siz - 4) || \
-			p_skip2 >= (siz - 4)) {
-		return -1;
+	siz &= ~3;
+	assert(buf && siz && (siz <= MAX_ROMSIZE) &&
+			p_ack_s && p_ack_x);
+
+	//XXX TODO : signed args ? this is gross
+	if (p_skip1 != UINT32_MAX) {
+		assert(p_skip1 < (siz - 4));
+	}
+	if (p_skip2 != UINT32_MAX) {
+		assert(p_skip2 < (siz - 4));
 	}
 
 	sumt = xort = 0;
@@ -557,10 +569,13 @@ void checksum_fix(uint8_t *buf, uint32_t siz, uint32_t p_cks, uint32_t p_ckx,
 	uint32_t ds, dx;	//actual/delta vals
 	uint32_t a, b, c;	//correction vals
 
+	siz &= ~0x03;
+
 	//abort if siz not a multiple of 4, and other problems
-	if (!buf || !siz || (siz & 3) ||
-		(p_cks >= siz) || (p_ckx >= siz) ||
-		(p_a >= siz) || (p_b >= siz)) return;
+	assert(buf && siz &&
+		(siz <= MAX_ROMSIZE) &&
+		(p_cks <= (siz - 4)) && (p_ckx <= (siz - 4)) &&
+		(p_a < siz) && (p_b < siz));
 
 	cks = reconst_32(&buf[p_cks]);
 	ckx = reconst_32(&buf[p_ckx]);
@@ -627,6 +642,8 @@ bool check_ivt(const uint8_t *buf) {
 	uint32_t por_pc, por_sp;
 	uint32_t mr_pc, mr_sp;
 
+	assert(buf);
+
 	por_pc = reconst_32(buf);
 	por_sp = reconst_32(buf + 4);
 	mr_pc = reconst_32(buf + 8);
@@ -646,7 +663,7 @@ bool check_ivt(const uint8_t *buf) {
 uint32_t find_ivt(const uint8_t *buf, uint32_t siz) {
 	uint32_t offs;
 
-	if (!buf) return -1;
+	assert(buf && (siz <= MAX_ROMSIZE));
 
 	siz &= ~3;
 	for (offs = 0; siz > 0; siz -= 4, offs += 4) {
@@ -672,10 +689,13 @@ static const struct t_eep_iobound {
 
 static bool analyze_eepread(const uint8_t *buf, uint32_t siz, uint32_t func, uint32_t *portreg) {
 	/* algo : look for a mov.w (), Rn that loads an IO register address. This should cover both
-	 * bit-bang SPI  and SCI-based code.
+	 * bit-bang SPI and SCI-based code.
 	 */
 	uint32_t fcur;
 	bool good = 0;
+
+	assert(buf && siz && portreg &&
+		(siz <= MAX_ROMSIZE));
 
 	for (fcur = 0;fcur < EEPREAD_GETIOREG; fcur += 1) {
 		uint16_t opc;
@@ -711,6 +731,8 @@ exit:
 uint32_t sh_get_PCimm(const uint8_t *buf, uint32_t pos) {
 	uint16_t opc;
 
+	assert(buf);
+
 	opc = reconst_16(&buf[pos]);
 
 	if (opc & 0x4000) {
@@ -744,6 +766,8 @@ uint32_t find_eepread(const uint8_t *buf, uint32_t siz, uint32_t *real_portreg) 
 	uint32_t portreg = 0;
 
 	siz &= ~1;
+	assert(buf && siz && real_portreg &&
+		(siz <= MAX_ROMSIZE));
 
 	for (cur = 0; cur <= (siz - 2); cur += 2) {
 		/* find E4 7B opcode, for every occurence check if the pattern is credible */
@@ -756,7 +780,7 @@ uint32_t find_eepread(const uint8_t *buf, uint32_t siz, uint32_t *real_portreg) 
 
 		opc = reconst_16(&buf[cur]);
 		if (opc != 0xE47B) continue;
-		/* We found a "mov 0x7B, r4"  :
+		/* We found a "mov 0x7B, r4" :
 		 * see if there's a jsr just before, or within [POSTJSR] instructions
 		*/
 		found_seq = 0;
@@ -775,7 +799,7 @@ uint32_t find_eepread(const uint8_t *buf, uint32_t siz, uint32_t *real_portreg) 
 		if (!found_seq) continue;
 		/* here, we found a new mov + jsr sequence. Get jsr register # :*/
 		jumpreg = (opc & 0x0F00) >> 8;
-		/* backtrack to  find a "mov.x ..., Rn" */
+		/* backtrack to find a "mov.x ..., Rn" */
 		found_seq = 0;
 		for (window -= 1; (window + EEPREAD_MAXBT) > 0; window--) {
 			// cppcheck-suppress integerOverflow
@@ -783,10 +807,10 @@ uint32_t find_eepread(const uint8_t *buf, uint32_t siz, uint32_t *real_portreg) 
 			if (pos >= (siz - 2)) break;
 
 			opc = reconst_16(&buf[pos]);
-			if (opc == 0x4F22) break;	// "sts.l pr, @-r15"  :function entry; abort.
+			if (opc == 0x4F22) break;	// "sts.l pr, @-r15" :function entry; abort.
 
-			//2 possible opcodes : -  mov.w @(i, pc), Rn  : (0x9n 0xii) , or
-			//  mov.l @(i, pc), Rn : (0xDn 0xii)
+			//2 possible opcodes : - mov.w @(i, pc), Rn : (0x9n 0xii) , or
+			// mov.l @(i, pc), Rn : (0xDn 0xii)
 			jsr_opcode = opc;
 			uint8_t jc_top = (opc & 0xBF00) >> 8;
 			if (jc_top == (0x90 | jumpreg)) {
@@ -881,6 +905,9 @@ uint32_t find_pattern(const uint8_t *buf, uint32_t siz, unsigned patlen,
 	uint32_t hcur = 0;	//iterating cursor
 	unsigned patcur = 0;	//cursor within pattern
 
+	assert(buf && siz && patlen && pat && mask &&
+		(siz <= MAX_ROMSIZE));
+
 	while (hcur < (siz - patlen * 2)) {
 		uint16_t val;
 		val = reconst_16(&buf[hcur + patcur * 2]);
@@ -921,6 +948,9 @@ u32 sh_extsw(u16 val) {
 int sh_bt_immload(u32 *imm, const uint8_t *buf, uint32_t min, uint32_t start,
 				unsigned regno) {
 	uint16_t opc;
+
+	assert(imm && buf && (regno <= 0x0F));
+
 	while (start >= min) {
 		unsigned new_regno;
 		opc = reconst_16(&buf[start]);
@@ -970,7 +1000,7 @@ int sh_bt_immload(u32 *imm, const uint8_t *buf, uint32_t min, uint32_t start,
 		}
 
 		// 2d) shll, shll2 : recurse and shift before returning
-		if ((opc & 0xFFF7)  == (0x4000 | (regno << 8))) {
+		if ((opc & 0xFFF7) == (0x4000 | (regno << 8))) {
 			u32 new_bt;
 			bool is_shll2 = (opc & 0x0008);
 
@@ -989,7 +1019,7 @@ int sh_bt_immload(u32 *imm, const uint8_t *buf, uint32_t min, uint32_t start,
 		}
 
 		// 2e) add imm8: recurse and add before returning. b'0111nnnniiiiiiii'
-		if ((opc & 0xFF00)  == (0x7000 | (regno << 8))) {
+		if ((opc & 0xFF00) == (0x7000 | (regno << 8))) {
 			u32 add_s8;
 			u32 new_bt;
 			add_s8 = sh_extsb(opc & 0xFF);
@@ -1088,6 +1118,8 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, uint32_t bsr_offs) {
 	uint32_t key = 0;
 	uint16_t h[2];	//halfkeys
 
+	assert(buf && (bsr_offs < MAX_ROMSIZE));
+
 	uint32_t cur = bsr_offs;
 	while ((cur >= min) && (occ < 2)) {
 		uint16_t opc;
@@ -1152,6 +1184,8 @@ void find_bsr(const u8 *buf, u32 tgt, void (*found_bsr_cb)(const u8 *buf, u32 po
 	int sign = 1;
 	int disp = 0;
 
+	assert(buf && (tgt < MAX_ROMSIZE) && found_bsr_cb);
+
 	/* iterate, starting at the position where the opcode "B0 00" would jump to "swapf". */
 	while ((sign * disp) != -4096) {
 		uint16_t opc;
@@ -1183,6 +1217,8 @@ struct s27_keyfinding {
 /* callback for every "bsr swapf" hit */
 static void found_bsr_swapf(const u8 *buf, u32 pos, void *data) {
 	struct s27_keyfinding *skf = data;
+
+	assert(buf && (pos < MAX_ROMSIZE) && data);
 
 	skf->swapf_xrefs += 1;
 	/* now, backtrack to find constants */
@@ -1217,6 +1253,8 @@ bool find_s27_hardcore(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_
 	uint32_t swapf_cur = 0;
 	int swapf_instances = 0;
 
+	assert(buf && siz && (siz <= MAX_ROMSIZE) && s27k && s36k);
+
 	struct s27_keyfinding skf={0};
 	skf.s27k = s27k;
 	skf.s27_found = 0;
@@ -1234,7 +1272,7 @@ bool find_s27_hardcore(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_
 		swapf_instances +=1 ;
 		//printf("got 1 swapf @ %0lX;\n", patpos + 0UL);
 
-		/* Find xrefs (bsr) to  this swapf instance. */
+		/* Find xrefs (bsr) to this swapf instance. */
 		find_bsr(buf, patpos, found_bsr_swapf, &skf);
 
 		swapf_cur = patpos + 2;
@@ -1250,12 +1288,14 @@ bool find_s27_hardcore(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_
 }
 
 /* unreliable - check if opcode at *buf could be a valid func prologue.
- * for now, accepts  :
+ * for now, accepts :
  * "2F <Rn>6" (mov.l Rn, @-r15)
  * "4F 22 (sts.l pr, @-r15)
  */
 static bool sh_isprologue(const uint8_t *buf) {
 	uint16_t opc;
+	assert(buf);
+
 	opc = reconst_16(buf);
 	if (	((opc & 0xFF0F) == 0x2F06) ||
 		(opc == 0x4F22)) {
@@ -1278,9 +1318,9 @@ uint32_t find_calltable(const uint8_t *buf, uint32_t skip, uint32_t siz, unsigne
 	uint32_t dupcheck = 0;
 	unsigned dupcount = 0;
 
-	if (siz > INT32_MAX) return -1;
-
 	siz &= ~3;
+	assert(buf && siz && (siz <= MAX_ROMSIZE) && ctlen && (skip < siz));
+
 	cur = skip & ~3;
 	table_start = cur;
 	for (; cur < siz; cur += 4) {
@@ -1351,7 +1391,7 @@ u32 disarm_8bit_offset (u32 pos, u32 offs) {
 	return (offs<<1) + pos + 4;
 }
 
-/* for {bra,bsr} only: (sign-extend 12bit offset)<<1  + PC +4 */
+/* for {bra,bsr} only: (sign-extend 12bit offset)<<1 + PC +4 */
 u32 disarm_12bit_offset (u32 pos, u32 insoff) {
 	u32 off = insoff;
 	/* sign extend if higher bit is 1 (0x0800) */
@@ -1423,6 +1463,9 @@ void sh_track_reg(const u8 *buf, u32 pos, u32 siz, unsigned regno, u16 *visited,
 	static int recurselevel = 0;
 	recurselevel += 1;
 
+	assert(buf && siz && (siz <= MAX_ROMSIZE) && (pos < siz) &&
+				(regno <= 0x0F) && visited && tracker_cb);
+
 	if (recurselevel >= SH_TRACK_REG_MAXRECURSE) {
 		printf("Warning : hit maximum recursion depth @ %lX!!\n", (unsigned long) pos);
 		goto endrec;
@@ -1489,7 +1532,7 @@ void sh_track_reg(const u8 *buf, u32 pos, u32 siz, unsigned regno, u16 *visited,
 			isbra = 1;
 		}
 
-		//TODO  : how to deal with jsr / bsr ?
+		//TODO : how to deal with jsr / bsr ?
 
 		// almost done: check if we have a hit
 		if (isbra) {
