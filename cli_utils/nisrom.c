@@ -14,6 +14,8 @@
 #include <string.h>	//memcmp
 #include <stdlib.h>	//malloc etc
 
+#include <getopt.h>
+
 #include "nissan_romdefs.h"
 #include "nislib.h"
 #include "stypes.h"
@@ -23,6 +25,8 @@
 #if (CHAR_BIT != 8)
 #error HAH ! a non-8bit char system. Some of this will not work
 #endif
+
+const char *progname="nisrom";
 
 FILE *dbg_stream;
 
@@ -672,7 +676,7 @@ const struct printable_prop props_template[] = {
 };
 
 
-void print_csv_header(const struct printable_prop *props) {
+static void print_csv_header(const struct printable_prop *props) {
 	assert(props);
 	const struct printable_prop *prop = props;
 
@@ -684,7 +688,7 @@ void print_csv_header(const struct printable_prop *props) {
 	return;
 }
 
-void print_csv_values(const struct printable_prop *props) {
+static void print_csv_values(const struct printable_prop *props) {
 	assert(props);
 	const struct printable_prop *prop = props;
 
@@ -697,12 +701,26 @@ void print_csv_values(const struct printable_prop *props) {
 	printf("\n");
 }
 
+static void print_human(const struct printable_prop *props) {
+	assert(props);
+	const struct printable_prop *prop = props;
+
+	while (prop->csv_name != NULL) {
+		printf("\n%s\t", prop->csv_name);
+		if (prop->rendered_value) {
+			printf("%s", prop->rendered_value);
+		}
+		prop++;
+	}
+	printf("\n");
+}
+
 /** alloc + fill a new array of properties.
  * must be free'd with free_properties()
  *
  * return NULL if error
  */
-struct printable_prop *new_properties(const struct romfile *rf) {
+static struct printable_prop *new_properties(const struct romfile *rf) {
 	assert(rf);
 	struct printable_prop *props;
 	props = malloc(sizeof(props_template));
@@ -713,7 +731,7 @@ struct printable_prop *new_properties(const struct romfile *rf) {
 }
 
 /** free array of properties and the value strings */
-void free_properties(struct printable_prop *props) {
+static void free_properties(struct printable_prop *props) {
 	assert(props);
 	struct printable_prop *prop = props;
 
@@ -726,6 +744,18 @@ void free_properties(struct printable_prop *props) {
 	return;
 }
 
+static void usage(void) {
+	printf(	"**** %s\n"
+			"**** Analyze Nissan ROM\n"
+			"**** (c) 2015-2022 fenugrec\n", progname);
+	printf("Usage:\t%s <ROMFILE> [OPTIONS] : analyze ROM dump.\n"
+			"OPTIONS:\n"
+			"\t-c: CSV output\n"
+			"\t-h: show this help\n"
+			"\t-l: CSV headers (can be combined with -c)\n"
+			"\t-v: human-readable output\n", progname);
+	return;
+}
 
 int main(int argc, char *argv[])
 {
@@ -735,12 +765,43 @@ int main(int argc, char *argv[])
 	u32 fidpos;
 	u32 ramfpos;
 
-	if (argc !=2) {
-		printf(	"**** %s\n"
-			"**** Analyze Nissan ROM\n"
-			"**** (c) 2015-2017 fenugrec\n", argv[0]);
-		printf("Usage:\t%s <ROMFILE> : analyze ROM dump.\n",argv[0]);
-		return 0;
+	bool enable_csv_header = 0;
+	bool enable_csv_vals = 0;
+	bool enable_human = 0;	//this overrides the previous print_csv_* flags
+
+	const char *filename=NULL;
+
+	char c;
+	int optidx;
+
+	while((c = getopt(argc, argv, "chlv")) != -1) {
+		switch(c) {
+		case 'h':
+			usage();
+			return 0;
+		case 'c':
+			enable_csv_vals = 1;
+			break;
+		case 'l':
+			enable_csv_header = 1;
+			break;
+		case 'v':
+			enable_human = 1;
+			break;
+		default:
+			usage();
+			return 0;
+		}
+	}
+
+		//second loop for non-option args
+	for (optidx = optind; optidx < argc; optidx++) {
+		if (!filename) {
+			filename = argv[optidx];
+			continue;
+		}
+		fprintf(stderr, "junk argument\n");
+		return -1;
 	}
 
 	dbg_file = 1;
@@ -750,7 +811,7 @@ int main(int argc, char *argv[])
 		dbg_stream = stdout;
 	}
 
-	if (open_rom(&rf, argv[1])) {
+	if (open_rom(&rf, filename)) {
 		if (dbg_file) fclose(dbg_stream);
 		printf("Trouble in open_rom()\n");
 		return -1;
@@ -759,17 +820,22 @@ int main(int argc, char *argv[])
 	/* add header to dbg log */
 	fprintf(dbg_stream, "\n********************\n**** Started analyzing %s\n", argv[1]);
 
-	/* print column header */
-	printf("file\tsize\tLOADER ##\tLOADER ofs\tLOADER CPU\tLOADER CPUcode\t"
-		"&FID\tFID\tFID CPU\tFID CPUcode\t"
-		"RAMF_weird\tRAMjump entry\tIVT2\tIVT2 confidence\t"
-		"std cks?\t&std_s\t&std_x\t"
-		"alt cks?\t&alt_s\t&alt_x\talt_start\t&alt_end\t"
-		"alt2 cks?\t&alt2_s\t&alt2_x\talt2_start\tRIPEMD160\t"
-		"known keyset\ts27k\ts36k\tguessed keyset\ts27k\ts36k\t"
-		"&EEPROM_read()\tEEPROM PORT\t"
-		"\n"
-		);
+	struct printable_prop *props = new_properties(&rf);
+
+	if (enable_human) {
+		print_human(props);
+	} else {
+		/* print column header if needed */
+		if (enable_csv_header) {
+			print_csv_header(props);
+		}
+		/* print values */
+		if (enable_csv_vals) {
+			print_csv_values(props);
+		}
+	}
+
+	free_properties(props);
 
 	/* output file name + size */
 	printf("%s\t%luk\t", argv[1], (unsigned long) rf.siz / 1024);
