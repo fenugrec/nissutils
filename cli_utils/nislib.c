@@ -856,6 +856,7 @@ uint32_t find_eepread(const uint8_t *buf, uint32_t siz, uint32_t *real_portreg) 
 		found_seq = 0;
 		/* improve moar : there should be another call with "mov 0x7C, r4" */
 		for (window = -10; window <= 10; window ++ ) {
+			// cppcheck-suppress integerOverflow
 			opc = reconst_16(&buf[jsr_loc + window * 2]);
 			if (opc == 0xE47C) {
 				found_seq = 1;
@@ -1216,10 +1217,11 @@ struct s27_keyfinding {
 
 /* callback for every "bsr swapf" hit */
 static void found_bsr_swapf(const u8 *buf, u32 pos, void *data) {
-	struct s27_keyfinding *skf = data;
+	struct s27_keyfinding *skf;
 
 	assert(buf && (pos < MAX_ROMSIZE) && data);
 
+	skf = data;
 	skf->swapf_xrefs += 1;
 	/* now, backtrack to find constants */
 	/* TODO : determine if the key is for sid27 or sid36; this just assumes that the first key we find
@@ -1251,7 +1253,7 @@ static const uint16_t spf_mask[]={0xf00f, 0xf00f, 0xf00f, 0xffff, 0xf00f};
 
 bool find_s27_hardcore(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k) {
 	uint32_t swapf_cur = 0;
-	int swapf_instances = 0;
+	//int swapf_instances = 0;
 
 	assert(buf && siz && (siz <= MAX_ROMSIZE) && s27k && s36k);
 
@@ -1269,7 +1271,7 @@ bool find_s27_hardcore(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_
 			S27_SPF_PATLEN, spf_pattern, spf_mask);
 		if (patpos == (u32) -1) break;
 		patpos += swapf_cur;	//re-adjust !
-		swapf_instances +=1 ;
+		//swapf_instances +=1 ;
 		//printf("got 1 swapf @ %0lX;\n", patpos + 0UL);
 
 		/* Find xrefs (bsr) to this swapf instance. */
