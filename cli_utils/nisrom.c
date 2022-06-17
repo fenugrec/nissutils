@@ -100,9 +100,11 @@ static int open_rom(struct romfile *rf, const char *fname) {
 	rf->filename = fname;
 
 	file_len = flen(fbin);
-	if ((!file_len) || (file_len > MAX_ROMSIZE)) {
+	if ((!file_len) ||
+		(file_len > MAX_ROMSIZE) ||
+		(file_len < MIN_ROMSIZE)) {
 		/* TODO : add "-f" flag ? */
-		ERR_PRINTF("huge file (length %lu)\n", (unsigned long) file_len);
+		ERR_PRINTF("unlikely file size %lu\n", (unsigned long) file_len);
 		fclose(fbin);
 		return -1;
 	}

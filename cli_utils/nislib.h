@@ -9,6 +9,7 @@
 
 #define ARRAY_SIZE(x)	(sizeof(x) / sizeof((x)[0]))
 
+#define	MIN_ROMSIZE (128*1024UL)	//smallest known ROM is SH7050, 128kB
 #define MAX_ROMSIZE (2048*1024UL)
 
 /* this needs to be valid; debugging output is written to this.*/
