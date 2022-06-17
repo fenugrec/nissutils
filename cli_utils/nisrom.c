@@ -937,6 +937,11 @@ int main(int argc, char *argv[])
 		dbg_stream = stdout;
 	}
 
+	/* print headers if possible, regardless of missing args */
+	if (!enable_human && enable_csv_header) {
+		print_csv_header(props_template);
+	}
+
 	if (open_rom(&rf, filename)) {
 		if (dbg_file) fclose(dbg_stream);
 		printf("Trouble in open_rom()\n");
@@ -951,10 +956,6 @@ int main(int argc, char *argv[])
 	if (enable_human) {
 		print_human(props);
 	} else {
-		/* print column header if needed */
-		if (enable_csv_header) {
-			print_csv_header(props);
-		}
 		/* print values */
 		if (enable_csv_vals) {
 			print_csv_values(props);
