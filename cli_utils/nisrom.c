@@ -34,6 +34,7 @@ FILE *dbg_stream;
 // generic ROM struct. For the file offsets in here, UINT32_MAX ((u32) -1) signals invalid / inexistant target
 struct romfile {
 	FILE *hf;
+	const char *filename;
 	u32 siz;	//in bytes
 	uint8_t *buf;	//copied here
 	//and some metadata
@@ -95,6 +96,7 @@ static int open_rom(struct romfile *rf, const char *fname) {
 		printf("error opening %s.\n", fname);
 		return -1;
 	}
+	rf->filename = fname;
 
 	file_len = flen(fbin);
 	if ((!file_len) || (file_len > MAX_ROMSIZE)) {
@@ -717,7 +719,7 @@ static void print_human(const struct printable_prop *props) {
  *
  * return NULL if error
  */
-static struct printable_prop *new_properties(const struct romfile *rf) {
+static struct printable_prop *new_properties(struct romfile *rf) {
 	assert(rf);
 	struct printable_prop *prop, *props;
 	props = malloc(sizeof(props_template));
@@ -730,6 +732,76 @@ static struct printable_prop *new_properties(const struct romfile *rf) {
 		utstring_init(&prop->rendered_value);
 		prop++;
 	}
+
+	/* fill in all properties now */
+
+	utstring_printf(&props[RP_FILE].rendered_value, "\"%s\"", rf->filename);
+	utstring_printf(&props[RP_SIZE].rendered_value, "%luk", (unsigned long) rf->siz / 1024);
+
+	u32 loaderpos = find_loader(rf);
+	if (loaderpos != UINT32_MAX) {
+		const char *scpu;
+		scpu = (const char *) rf->loader_cpu;
+		utstring_printf(&props[RP_LOADER].rendered_value, "%02d", rf->loader_v);
+		utstring_printf(&props[RP_LOADER_OFS].rendered_value, "0x%lX", (unsigned long) loaderpos);
+		utstring_printf(&props[RP_LOADER_CPU].rendered_value, "\"%.6s\"",scpu);
+		utstring_printf(&props[RP_LOADER_CPUCODE].rendered_value, "\"%.2s\"",scpu+6);
+	}
+
+
+	u32 fidpos = find_fid(rf);
+	if (fidpos != UINT32_MAX) {
+		const char *sfid;
+		const char *scpu;
+		sfid = (const char *) rf->fid;
+		scpu = (const char *) rf->fid_cpu;
+		utstring_printf(&props[RP_FID_OFS].rendered_value, "0x%lX", (unsigned long) rf->p_fid);
+		utstring_printf(&props[RP_FID].rendered_value, "\"%.*s\"",
+						(int) sizeof(((struct fid_base1_t *)NULL)->FID), sfid);
+		utstring_printf(&props[RP_FID_CPU].rendered_value, "%.6s", scpu);
+		utstring_printf(&props[RP_FID_CPUCODE].rendered_value, "%.2s", scpu+6);
+	} else {
+		fprintf(dbg_stream, "error: no FID struct !?\n");
+	}
+
+	//"RAMF_off\RAMjump entry\tIVT2\tIVT2 confidence\t"
+	u32 ramfpos = find_ramf(rf);
+	if (ramfpos != UINT32_MAX) {
+		int ivt_conf = 0;
+		utstring_printf(&props[RP_RAMF_WEIRD].rendered_value, "%+d", rf->ramf_offset);
+		utstring_printf(&props[RP_RAMJUMP].rendered_value, "0x%08X", rf->ramf.pRAMjump);
+		if (rf->p_ivt2 != UINT32_MAX) {
+			ivt_conf = 99;
+		} else {
+			u32 iter;
+			fprintf(dbg_stream, "no IVT2 ?? wtf. Last resort, brute force technique:\n");
+			iter = 0x100;	//skip power-on IVT
+			bool ivtfound = 0;
+			while ((iter + 0x400) < rf->siz) {
+				u32 new_offs;
+				new_offs = find_ivt(rf->buf + iter, rf->siz - iter);
+				if (new_offs == UINT32_MAX) {
+					if (ivtfound) break;
+					fprintf(dbg_stream, "\t no IVT2 found.\n");
+					break;
+				}
+				iter += new_offs;
+				ivt_conf = 50;
+				fprintf(dbg_stream, "\tPossible IVT @ 0x%lX\n",(unsigned long) iter);
+				if (reconst_32(rf->buf + iter + 4) ==0xffff7ffc) {
+					ivt_conf = 75;
+					fprintf(dbg_stream, "\t\tProbable IVT !\n");
+					ivtfound = 1;
+				}
+				iter += 0x4;
+			}
+		}
+		utstring_printf(&props[RP_IVT2].rendered_value, "0x%lX", (unsigned long) rf->p_ivt2);
+		utstring_printf(&props[RP_IVT2_CONF].rendered_value, "0.%02d", ivt_conf);
+	} else {
+		fprintf(dbg_stream, "find_ramf() failed !!\n");
+	}
+
 	return props;
 }
 
@@ -763,9 +835,6 @@ int main(int argc, char *argv[])
 {
 	bool	dbg_file;	//flag if dbgstream is a real file
 	struct romfile rf = {0};
-	u32 loaderpos;
-	u32 fidpos;
-	u32 ramfpos;
 
 	bool enable_csv_header = 0;
 	bool enable_csv_vals = 0;
@@ -838,72 +907,6 @@ int main(int argc, char *argv[])
 	}
 
 	free_properties(props);
-
-	/* output file name + size */
-	printf("%s\t%luk\t", argv[1], (unsigned long) rf.siz / 1024);
-
-	/* output LOADER info : ##, pos, CPU, CPUcode*/
-	loaderpos=find_loader(&rf);
-	if (loaderpos != UINT32_MAX) {
-		const char *scpu;
-		scpu = (const char *) rf.loader_cpu;
-		printf("%02d\t0x%lX\t", rf.loader_v, (unsigned long) loaderpos);
-		printf( "%.6s\t%.2s\t", scpu, scpu + 6);
-	} else {
-		printf("N/A\tN/A\tN/A\tN/A\t");
-	}
-
-	fidpos = find_fid(&rf);
-	if (fidpos != UINT32_MAX) {
-		const char *sfid;
-		const char *scpu;
-		sfid = (const char *) rf.fid;
-		scpu = (const char *) rf.fid_cpu;
-		printf("0x%lX\t%.*s\t%.6s\t%.2s\t",
-			(unsigned long) rf.p_fid, (int) sizeof(((struct fid_base1_t *)NULL)->FID), sfid, scpu, scpu+6);
-
-	} else {
-		fprintf(dbg_stream, "error: no FID struct !?\n");
-		printf("N/A\tN/A\tN/A\tN/A\t");
-	}
-
-	//"RAMF_off\RAMjump entry\tIVT2\tIVT2 confidence\t"
-	ramfpos = find_ramf(&rf);
-	if (ramfpos != UINT32_MAX) {
-		int ivt_conf = 0;
-		printf("%+d\t0x%08X\t", rf.ramf_offset, rf.ramf.pRAMjump);
-		if (rf.p_ivt2 != (u32) -1) {
-			ivt_conf = 99;
-		} else {
-			u32 iter;
-			fprintf(dbg_stream, "no IVT2 ?? wtf. Last resort, brute force technique:\n");
-			iter = 0x100;	//skip power-on IVT
-			bool ivtfound = 0;
-			while ((iter + 0x400) < rf.siz) {
-				u32 new_offs;
-				new_offs = find_ivt(rf.buf + iter, rf.siz - iter);
-				if (new_offs == (u32) -1) {
-					if (ivtfound) break;
-					fprintf(dbg_stream, "\t no IVT2 found.\n");
-					break;
-				}
-				iter += new_offs;
-				ivt_conf = 50;
-				fprintf(dbg_stream, "\tPossible IVT @ 0x%lX\n",(unsigned long) iter);
-				if (reconst_32(rf.buf + iter + 4) ==0xffff7ffc) {
-					ivt_conf = 75;
-					fprintf(dbg_stream, "\t\tProbable IVT !\n");
-					ivtfound = 1;
-				}
-				iter += 0x4;
-			}
-		}
-		printf("0x%lX\t0.%02d\t", (unsigned long) rf.p_ivt2, ivt_conf);
-
-	} else {
-		fprintf(dbg_stream, "find_ramf() failed !!\n");
-		printf("N/A\tN/A\tN/A\tN/A\t");
-	}
 
 	//std cks	std_cks_s	std_cks_x
 	if (!checksum_std(rf.buf, rf.siz, &rf.p_cks, &rf.p_ckx)) {
