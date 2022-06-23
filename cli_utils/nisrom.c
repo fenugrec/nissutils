@@ -32,6 +32,8 @@ const char *progname="nisrom";
 
 FILE *dbg_stream;
 
+static bool force_parse = 0;	//force parsing a ROM, ignoring errors as much as possible. Can cause segfaults
+
 // generic ROM struct. For the file offsets in here, UINT32_MAX signals invalid / inexistant target
 struct romfile {
 	FILE *hf;
@@ -103,10 +105,11 @@ static int open_rom(struct romfile *rf, const char *fname) {
 	if ((!file_len) ||
 		(file_len > MAX_ROMSIZE) ||
 		(file_len < MIN_ROMSIZE)) {
-		/* TODO : add "-f" flag ? */
 		ERR_PRINTF("unlikely file size %lu\n", (unsigned long) file_len);
-		fclose(fbin);
-		return -1;
+		if (!force_parse) {
+			fclose(fbin);
+			return -1;
+		}
 	}
 	rf->siz = file_len;
 
@@ -905,7 +908,8 @@ static void usage(void) {
 			"\t-c: CSV output\n"
 			"\t-h: show this help\n"
 			"\t-l: CSV headers (can be combined with -c)\n"
-			"\t-v: human-readable output (default)\n", progname);
+			"\t-v: human-readable output (default)\n"
+			"\t-f: force parsing, ignoring errors (may cause crashes, do not use)\n", progname);
 	return;
 }
 
@@ -923,13 +927,16 @@ int main(int argc, char *argv[])
 	char c;
 	int optidx;
 
-	while((c = getopt(argc, argv, "chlv")) != -1) {
+	while((c = getopt(argc, argv, "cfhlv")) != -1) {
 		switch(c) {
 		case 'h':
 			usage();
 			return 0;
 		case 'c':
 			enable_csv_vals = 1;
+			break;
+		case 'f':
+			force_parse = 1;
 			break;
 		case 'l':
 			enable_csv_header = 1;
