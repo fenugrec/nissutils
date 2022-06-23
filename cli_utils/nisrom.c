@@ -570,30 +570,26 @@ u32 find_ramf(struct romfile *rf) {
 		if ((u32memstr(rf->buf, rf->siz, 0x67452301) != NULL) &&
 			(u32memstr(rf->buf, rf->siz, 0x98BADCFE) != NULL)) {
 			rf->has_rm160 = 1;
-			fprintf(dbg_stream, "RIPEMD-160 hash function present.\n");
-		} else {
-			fprintf(dbg_stream, "RIPEMD-160 hash function not found ??\n");
 		}
-		if ((pecurec >= rf->siz)) goto no_ripemd;
+	}
 
-		/* Locate cks_alt2 checksum */
+	/* Locate cks_alt2 checksum. Starts at ECUREC */
+	if ((features & ROM_HAS_ALT2CKS) &&
+		(pecurec < rf->siz)) {
+
 		u32 p_as = 0, p_ax = 0;
 		u32 p_skip1, p_skip2;
 		p_skip1 = UINT32_MAX;
 		p_skip2 = (rf->p_ivt2 - 4) - pecurec;
+		rf->p_ac2start = pecurec;
 		if (checksum_alt2(&rf->buf[pecurec], rf->siz - pecurec, &p_as, &p_ax, p_skip1, p_skip2) == 0) {
-			fprintf(dbg_stream, "alt2 checksum found; sum @ 0x%lX, xor @ 0x%lX\n",
-					(unsigned long) p_as, (unsigned long) p_ax);
 			rf->cks_alt2_good = 1;
 			rf->p_a2cs = p_as + pecurec;
 			rf->p_a2cx = p_ax + pecurec;
 		} else {
 			fprintf(dbg_stream, "alt2 checksum not found ?? Bad algo, bad skip, or other problem...\n");
 		}
-
 	}
-	rf->p_ac2start = pecurec;
-no_ripemd:
 
 	return rf->p_ramf;
 }
