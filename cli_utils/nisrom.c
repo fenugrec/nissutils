@@ -75,9 +75,7 @@ struct romfile {
 	uint32_t	eep_port;	//PORT reg used for EEPROM pins
 
 	/* some flags */
-	bool	cks_alt_present;	//valid alt cks bounds
 	bool	cks_alt_good;	//alt cks values found + valid
-	bool	cks_alt2_present;	//valid alt2 cks bounds
 	bool	cks_alt2_good;	//alt2 cks values found + valid
 	bool	has_rm160;	//RIPEMD160 hash found
 
@@ -252,8 +250,9 @@ bool find_s27k(struct romfile *rf, int *key_idx, bool thorough) {
 
 }
 
-//find offset of LOADER struct, update romfile struct
-//ret -1 if not ok
+/** find offset of LOADER struct if possible, update romfile struct
+ * ret -1 if not ok
+ */
 u32 find_loader(struct romfile *rf) {
 	const uint8_t loadstr[]="LOADER";
 	const uint8_t *sl;
@@ -291,13 +290,15 @@ static void parse_ramf(struct romfile *rf) {
 	assert(rf);
 
 	ft = rf->fidtype;
+	unsigned features = ft->features;	//another helper
 
 	if (ft->pRAMjump) {
 		rf->ramf.pRAMjump = reconst_32(&rf->buf[rf->p_ramf + ft->pRAMjump]);
 		rf->ramf.pRAM_DLAmax = reconst_32(&rf->buf[rf->p_ramf + ft->pRAM_DLAmax]);
 	}
 
-	if (ft->packs_start) {
+	if (features & ROM_HAS_ALTCKS) {
+		assert(ft->packs_start);
 		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + ft->packs_start]);
 		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + ft->packs_end]);
 	} else {
@@ -327,7 +328,8 @@ u32 find_fid(struct romfile *rf) {
 	if (!rf) return -1;
 	if (!(rf->buf)) return -1;
 
-	rf->p_fid = -1;
+	rf->fid_ic = FID_UNK;
+
 	/* look for "DATABASE" */
 	sf = u8memstr(rf->buf, rf->siz, dbstr, 5);
 	if (!sf) {
@@ -364,8 +366,6 @@ u32 find_fid(struct romfile *rf) {
 	rf->fid = &rf->buf[sf_offset + offsetof(struct fid_base1_t, FID)];
 	rf->fid_cpu = &rf->buf[sf_offset + offsetof(struct fid_base1_t, cpu)];
 
-	rf->fid_ic = FID_UNK;
-
 	/* determine FID type : iterate through array of known types, matching the CPU string */
 	for (fid_idx = 0; fidtypes[fid_idx].fti != FID_UNK; fid_idx++) {
 		if (memcmp(rf->fid_cpu, fidtypes[fid_idx].FIDIC, 8) == 0) {
@@ -385,17 +385,13 @@ u32 find_fid(struct romfile *rf) {
 				rf->siz / 1024, rf->fidtype->ROMsize);
 	}
 
-	if (rf->fidtype->features & ROM_HAS_LOADERLESS) {
-		fprintf(dbg_stream, "Loader-less ROM.\n");
-		rf->loader_v = L_UNK;
-	}
-
 	rf->sfid_size = rf->fidtype->FIDbase_size;
 
 	return sf_offset;
 }
 
 /** validate alt cks block in pre-parsed romfile
+ * needs (features & ROM_HAS_ALTCKS)
  *
  * @return 0 if ok
  */
@@ -409,17 +405,18 @@ int validate_altcks(struct romfile *rf) {
 
 	if (!rf) return -1;
 	if (!(rf->buf)) return -1;
+	if (!(rf->fidtype->features & ROM_HAS_ALTCKS)) return -1;
+
 	if ((rf->p_acstart == UINT32_MAX) ||
 		(rf->p_acend == UINT32_MAX) ||
 		(rf->p_acstart >= rf->p_acend)) {
-		rf->cks_alt_present = 0;
 		return -1;
 	}
-	rf->cks_alt_present = 1;
-		/* p_acstart is so far always u32 aligned, but not p_acend (usually 2 bytes before FID, except on some SH705828 ROMs....
-		 * This gives rise to some weird behavior where
-		 * sometimes the cks area includes the first u32 of the FID struct. I wonder if this was really intended by the Nissan devs !
-		 */
+
+	/* p_acstart is so far always u32 aligned, but not p_acend (usually 2 bytes before FID, except on some SH705828 ROMs....
+	 * This gives rise to some weird behavior where
+	 * sometimes the cks area includes the first u32 of the FID struct. I wonder if this was really intended by the Nissan devs !
+	 */
 	altcs_bsize = (((rf->p_acend + 1) - rf->p_acstart) & (~0x03)) + 4;
 
 	sum32(&rf->buf[rf->p_acstart], altcs_bsize, &acs, &acx);
@@ -458,7 +455,7 @@ u32 find_ramf(struct romfile *rf) {
 	const struct fidtype_t *ft;	//helper
 
 	if (!rf) return -1;
-	if (!(rf->buf)) return -1;
+	if (rf->fid_ic >= FID_UNK) return -1;
 	if (rf->p_fid == (u32) -1) return -1;
 
 	rf->p_ramf = rf->p_fid + rf->sfid_size;
@@ -505,11 +502,15 @@ u32 find_ramf(struct romfile *rf) {
 		}
 	}
 
-	if ((rf->p_acstart >= rf->siz) ||
-		(rf->p_acend >= rf->siz)) {
-		fprintf(dbg_stream, "warning : altcks values out of bounds, probably due to unusual RAMF structure.\n");
-		rf->p_acstart = -1;
-		rf->p_acend = -1;
+	unsigned features = ft->features;	//helper
+
+	if (features & ROM_HAS_ALTCKS) {
+		if ((rf->p_acstart >= rf->siz) ||
+			(rf->p_acend >= rf->siz)) {
+			fprintf(dbg_stream, "warning : altcks values out of bounds, probably due to unusual RAMF structure.\n");
+			rf->p_acstart = UINT32_MAX;
+			rf->p_acend = UINT32_MAX;
+		}
 	}
 
 	if (rf->p_ivt2 != UINT32_MAX) {
@@ -532,15 +533,17 @@ u32 find_ramf(struct romfile *rf) {
 	}
 
 
-	if (rf->p_acstart >= rf->p_acend) {
-		fprintf(dbg_stream, "bad/reversed alt cks bounds; 0x%lX - 0x%lX\n",
-				(unsigned long) rf->p_acstart, (unsigned long) rf->p_acend);
-		rf->p_acstart = -1;
-		rf->p_acend = -1;
-	}
+	if (features & ROM_HAS_ALTCKS) {
+		if (rf->p_acstart >= rf->p_acend) {
+			fprintf(dbg_stream, "bad/reversed alt cks bounds; 0x%lX - 0x%lX\n",
+					(unsigned long) rf->p_acstart, (unsigned long) rf->p_acend);
+			rf->p_acstart = UINT32_MAX;
+			rf->p_acend = UINT32_MAX;
+		}
 
-	if (rf->p_acstart != (u32) -1) {
-		(void) validate_altcks(rf);
+		if (rf->p_acstart != UINT32_MAX) {
+			(void) validate_altcks(rf);
+		}
 	}
 
 	u32 pecurec = UINT32_MAX;
@@ -553,11 +556,9 @@ u32 find_ramf(struct romfile *rf) {
 		if ((pecurec > (UINT32_MAX - 7)) || (pecurec + 6) > rf->siz) {
 			fprintf(dbg_stream, "unlikely pecurec = %lX\n", (unsigned long) pecurec);
 			pecurec = UINT32_MAX;
-			rf->cks_alt2_present = 0;
 		} else {
 			//skip leading '1'
 			fprintf(dbg_stream, "probable ECUID : %.*s\n", 5,  &rf->buf[pecurec + 1]);
-			rf->cks_alt2_present = 1;
 		}
 
 		//validate ROM size
@@ -692,6 +693,10 @@ const struct printable_prop props_template[] = {
 	[RP_MAX] = {NULL, {0}},
 };
 
+// some fwd decls
+
+static void free_properties(struct printable_prop *props);
+
 
 static void print_csv_header(const struct printable_prop *props) {
 	assert(props);
@@ -762,7 +767,6 @@ static struct printable_prop *new_properties(struct romfile *rf) {
 		utstring_printf(&props[RP_LOADER_CPUCODE].rendered_value, "\"%.2s\"",scpu+6);
 	}
 
-
 	u32 fidpos = find_fid(rf);
 	if (fidpos != UINT32_MAX) {
 		const char *sfid;
@@ -775,15 +779,25 @@ static struct printable_prop *new_properties(struct romfile *rf) {
 		utstring_printf(&props[RP_FID_CPU].rendered_value, "%.6s", scpu);
 		utstring_printf(&props[RP_FID_CPUCODE].rendered_value, "%.2s", scpu+6);
 	} else {
-		fprintf(dbg_stream, "error: no FID struct !?\n");
+		fprintf(dbg_stream, "error: no FID struct ? Cannot continue.\n");
+		free_properties(props);
+		return NULL;
 	}
 
-	//"RAMF_off\RAMjump entry\tIVT2\tIVT2 confidence\t"
+	//"RAMF_off\RAMjump entry
 	u32 ramfpos = find_ramf(rf);
 	if (ramfpos != UINT32_MAX) {
-		int ivt_conf = 0;
 		utstring_printf(&props[RP_RAMF_WEIRD].rendered_value, "%+d", rf->ramf_offset);
 		utstring_printf(&props[RP_RAMJUMP].rendered_value, "0x%08X", rf->ramf.pRAMjump);
+	} else {
+		fprintf(dbg_stream, "find_ramf() failed !!\n");
+	}
+
+	unsigned features = rf->fidtype->features;	//just a helper
+
+	//IVT2\tIVT2 confidence\t"
+	if (features & ROM_HAS_IVT2) {
+		int ivt_conf = 0;
 		if (rf->p_ivt2 != UINT32_MAX) {
 			ivt_conf = 99;
 		} else {
@@ -812,20 +826,20 @@ static struct printable_prop *new_properties(struct romfile *rf) {
 		}
 		utstring_printf(&props[RP_IVT2].rendered_value, "0x%lX", (unsigned long) rf->p_ivt2);
 		utstring_printf(&props[RP_IVT2_CONF].rendered_value, "0.%02d", ivt_conf);
-	} else {
-		fprintf(dbg_stream, "find_ramf() failed !!\n");
 	}
 
-	if (!checksum_std(rf->buf, rf->siz, &rf->p_cks, &rf->p_ckx)) {
-		utstring_printf(&props[RP_STD_CKS].rendered_value, "1");
-		utstring_printf(&props[RP_STD_S_OFS].rendered_value, "0x%lX", (unsigned long) rf->p_cks);
-		utstring_printf(&props[RP_STD_X_OFS].rendered_value, "0x%lX", (unsigned long) rf->p_ckx);
-	} else {
-		utstring_printf(&props[RP_STD_CKS].rendered_value, "0");
+	if (features & ROM_HAS_STDCKS) {
+		if (!checksum_std(rf->buf, rf->siz, &rf->p_cks, &rf->p_ckx)) {
+			utstring_printf(&props[RP_STD_CKS].rendered_value, "1");
+			utstring_printf(&props[RP_STD_S_OFS].rendered_value, "0x%lX", (unsigned long) rf->p_cks);
+			utstring_printf(&props[RP_STD_X_OFS].rendered_value, "0x%lX", (unsigned long) rf->p_ckx);
+		} else {
+			utstring_printf(&props[RP_STD_CKS].rendered_value, "0");
+		}
 	}
 
-	// some ambiguity : altcks can be absent, present && good, or present && bad
-	if (rf->cks_alt_present) {
+	if (features & ROM_HAS_ALTCKS) {
+		// expecting altcks : either good or bad
 		utstring_printf(&props[RP_ALT_CKS].rendered_value, "%d", (int) rf->cks_alt_good);
 		utstring_printf(&props[RP_ALT_S_OFS].rendered_value, "0x%lX", (unsigned long) rf->p_acs);
 		utstring_printf(&props[RP_ALT_X_OFS].rendered_value, "0x%lX", (unsigned long) rf->p_acx);
@@ -833,9 +847,8 @@ static struct printable_prop *new_properties(struct romfile *rf) {
 		utstring_printf(&props[RP_ALT_END].rendered_value, "0x%lX", (unsigned long) rf->p_acend);
 	}
 
-	// some ambiguity : alt2 can be absent, present && good, or present && bad
-
-	if (rf->cks_alt2_present) {
+	if (features & ROM_HAS_ALT2CKS) {
+		// expecting altcks : either good or bad
 		utstring_printf(&props[RP_ALT2_CKS].rendered_value, "%d", (int) rf->cks_alt2_good);
 		utstring_printf(&props[RP_ALT2_S_OFS].rendered_value, "0x%lX", (unsigned long) rf->p_a2cs);
 		utstring_printf(&props[RP_ALT2_X_OFS].rendered_value, "0x%lX", (unsigned long) rf->p_a2cx);
@@ -971,6 +984,9 @@ int main(int argc, char *argv[])
 	fprintf(dbg_stream, "\n********************\n**** Started analyzing %s\n", argv[1]);
 
 	struct printable_prop *props = new_properties(&rf);
+	if (!props) {
+		return -1;
+	}
 
 	if (enable_human) {
 		print_human(props);

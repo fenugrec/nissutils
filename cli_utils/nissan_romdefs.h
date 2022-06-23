@@ -92,7 +92,7 @@ enum fidtype_ic {
 #define ROM_HAS_ALTCKS	(1 << 1)	// implies packs_start, packs_end fields
 #define ROM_HAS_ALT2CKS (1 << 2)
 #define ROM_HAS_IVT2 (1 << 3)	//implies pIVT2, IVT2_expected fields
-#define ROM_HAS_LOADERLESS (1 << 4) // no loader struct
+#define ROM_HAS_LOADERLESS (1 << 4) // no loader struct. Useless since we try to find the loader before knowing the FID type !
 
 
 struct fidtype_t {
