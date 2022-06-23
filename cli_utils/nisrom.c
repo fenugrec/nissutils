@@ -578,7 +578,8 @@ u32 find_ramf(struct romfile *rf) {
 
 	/* Locate cks_alt2 checksum. Starts at ECUREC */
 	if ((features & ROM_HAS_ALT2CKS) &&
-		(pecurec < rf->siz)) {
+		(pecurec < rf->siz) &&
+		(rf->p_ivt2 < rf->siz)) {
 
 		u32 p_as = 0, p_ax = 0;
 		u32 p_skip1, p_skip2;
@@ -984,7 +985,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* add header to dbg log */
-	fprintf(dbg_stream, "\n********************\n**** Started analyzing %s\n", argv[0]);
+	fprintf(dbg_stream, "\n********************\n**** Started analyzing %s\n", filename);
 
 	struct printable_prop *props = new_properties(&rf);
 	if (!props) {
