@@ -889,7 +889,7 @@ static void usage(void) {
 			"\t-c: CSV output\n"
 			"\t-h: show this help\n"
 			"\t-l: CSV headers (can be combined with -c)\n"
-			"\t-v: human-readable output\n", progname);
+			"\t-v: human-readable output (default)\n", progname);
 	return;
 }
 
@@ -925,6 +925,11 @@ int main(int argc, char *argv[])
 			usage();
 			return 0;
 		}
+	}
+
+	// default to human-readable
+	if (!enable_csv_vals && !enable_csv_header) {
+		enable_human = 1;
 	}
 
 		//second loop for non-option args
