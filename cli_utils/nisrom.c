@@ -32,7 +32,7 @@ const char *progname="nisrom";
 
 FILE *dbg_stream;
 
-// generic ROM struct. For the file offsets in here, UINT32_MAX ((u32) -1) signals invalid / inexistant target
+// generic ROM struct. For the file offsets in here, UINT32_MAX signals invalid / inexistant target
 struct romfile {
 	FILE *hf;
 	const char *filename;
@@ -62,7 +62,7 @@ struct romfile {
 	u32 p_a2cs;
 	u32 p_a2cx;	//pos of alt2 cks sum, xor
 
-	/* real metadata here. Unknown values must be set to -1 */
+	/* real metadata here. Unknown values must be set to UINT32_MAX */
 	u32 p_ivt2;	//pos of alt. vector table
 	u32 p_acstart;	//start of alt_cks block
 	u32 p_acend;	//end of alt_cks block
@@ -299,14 +299,14 @@ static void parse_ramf(struct romfile *rf) {
 		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + ft->packs_start]);
 		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + ft->packs_end]);
 	} else {
-		rf->p_acstart = -1;
-		rf->p_acend = -1;
+		rf->p_acstart = UINT32_MAX;
+		rf->p_acend = UINT32_MAX;
 	}
 
 	if (ft->pIVT2) {
 		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + ft->pIVT2]);
 	} else {
-		rf->p_ivt2 = -1;
+		rf->p_ivt2 = UINT32_MAX;
 	}
 
 	return;
@@ -504,19 +504,23 @@ u32 find_ramf(struct romfile *rf) {
 		rf->p_acstart = -1;
 		rf->p_acend = -1;
 	}
-	if (rf->p_ivt2 >= rf->siz) {
-		fprintf(dbg_stream, "warning : IVT2 value out of bound, probably due to unusual RAMF structure.\n");
-		rf->p_ivt2 = -1;
-	}
 
-	if (rf->p_ivt2 != (u32) -1) {
-		if (!check_ivt(&rf->buf[rf->p_ivt2])) {
-			fprintf(dbg_stream, "Unlikely IVT2 location 0x%06lX :\n", (unsigned long) rf->p_ivt2);
-			fprintf(dbg_stream, "%08lX %08lX %08lX %08lX...\n", (unsigned long) reconst_32(&rf->buf[rf->p_ivt2+0]),
-						(unsigned long) reconst_32(&rf->buf[rf->p_ivt2+4]),
-						(unsigned long) reconst_32(&rf->buf[rf->p_ivt2+8]),
-						(unsigned long) reconst_32(&rf->buf[rf->p_ivt2+12]));
-			rf->p_ivt2 = (u32) -1;	//run the bruteforce IVT2 search instead
+	if (rf->p_ivt2 != UINT32_MAX) {
+		if (rf->p_ivt2 >= rf->siz) {
+			fprintf(dbg_stream, "warning : IVT2 value out of bound, probably due to unusual RAMF structure.\n");
+			rf->p_ivt2 = UINT32_MAX;
+		} else {
+			if (rf->p_ivt2 != fidtypes[rf->fidtype].IVT2_expected) {
+				fprintf(dbg_stream, "Unexpected IVT2 0x%lX ! Please report this\n", (unsigned long) rf->p_ivt2);
+			}
+			if (!check_ivt(&rf->buf[rf->p_ivt2])) {
+				fprintf(dbg_stream, "Unlikely IVT2 location 0x%06lX :\n", (unsigned long) rf->p_ivt2);
+				fprintf(dbg_stream, "%08lX %08lX %08lX %08lX...\n", (unsigned long) reconst_32(&rf->buf[rf->p_ivt2+0]),
+							(unsigned long) reconst_32(&rf->buf[rf->p_ivt2+4]),
+							(unsigned long) reconst_32(&rf->buf[rf->p_ivt2+8]),
+							(unsigned long) reconst_32(&rf->buf[rf->p_ivt2+12]));
+				rf->p_ivt2 = UINT32_MAX;	//run the bruteforce IVT2 search instead
+			}
 		}
 	}
 

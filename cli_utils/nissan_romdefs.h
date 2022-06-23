@@ -89,7 +89,7 @@ enum fidtype_ic {
 struct fidtype_t {
 	enum fidtype_ic fti;
 	uint8_t FIDIC[8];	//such as "SH705507"
-	uint32_t ROMsize;	//in units of 1024B
+	uint32_t ROMsize;	//in units of 1024 B
 	int	FIDbase_size;	//including bogus fields between MSTCR and RAMF start
 	int	pRAMF_maxdist;	//for some ROMs where the RAMF struct is super far from the FID
 	uint32_t	RAMF_header;	//first member to identify RAMF struct
@@ -99,6 +99,7 @@ struct fidtype_t {
 	int	packs_start;
 	int	packs_end;	//alt cks bounds
 	int	pIVT2;		//secondary vector table
+	uint32_t IVT2_expected;	//there should be a 1:1 correlation between FID IC and IVT2 location
 	int	pROMend;	// == ROMSIZE - 1
 	int	pECUREC;
 };
