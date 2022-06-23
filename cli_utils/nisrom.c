@@ -43,7 +43,9 @@ struct romfile {
 	enum loadvers_t loader_v;	//version (10, 50, 60 etc)
 
 	u32 p_fid;	//location of struct fid_base
-	enum fidtype_ic fidtype;
+	enum fidtype_ic fid_ic;
+	const struct fidtype_t *fidtype;
+
 	u32 sfid_size;	//sizeof correct struct fid_base
 	u32 p_ramf;	//location of struct ramf
 	int	ramf_offset;	//RAMF struct wasn't found where expected (offset != 0)
@@ -288,7 +290,7 @@ static void parse_ramf(struct romfile *rf) {
 	const struct fidtype_t *ft;	//helper
 	assert(rf);
 
-	ft = &fidtypes[rf->fidtype];
+	ft = rf->fidtype;
 
 	if (ft->pRAMjump) {
 		rf->ramf.pRAMjump = reconst_32(&rf->buf[rf->p_ramf + ft->pRAMjump]);
@@ -362,30 +364,33 @@ u32 find_fid(struct romfile *rf) {
 	rf->fid = &rf->buf[sf_offset + offsetof(struct fid_base1_t, FID)];
 	rf->fid_cpu = &rf->buf[sf_offset + offsetof(struct fid_base1_t, cpu)];
 
-	rf->fidtype = FID_UNK;
+	rf->fid_ic = FID_UNK;
+
 	/* determine FID type : iterate through array of known types, matching the CPU string */
 	for (fid_idx = 0; fidtypes[fid_idx].fti != FID_UNK; fid_idx++) {
 		if (memcmp(rf->fid_cpu, fidtypes[fid_idx].FIDIC, 8) == 0) {
-			rf->fidtype = fidtypes[fid_idx].fti;
+			rf->fid_ic = fidtypes[fid_idx].fti;
 			break;
 		}
 	}
-	if (rf->fidtype == FID_UNK) {
+	rf->fidtype = &fidtypes[rf->fid_ic];	//assign, even if unknown
+
+	if (rf->fid_ic == FID_UNK) {
 		fprintf(dbg_stream, "Unknown FID IC type %.8s ! Cannot proceed\n", rf->fid_cpu);
 		return -1;
 	}
 
-	if (rf->siz != (fidtypes[rf->fidtype].ROMsize * 1024)) {
+	if (rf->siz != (rf->fidtype->ROMsize * 1024)) {
 		fprintf(dbg_stream, "Warning : ROM size %uk, expected %uk; possibly incomplete dump\n",
-				rf->siz / 1024, fidtypes[rf->fidtype].ROMsize);
+				rf->siz / 1024, rf->fidtype->ROMsize);
 	}
 
-	if ((rf->fidtype == FID705507) || (rf->fidtype == FID705101)) {
+	if (rf->fidtype->features & ROM_HAS_LOADERLESS) {
 		fprintf(dbg_stream, "Loader-less ROM.\n");
 		rf->loader_v = L_UNK;
 	}
 
-	rf->sfid_size = fidtypes[fid_idx].FIDbase_size;
+	rf->sfid_size = rf->fidtype->FIDbase_size;
 
 	return sf_offset;
 }
@@ -411,8 +416,10 @@ int validate_altcks(struct romfile *rf) {
 		return -1;
 	}
 	rf->cks_alt_present = 1;
-		/* p_acstart is so far always u32 aligned, but not p_acend. This gives rise to some weird behavior where
-		 * sometimes the cks area includes the first u32 of the FID struct. I wonder if this was really intended by the Nissan devs ! */
+		/* p_acstart is so far always u32 aligned, but not p_acend (usually 2 bytes before FID, except on some SH705828 ROMs....
+		 * This gives rise to some weird behavior where
+		 * sometimes the cks area includes the first u32 of the FID struct. I wonder if this was really intended by the Nissan devs !
+		 */
 	altcs_bsize = (((rf->p_acend + 1) - rf->p_acstart) & (~0x03)) + 4;
 
 	sum32(&rf->buf[rf->p_acstart], altcs_bsize, &acs, &acx);
@@ -455,7 +462,7 @@ u32 find_ramf(struct romfile *rf) {
 	if (rf->p_fid == (u32) -1) return -1;
 
 	rf->p_ramf = rf->p_fid + rf->sfid_size;
-	ft = &fidtypes[rf->fidtype];
+	ft = rf->fidtype;
 
 	if (ft->RAMF_header == 0) {
 		// alternate RAMF search & parse
@@ -491,8 +498,8 @@ u32 find_ramf(struct romfile *rf) {
 	}
 
 	parse_ramf(rf);
-	if (fidtypes[rf->fidtype].pROMend) {
-		testval = reconst_32(&rf->buf[rf->p_ramf + fidtypes[rf->fidtype].pROMend]);
+	if (ft->pROMend) {
+		testval = reconst_32(&rf->buf[rf->p_ramf + ft->pROMend]);
 		if (testval != (rf->siz -1)) {
 			fprintf(dbg_stream, "ROMend field doesn't match ?\n");
 		}
@@ -510,7 +517,7 @@ u32 find_ramf(struct romfile *rf) {
 			fprintf(dbg_stream, "warning : IVT2 value out of bound, probably due to unusual RAMF structure.\n");
 			rf->p_ivt2 = UINT32_MAX;
 		} else {
-			if (rf->p_ivt2 != fidtypes[rf->fidtype].IVT2_expected) {
+			if (rf->p_ivt2 != ft->IVT2_expected) {
 				fprintf(dbg_stream, "Unexpected IVT2 0x%lX ! Please report this\n", (unsigned long) rf->p_ivt2);
 			}
 			if (!check_ivt(&rf->buf[rf->p_ivt2])) {
@@ -538,9 +545,9 @@ u32 find_ramf(struct romfile *rf) {
 
 	u32 pecurec = UINT32_MAX;
 	//display some LOADER > 80 specific garbage
-	if (fidtypes[rf->fidtype].pECUREC) {
-		pecurec = reconst_32(&rf->buf[rf->p_ramf + fidtypes[rf->fidtype].pECUREC]);
-		testval = reconst_32(&rf->buf[rf->p_ramf + fidtypes[rf->fidtype].pROMend]);
+	if (ft->pECUREC) {
+		pecurec = reconst_32(&rf->buf[rf->p_ramf + ft->pECUREC]);
+		testval = reconst_32(&rf->buf[rf->p_ramf + ft->pROMend]);
 
 		//parse ECUREC
 		if ((pecurec > (UINT32_MAX - 7)) || (pecurec + 6) > rf->siz) {

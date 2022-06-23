@@ -86,6 +86,15 @@ enum fidtype_ic {
 
 #define ECUREC_LEN	22	// typical (TBD) length of ECUREC string length
 
+
+// feature flags to skip certain checks
+#define ROM_HAS_STDCKS (1 << 0)
+#define ROM_HAS_ALTCKS	(1 << 1)	// implies packs_start, packs_end fields
+#define ROM_HAS_ALT2CKS (1 << 2)
+#define ROM_HAS_IVT2 (1 << 3)	//implies pIVT2, IVT2_expected fields
+#define ROM_HAS_LOADERLESS (1 << 4) // no loader struct
+
+
 struct fidtype_t {
 	enum fidtype_ic fti;
 	uint8_t FIDIC[8];	//such as "SH705507"
@@ -93,6 +102,8 @@ struct fidtype_t {
 	int	FIDbase_size;	//including bogus fields between MSTCR and RAMF start
 	int	pRAMF_maxdist;	//for some ROMs where the RAMF struct is super far from the FID
 	uint32_t	RAMF_header;	//first member to identify RAMF struct
+
+	unsigned features;	//bitmask, see ROM_HAS_* defines above.
 	int	pRAMjump;
 	int	pRAM_DLAmax;	//end of RAM dl area ? ex ffff8438...DLAmax
 	int	pRAMinit;	//array of data for ram initialization ? see 8U92A
