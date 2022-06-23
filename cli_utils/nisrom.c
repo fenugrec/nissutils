@@ -984,7 +984,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* add header to dbg log */
-	fprintf(dbg_stream, "\n********************\n**** Started analyzing %s\n", argv[1]);
+	fprintf(dbg_stream, "\n********************\n**** Started analyzing %s\n", argv[0]);
 
 	struct printable_prop *props = new_properties(&rf);
 	if (!props) {
