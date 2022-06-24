@@ -41,40 +41,40 @@ struct romfile {
 	u32 siz;	//in bytes
 	uint8_t *buf;	//copied here
 	//and some metadata
-	u32 p_loader;	//struct loader
+	rom_offset p_loader;	//struct loader
 	enum loadvers_t loader_v;	//version (10, 50, 60 etc)
 
-	u32 p_fid;	//location of struct fid_base
+	rom_offset p_fid;	//location of struct fid_base
 	enum fidtype_ic fid_ic;
 	const struct fidtype_t *fidtype;
 
 	u32 sfid_size;	//sizeof correct struct fid_base
-	u32 p_ramf;	//location of struct ramf
-	int	ramf_offset;	//RAMF struct wasn't found where expected (offset != 0)
+	rom_offset p_ramf;	//location of struct ramf
+	rel_offset	ramf_offset;	//RAMF struct wasn't found where expected (offset != 0)
 
 	/* these point in buf, and so are not necessarily 0-terminated strings */
 	const uint8_t *loader_cpu;	//LOADERxx CPU code
 	const uint8_t *fid;	//firmware ID itself
 	const uint8_t *fid_cpu;	//FID CPU code
 
-	u32 p_cks;	//position of std_checksum sum
-	u32 p_ckx;	//position of std_checksum xor
+	rom_offset p_cks;	//position of std_checksum sum
+	rom_offset p_ckx;	//position of std_checksum xor
 
-	u32 p_acs;	//pos of alt_cks sum
-	u32 p_acx;	//pos of alt_cks xor
+	rom_offset p_acs;	//pos of alt_cks sum
+	rom_offset p_acx;	//pos of alt_cks xor
 
-	u32 p_a2cs;
-	u32 p_a2cx;	//pos of alt2 cks sum, xor
+	rom_offset p_a2cs;
+	rom_offset p_a2cx;	//pos of alt2 cks sum, xor
 
 	/* real metadata here. Unknown values must be set to UINT32_MAX */
-	u32 p_ivt2;	//pos of alt. vector table
-	u32 p_acstart;	//start of alt_cks block
-	u32 p_acend;	//end of alt_cks block
-	u32 p_ecurec;	//if ROM_HAS_ECUREC
+	rom_offset p_ivt2;	//pos of alt. vector table
+	rom_offset p_acstart;	//start of alt_cks block
+	rom_offset p_acend;	//end of alt_cks block
+	rom_offset p_ecurec;	//if ROM_HAS_ECUREC
 
-	u32 p_ac2start;	//start of alt2 cks block (end is always ROMEND ?)
+	rom_offset p_ac2start;	//start of alt2 cks block (end is always ROMEND ?)
 
-	u32	p_eepread;	//address of eeprom_read() func
+	rom_offset	p_eepread;	//address of eeprom_read() func
 	uint32_t	eep_port;	//PORT reg used for EEPROM pins
 
 	/* some flags */
@@ -457,7 +457,7 @@ int validate_altcks(struct romfile *rf) {
  *
  * ret 1 if ok and update romfile struct
  */
-bool find_romend(struct romfile *rf) {
+bool find_ecurec(struct romfile *rf) {
 	const struct fidtype_t *ft;
 	assert(rf);
 
@@ -528,7 +528,7 @@ u32 find_ramf(struct romfile *rf) {
 		bool found_stuff = 0;
 		if (features & ROM_HAS_ECUREC) {
 			// alternate structure : no RAMF, instead search for &IVT2 near ROMEND
-			found_stuff = find_romend(rf);
+			found_stuff = find_ecurec(rf);
 		}
 		if (!found_stuff) {
 			fprintf(dbg_stream, "not trying to find RAMF.\n");

@@ -95,6 +95,8 @@ enum fidtype_ic {
 #define ROM_HAS_LOADERLESS (1 << 4) // no loader struct. Useless since we try to find the loader before knowing the FID type !
 #define ROM_HAS_ECUREC (1 << 5)	//a 22-char string with the ECUID. If present, use IVT2 and ROMEND to find key fields in RAMF
 
+typedef uint32_t rom_offset;	//address within ROM
+typedef int rel_offset;		//offset relative to a certain object in ROM
 
 struct fidtype_t {
 	enum fidtype_ic fti;
@@ -102,21 +104,21 @@ struct fidtype_t {
 	uint32_t ROMsize;	//in units of 1024 B
 	int	FIDbase_size;	//including bogus fields between MSTCR and RAMF start
 	int	pRAMF_maxdist;	//for some ROMs where the RAMF struct is super far from the FID
-	uint32_t	RAMF_header;	//first member to identify RAMF struct
+	uint32_t	RAMF_header;	//first member contained in RAMF struct
 
 	unsigned features;	//bitmask, see ROM_HAS_* defines above.
 
 	// These fields are offsets relative to the start of struct FID, or ECUREC if ROM_HAS_ECUREC
-	int	pRAMjump;
-	int	pRAM_DLAmax;	//end of RAM dl area ? ex ffff8438...DLAmax
-	int	pRAMinit;	//array of data for ram initialization ? see 8U92A
+	rel_offset	pRAMjump;
+	rel_offset	pRAM_DLAmax;	//end of RAM dl area ? ex ffff8438...DLAmax
+	rel_offset	pRAMinit;	//array of data for ram initialization ? see 8U92A
 
 	// these are ECUREC-relative if ROM_HAS_ECUREC
-	int	packs_start;
-	int	packs_end;	//alt cks bounds
-	int	pIVT2;		//secondary vector table
-	int	pROMend;	// == ROMSIZE - 1
-	int	pECUREC;
+	rel_offset	packs_start;
+	rel_offset	packs_end;	//alt cks bounds
+	rel_offset	pIVT2;		//secondary vector table
+	rel_offset	pROMend;	// == ROMSIZE - 1
+	rel_offset	pECUREC;
 
 	uint32_t IVT2_expected;	//there should be a 1:1 correlation between FID IC and IVT2 location
 };
