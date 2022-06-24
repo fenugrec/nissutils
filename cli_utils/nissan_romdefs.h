@@ -93,6 +93,7 @@ enum fidtype_ic {
 #define ROM_HAS_ALT2CKS (1 << 2)
 #define ROM_HAS_IVT2 (1 << 3)	//implies pIVT2, IVT2_expected fields
 #define ROM_HAS_LOADERLESS (1 << 4) // no loader struct. Useless since we try to find the loader before knowing the FID type !
+#define ROM_HAS_ECUREC (1 << 5)	//a 22-char string with the ECUID. If present, use IVT2 and ROMEND to find key fields in RAMF
 
 
 struct fidtype_t {
@@ -104,15 +105,20 @@ struct fidtype_t {
 	uint32_t	RAMF_header;	//first member to identify RAMF struct
 
 	unsigned features;	//bitmask, see ROM_HAS_* defines above.
+
+	// These fields are offsets relative to the start of struct FID, or ECUREC if ROM_HAS_ECUREC
 	int	pRAMjump;
 	int	pRAM_DLAmax;	//end of RAM dl area ? ex ffff8438...DLAmax
 	int	pRAMinit;	//array of data for ram initialization ? see 8U92A
+
+	// these are ECUREC-relative if ROM_HAS_ECUREC
 	int	packs_start;
 	int	packs_end;	//alt cks bounds
 	int	pIVT2;		//secondary vector table
-	uint32_t IVT2_expected;	//there should be a 1:1 correlation between FID IC and IVT2 location
 	int	pROMend;	// == ROMSIZE - 1
 	int	pECUREC;
+
+	uint32_t IVT2_expected;	//there should be a 1:1 correlation between FID IC and IVT2 location
 };
 
 extern const struct fidtype_t fidtypes[];

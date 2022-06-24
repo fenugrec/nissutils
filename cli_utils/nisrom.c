@@ -70,6 +70,7 @@ struct romfile {
 	u32 p_ivt2;	//pos of alt. vector table
 	u32 p_acstart;	//start of alt_cks block
 	u32 p_acend;	//end of alt_cks block
+	u32 p_ecurec;	//if ROM_HAS_ECUREC
 
 	u32 p_ac2start;	//start of alt2 cks block (end is always ROMEND ?)
 
@@ -301,16 +302,23 @@ static void parse_ramf(struct romfile *rf) {
 	}
 
 	if (features & ROM_HAS_ALTCKS) {
-		assert(ft->packs_start);
-		rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + ft->packs_start]);
-		rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + ft->packs_end]);
+		//gross : find_romend may have filled these in
+		if ((rf->p_acstart == 0) &&
+				(rf->p_acend == 0)) {
+			assert(ft->packs_start);
+			rf->p_acstart = reconst_32(&rf->buf[rf->p_ramf + ft->packs_start]);
+			rf->p_acend = reconst_32(&rf->buf[rf->p_ramf + ft->packs_end]);
+		}
 	} else {
 		rf->p_acstart = UINT32_MAX;
 		rf->p_acend = UINT32_MAX;
 	}
 
 	if (ft->pIVT2) {
-		rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + ft->pIVT2]);
+		// same : find_romend may have filled in
+		if (rf->p_ivt2 == 0) {
+			rf->p_ivt2 = reconst_32(&rf->buf[rf->p_ramf + ft->pIVT2]);
+		}
 	} else {
 		rf->p_ivt2 = UINT32_MAX;
 	}
@@ -445,6 +453,57 @@ int validate_altcks(struct romfile *rf) {
 }
 
 
+/* if ROM_HAS_ECUREC, try to locate &IVT2 near ROMEND
+ *
+ * ret 1 if ok and update romfile struct
+ */
+bool find_romend(struct romfile *rf) {
+	const struct fidtype_t *ft;
+	assert(rf);
+
+	ft = rf->fidtype;
+	if (!(ft->features & ROM_HAS_ECUREC)) {
+		return 0;
+	}
+
+	bool found = 0;
+	u32 p_romend, temp_ivt2, temp_ecurec; 	// offsets inside ROM
+
+	u32 start_offs = 0;
+	const u8 *ivt2_maybe = rf->buf;
+	for (; start_offs < (rf->siz - 100); start_offs = (u32) (ivt2_maybe - rf->buf)+4) {
+			// iterate over occurences of &IVT2
+		ivt2_maybe = u32memstr(&rf->buf[start_offs], rf->siz - start_offs, ft->IVT2_expected);
+		if (!ivt2_maybe) {
+			return 0;
+		}
+		temp_ivt2 = (u32) (ivt2_maybe - rf->buf);
+		temp_ecurec = temp_ivt2 - ft->pIVT2;
+		p_romend = temp_ecurec + ft->pROMend;
+		if (p_romend >= (rf->siz - 4)) {
+			continue;
+		}
+		u32 romend = reconst_32(&rf->buf[p_romend]);
+		if ((romend + 1) != (ft->ROMsize * 1024)) {
+			//IVT2/ROMEND field mismatch
+			continue;
+		}
+		//found !
+		found = 1;
+		break;
+	}
+	if (!found) {
+		fprintf(dbg_stream, "IVT2/ROMEND not found\n");
+		return 0;
+	}
+	rf->p_ivt2 = ft->IVT2_expected;
+	rf->p_acstart = reconst_32(&rf->buf[temp_ecurec + ft->packs_start]);
+	rf->p_acend = reconst_32(&rf->buf[temp_ecurec + ft->packs_end]);
+	rf->p_ecurec = temp_ecurec;
+	return 1;
+}
+
+
 /** find & analyze 'struct ramf'
  *
  * @return 0 if ok
@@ -457,62 +516,66 @@ u32 find_ramf(struct romfile *rf) {
 	uint32_t testval;
 	const struct fidtype_t *ft;	//helper
 
-	if (!rf) return -1;
+	assert(rf);
 	if (rf->fid_ic >= FID_UNK) return -1;
 	if (rf->p_fid == (u32) -1) return -1;
 
 	rf->p_ramf = rf->p_fid + rf->sfid_size;
 	ft = rf->fidtype;
+	unsigned features = ft->features;	//helper
 
 	if (ft->RAMF_header == 0) {
-		// alternate RAMF search & parse
-		fprintf(dbg_stream, "not trying to find RAMF.\n");
-		return 0;
-	}
-
-	//1- sanity check first member, typically FFFF8000.
-	testval = reconst_32(&rf->buf[rf->p_ramf]);
-	if (testval != ft->RAMF_header) {
-		long ramf_adj = 4;
-		long sign = 1;
-		fprintf(dbg_stream, "Unlikely contents for struct ramf; got 0x%lX.\n",
-					(unsigned long) testval);
-		while (ramf_adj < ft->pRAMF_maxdist) {
-			//search around, in a pattern like +4, -4, +8, -8, +12  and then +16, +20 etc
-			testval = reconst_32(&rf->buf[rf->p_ramf + (sign * ramf_adj)]);
-			if (testval == ft->RAMF_header) {
-				fprintf(dbg_stream, "probable RAMF found @ delta = %+d\n",
-							(int) (sign * ramf_adj));
-				rf->ramf_offset = (sign * ramf_adj);
-				rf->p_ramf += rf->ramf_offset;
-				break;
-			}
-			if (ramf_adj < 0x0c) {
-				sign = -sign;	//flip sign;
-				if (sign == 1) ramf_adj += 4;
-			} else {
-				sign = 1;
-				ramf_adj += 4;
+		bool found_stuff = 0;
+		if (features & ROM_HAS_ECUREC) {
+			// alternate structure : no RAMF, instead search for &IVT2 near ROMEND
+			found_stuff = find_romend(rf);
+		}
+		if (!found_stuff) {
+			fprintf(dbg_stream, "not trying to find RAMF.\n");
+			return 0;
+		}
+	} else {
+		// try to find RAMF by looking for first member, typically FFFF8000.
+		testval = reconst_32(&rf->buf[rf->p_ramf]);
+		if (testval != ft->RAMF_header) {
+			long ramf_adj = 4;
+			long sign = 1;
+			fprintf(dbg_stream, "Unlikely contents for struct ramf; got 0x%lX.\n",
+						(unsigned long) testval);
+			while (ramf_adj < ft->pRAMF_maxdist) {
+				//search around, in a pattern like +4, -4, +8, -8, +12  and then +16, +20 etc
+				testval = reconst_32(&rf->buf[rf->p_ramf + (sign * ramf_adj)]);
+				if (testval == ft->RAMF_header) {
+					fprintf(dbg_stream, "probable RAMF found @ delta = %+d\n",
+								(int) (sign * ramf_adj));
+					rf->ramf_offset = (sign * ramf_adj);
+					rf->p_ramf += rf->ramf_offset;
+					break;
+				}
+				if (ramf_adj < 0x0c) {
+					sign = -sign;	//flip sign;
+					if (sign == 1) ramf_adj += 4;
+				} else {
+					sign = 1;
+					ramf_adj += 4;
+				}
 			}
 		}
 	}
 
 	parse_ramf(rf);
-	if (ft->pROMend) {
-		testval = reconst_32(&rf->buf[rf->p_ramf + ft->pROMend]);
-		if (testval != (rf->siz -1)) {
-			fprintf(dbg_stream, "ROMend field doesn't match ?\n");
-		}
-	}
-
-	unsigned features = ft->features;	//helper
 
 	if (features & ROM_HAS_ALTCKS) {
 		if ((rf->p_acstart >= rf->siz) ||
-			(rf->p_acend >= rf->siz)) {
-			fprintf(dbg_stream, "warning : altcks values out of bounds, probably due to unusual RAMF structure.\n");
+			(rf->p_acend >= rf->siz) ||
+			(rf->p_acstart >= rf->p_acend)) {
+			fprintf(dbg_stream, "bad alt cks bounds; 0x%lX - 0x%lX\n",
+					(unsigned long) rf->p_acstart, (unsigned long) rf->p_acend);
 			rf->p_acstart = UINT32_MAX;
 			rf->p_acend = UINT32_MAX;
+		}
+		if (rf->p_acstart != UINT32_MAX) {
+			(void) validate_altcks(rf);
 		}
 	}
 
@@ -535,28 +598,19 @@ u32 find_ramf(struct romfile *rf) {
 		}
 	}
 
-
-	if (features & ROM_HAS_ALTCKS) {
-		if (rf->p_acstart >= rf->p_acend) {
-			fprintf(dbg_stream, "bad/reversed alt cks bounds; 0x%lX - 0x%lX\n",
-					(unsigned long) rf->p_acstart, (unsigned long) rf->p_acend);
-			rf->p_acstart = UINT32_MAX;
-			rf->p_acend = UINT32_MAX;
-		}
-
-		if (rf->p_acstart != UINT32_MAX) {
-			(void) validate_altcks(rf);
-		}
+	// edge case for 705822 which does have ECUREC but still uses the "normal" method : need to define p_ecurec manually here
+	if (!(features & ROM_HAS_ECUREC)) {
+		rf->p_ecurec = rf->p_ramf + ft->pECUREC;
 	}
 
-	u32 pecurec = UINT32_MAX;
+	u32 pecurec = reconst_32(&rf->buf[rf->p_ecurec]);
+
 	//display some LOADER > 80 specific garbage
-	if (ft->pECUREC) {
-		pecurec = reconst_32(&rf->buf[rf->p_ramf + ft->pECUREC]);
-		testval = reconst_32(&rf->buf[rf->p_ramf + ft->pROMend]);
+	if (features & ROM_HAS_ECUREC) {
+		testval = reconst_32(&rf->buf[rf->p_ecurec + ft->pROMend]);
 
 		//parse ECUREC
-		if ((pecurec > (UINT32_MAX - 7)) || (pecurec + 6) > rf->siz) {
+		if ((pecurec + 6) >= rf->siz) {
 			fprintf(dbg_stream, "unlikely pecurec = %lX\n", (unsigned long) pecurec);
 			pecurec = UINT32_MAX;
 		} else {
@@ -569,11 +623,12 @@ u32 find_ramf(struct romfile *rf) {
 			fprintf(dbg_stream, "mismatched <romend> field : got %lX\n", (unsigned long) testval);
 		}
 
-		/* Locate RIPEMD-160 magic numbers */
-		if ((u32memstr(rf->buf, rf->siz, 0x67452301) != NULL) &&
-			(u32memstr(rf->buf, rf->siz, 0x98BADCFE) != NULL)) {
-			rf->has_rm160 = 1;
-		}
+	}
+
+	/* Locate RIPEMD-160 magic numbers */
+	if ((u32memstr(rf->buf, rf->siz, 0x67452301) != NULL) &&
+		(u32memstr(rf->buf, rf->siz, 0x98BADCFE) != NULL)) {
+		rf->has_rm160 = 1;
 	}
 
 	/* Locate cks_alt2 checksum. Starts at ECUREC */
