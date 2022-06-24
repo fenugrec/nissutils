@@ -833,6 +833,8 @@ static struct printable_prop *new_properties(struct romfile *rf) {
 
 	//"RAMF_off\RAMjump entry
 	u32 ramfpos = find_ramf(rf);
+
+	assert(rf->fidtype);
 	unsigned features = rf->fidtype->features;
 	if (features & ROM_HAS_ECUREC) {
 		//no RAMF for these
