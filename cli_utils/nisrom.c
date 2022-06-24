@@ -808,6 +808,7 @@ static struct printable_prop *new_properties(struct romfile *rf) {
 	}
 
 	/* fill in all properties now */
+	unsigned features = rf->fidtype->features;	//just a helper
 
 	utstring_printf(&props[RP_FILE].rendered_value, "\"%s\"", rf->filename);
 	utstring_printf(&props[RP_SIZE].rendered_value, "%luk", (unsigned long) rf->siz / 1024);
@@ -841,14 +842,14 @@ static struct printable_prop *new_properties(struct romfile *rf) {
 
 	//"RAMF_off\RAMjump entry
 	u32 ramfpos = find_ramf(rf);
-	if (ramfpos != UINT32_MAX) {
+	if (features & ROM_HAS_ECUREC) {
+		//no RAMF for these
+	} else if (ramfpos == UINT32_MAX) {
+		fprintf(dbg_stream, "find_ramf() failed !!\n");
+	} else {
 		utstring_printf(&props[RP_RAMF_WEIRD].rendered_value, "%+d", rf->ramf_offset);
 		utstring_printf(&props[RP_RAMJUMP].rendered_value, "0x%08X", rf->ramf.pRAMjump);
-	} else {
-		fprintf(dbg_stream, "find_ramf() failed !!\n");
 	}
-
-	unsigned features = rf->fidtype->features;	//just a helper
 
 	//IVT2\tIVT2 confidence\t"
 	if (features & ROM_HAS_IVT2) {
