@@ -467,7 +467,7 @@ bool find_ecurec(struct romfile *rf) {
 	}
 
 	bool found = 0;
-	u32 p_romend, temp_ivt2, temp_ecurec; 	// offsets inside ROM
+	rom_offset p_romend, temp_ivt2, pp_ecurec;
 
 	u32 start_offs = 0;
 	const u8 *ivt2_maybe = rf->buf;
@@ -477,9 +477,9 @@ bool find_ecurec(struct romfile *rf) {
 		if (!ivt2_maybe) {
 			return 0;
 		}
-		temp_ivt2 = (u32) (ivt2_maybe - rf->buf);
-		temp_ecurec = temp_ivt2 - ft->pIVT2;
-		p_romend = temp_ecurec + ft->pROMend;
+		temp_ivt2 = (rom_offset) (ivt2_maybe - rf->buf);
+		pp_ecurec = temp_ivt2 - ft->pIVT2;
+		p_romend = pp_ecurec + ft->pROMend;
 		if (p_romend >= (rf->siz - 4)) {
 			continue;
 		}
@@ -497,9 +497,9 @@ bool find_ecurec(struct romfile *rf) {
 		return 0;
 	}
 	rf->p_ivt2 = ft->IVT2_expected;
-	rf->p_acstart = reconst_32(&rf->buf[temp_ecurec + ft->packs_start]);
-	rf->p_acend = reconst_32(&rf->buf[temp_ecurec + ft->packs_end]);
-	rf->p_ecurec = temp_ecurec;
+	rf->p_acstart = reconst_32(&rf->buf[pp_ecurec + ft->packs_start]);
+	rf->p_acend = reconst_32(&rf->buf[pp_ecurec + ft->packs_end]);
+	rf->p_ecurec = reconst_32(&rf->buf[pp_ecurec]);
 	return 1;
 }
 
@@ -600,15 +600,13 @@ u32 find_ramf(struct romfile *rf) {
 
 	// edge case for 705822 which does have ECUREC but still uses the "normal" method : need to define p_ecurec manually here
 	if (!(features & ROM_HAS_ECUREC)) {
-		rf->p_ecurec = rf->p_ramf + ft->pECUREC;
+		rf->p_ecurec = reconst_32(&rf->buf[rf->p_ramf + ft->pECUREC]);
 	}
 
-	u32 pecurec = reconst_32(&rf->buf[rf->p_ecurec]);
+	rom_offset pecurec = rf->p_ecurec;
 
 	//display some LOADER > 80 specific garbage
 	if (features & ROM_HAS_ECUREC) {
-		testval = reconst_32(&rf->buf[rf->p_ecurec + ft->pROMend]);
-
 		//parse ECUREC
 		if ((pecurec + 6) >= rf->siz) {
 			fprintf(dbg_stream, "unlikely pecurec = %lX\n", (unsigned long) pecurec);
@@ -617,12 +615,6 @@ u32 find_ramf(struct romfile *rf) {
 			//skip leading '1'
 			fprintf(dbg_stream, "probable ECUID : %.*s\n", 5,  &rf->buf[pecurec + 1]);
 		}
-
-		//validate ROM size
-		if (testval != (rf->siz -1)) {
-			fprintf(dbg_stream, "mismatched <romend> field : got %lX\n", (unsigned long) testval);
-		}
-
 	}
 
 	/* Locate RIPEMD-160 magic numbers */
