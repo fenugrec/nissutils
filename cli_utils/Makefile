@@ -31,4 +31,4 @@ findcallargs: findcallargs.c nislib.c
 
 test_findcks: test_findcks.c nislib.c
 
-test_romdb: test_romdb.c nislib.c nis_romdb.c nissan_romdefs.c
+test_romdb: test_romdb.c nislib.c nis_romdb.c nissan_romdefs.c libcsv/libcsv.c
