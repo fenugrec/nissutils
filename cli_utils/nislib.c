@@ -1037,7 +1037,7 @@ int sh_bt_immload(u32 *imm, const uint8_t *buf, uint32_t min, uint32_t start,
 			u32 add_src, add_src2;
 
 			start -= 2;
-			printf("add rm, regno : recurs @ %X\n", start);
+			//printf("add rm, regno : recurs @ %X\n", start);
 			new_regno = (opc >> 4) & 0x0F;
 			if (sh_bt_immload(&add_src, buf, min, start, new_regno)) {
 				//found Rm
