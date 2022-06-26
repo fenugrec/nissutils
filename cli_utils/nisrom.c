@@ -391,9 +391,9 @@ u32 find_fid(struct romfile *rf) {
 		return -1;
 	}
 
-	if (rf->siz != (rf->fidtype->ROMsize * 1024)) {
-		fprintf(dbg_stream, "Warning : ROM size %uk, expected %uk; possibly incomplete dump\n",
-				rf->siz / 1024, rf->fidtype->ROMsize);
+	if (rf->siz != (rf->fidtype->ROMsize)) {
+		fprintf(dbg_stream, "Warning : ROM size %u k, expected %u k; possibly incomplete dump\n",
+				rf->siz / 1024, rf->fidtype->ROMsize / 1024);
 	}
 
 	rf->sfid_size = rf->fidtype->FIDbase_size;
@@ -484,7 +484,7 @@ bool find_ecurec(struct romfile *rf) {
 			continue;
 		}
 		u32 romend = reconst_32(&rf->buf[p_romend]);
-		if ((romend + 1) != (ft->ROMsize * 1024)) {
+		if ((romend + 1) != (ft->ROMsize)) {
 			//IVT2/ROMEND field mismatch
 			continue;
 		}

@@ -101,7 +101,7 @@ typedef int rel_offset;		//offset relative to a certain object in ROM
 struct fidtype_t {
 	enum fidtype_ic fti;
 	uint8_t FIDIC[8];	//such as "SH705507"
-	uint32_t ROMsize;	//in units of 1024 B
+	uint32_t ROMsize;	//in bytes
 	int	FIDbase_size;	//including bogus fields between MSTCR and RAMF start
 	int	pRAMF_maxdist;	//for some ROMs where the RAMF struct is super far from the FID
 	uint32_t	RAMF_header;	//first member contained in RAMF struct
