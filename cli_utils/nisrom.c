@@ -613,7 +613,8 @@ u32 find_ramf(struct romfile *rf) {
 			pecurec = UINT32_MAX;
 		} else {
 			//skip leading '1'
-			fprintf(dbg_stream, "probable ECUID : %.*s\n", 5,  &rf->buf[pecurec + 1]);
+			fprintf(dbg_stream, "probable ECUID @ %lX: %.*s\n",
+					(unsigned long) pecurec, 5,  &rf->buf[pecurec + 1]);
 		}
 	}
 
