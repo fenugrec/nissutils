@@ -154,6 +154,18 @@ const uint8_t *u16memstr(const uint8_t *buf, uint32_t buflen, const uint16_t nee
 	return NULL;
 }
 
+/* reversed, aligned search for u16 val */
+const uint8_t *u16memstr_rev(const uint8_t *buf, uint32_t start_pos, const uint16_t needle) {
+	start_pos &= ~1;
+	assert(buf && start_pos);
+
+	uint32_t cur = start_pos;
+	for (; cur; cur -= 2) {
+		if (reconst_16(&buf[cur]) == needle) return &buf[cur];
+	}
+	return NULL;
+}
+
 /* manual, aligned search instead of calling u8memstr; should be faster */
 const uint8_t *u32memstr(const uint8_t *buf, uint32_t buflen, const uint32_t needle) {
 	buflen &= ~3;
@@ -1272,25 +1284,15 @@ bool find_s27_strat2(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t 
 		swapf_cur = patpos + 2;
 
 		// backtrack to guess function entry , by looking for previous RTS opcode.
-		// can't use u16memstr because we want the nearest occurence, not the first
-		rom_offset maybe_entry = patpos;
-		unsigned dist = 0;
-		bool rts_found = 0;
-		while (maybe_entry && (dist <= S27_STRAT2_MAX_FUNCLEN)) {
-			u16 test = reconst_16(&buf[maybe_entry]);
-			if (test == 0x000b) {
-				rts_found = 1;
-				break;
-			}
-			dist += 2;
-			maybe_entry -= 2;
-		}
+		u32 searchlength = MIN(patpos, S27_STRAT2_MAX_FUNCLEN);	//safe clamp
+		rom_offset startpos = patpos - searchlength;
+		const u8 *maybe_entry = u16memstr_rev(&buf[startpos], searchlength, 0x000b);
 
-		if (!rts_found) {
+		if (!maybe_entry) {
 			fprintf(dbg_stream, "found a weird encrypt() pattern @ %lX\n", (unsigned long) patpos);
 			continue;
 		}
-		rom_offset func_entry = maybe_entry + 4;	//skip over RTS and slot opcode
+		rom_offset func_entry = (rom_offset) (maybe_entry - buf) + 4;	//skip over RTS and slot opcode
 
 		fprintf(dbg_stream, "found a likely encrypt() func @ %lX\n", (unsigned long) func_entry);
 

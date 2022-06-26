@@ -43,6 +43,9 @@ const uint8_t *u8memstr(const uint8_t *buf, uint32_t buflen, const uint8_t *need
 
 const uint8_t *u16memstr(const uint8_t *buf, uint32_t buflen, const uint16_t needle);
 
+/** same as u16memstr but searches backwards starting at buf[start_pos] */
+const uint8_t *u16memstr_rev(const uint8_t *buf, uint32_t start_pos, const uint16_t needle);
+
 /** search a <buflen> u8 buffer for a 32-bit aligned uint32_t value, in SH endianness
  *
  */
