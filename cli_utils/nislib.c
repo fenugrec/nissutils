@@ -18,6 +18,10 @@ u32 sh_extsb(u8 val);
 u32 sh_extsw(u16 val);
 
 
+/****** misc stuff */
+#define MIN(_a_, _b_) (((_a_) < (_b_) ? (_a_) : (_b_)))
+#define MAX(_a_, _b_) (((_a_) > (_b_) ? (_a_) : (_b_)))
+
 
 uint32_t reconst_32(const uint8_t *buf) {
 	// ret 4 bytes at *buf with SH endianness
