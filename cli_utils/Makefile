@@ -19,7 +19,7 @@ nisguess: nisguess.c nislib.c
 
 nisguess2: nisguess2.c nislib.c
 
-nisrom: nisrom.c nislib.c
+nisrom: nisrom.c nislib.c nissan_romdefs.c
 
 unpackdat: unpackdat.c nislib.c
 
