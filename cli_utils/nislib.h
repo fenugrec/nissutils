@@ -3,6 +3,9 @@
  * GPLv3
  */
 
+#ifndef NISLIB_H
+#define NISLIB_H
+
 #include <stdio.h>	//just for FILE
 #include <stdint.h>
 #include <stdbool.h>
@@ -227,3 +230,4 @@ enum opcode_dest sh_getopcode_dest(uint16_t code);
 void sh_track_reg(const uint8_t *buf, uint32_t pos, uint32_t siz, unsigned regno, uint16_t *visited,
 			void (*tracker_cb)(const uint8_t *buf, uint32_t pos, unsigned regno, void *data), void *cbdata);
 
+#endif // NISLIB_H
