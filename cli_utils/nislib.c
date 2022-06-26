@@ -1179,7 +1179,6 @@ void find_bsr(const u8 *buf, u32 tgt, void (*found_bsr_cb)(const u8 *buf, u32 po
 		opc = reconst_16(&buf[bsr_offs]);
 		// is it a "bsr" with the correct offset ?
 		if (opc == (0xB000 | ((sign * disp / 2) & 0xFFF))) {
-			fprintf(dbg_stream, "found bsr at %lX\n", (unsigned long) bsr_offs);
 			found_bsr_cb(buf, bsr_offs, cbdata);
 		}
 		sign = -sign;
@@ -1206,6 +1205,7 @@ static void found_bsr_swapf(const u8 *buf, u32 pos, void *data) {
 
 	assert(buf && (pos < MAX_ROMSIZE) && data);
 
+	fprintf(dbg_stream, "found bsr swapf at %lX\n", (unsigned long) pos);
 	skf = data;
 	skf->swapf_xrefs += 1;
 	/* now, backtrack to find constants */
