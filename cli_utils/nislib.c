@@ -1212,7 +1212,7 @@ struct s27_keyfinding {
 };
 
 /* callback for every "bsr swapf" hit */
-static void found_bsr_swapf(const u8 *buf, u32 pos, void *data) {
+static void found_strat1_bsr(const u8 *buf, u32 pos, void *data) {
 	struct s27_keyfinding *skf;
 
 	assert(buf && (pos < MAX_ROMSIZE) && data);
@@ -1234,15 +1234,129 @@ static void found_bsr_swapf(const u8 *buf, u32 pos, void *data) {
 		skf->s36k_pos = pos;
 		skf->s36_found = 1;
 	}
+	return;
 }
 
 
-/* callback for every bsr encrypt() for second sid27 strategy */
+/** backtrack, starting at &buf[starpos], trying to find a MOV.W R0, @(disp, Rn)
+*
+* @param min : lower bounds of search at &buf[min]
+* @param found_pos : if found, position of hit
+* @param reg_dest : if found, Rn number
+* @param disp : if found, displacement (in bytes)
+*
+* @return 1 if ok
+*/
+static bool bt_MOVW_R0_REGDISP(const u8 *buf, u32 startpos, u32 min, u32 *found_pos, enum opcode_dest *reg_dest, unsigned *disp) {
+	assert(buf && found_pos && reg_dest && disp);
+
+	startpos += 2;	//cheat
+	while (startpos && (startpos > min)) {
+		startpos -= 2;
+		u16 test = reconst_16(&buf[startpos]);
+
+		if (!IS_MOVW_R0_REGDISP(test)) {
+			continue;
+		}
+		*found_pos = startpos;
+		*reg_dest = (test >> 4) & 0x0F;
+		*disp = (test & 0x0F) * 2;
+		return 1;
+	}
+	return 0;
+}
+
+/** callback for every bsr encrypt() for second sid27 strategy.
+ *
+ * could be either in sid27 or sid36 function, but what seems to be common
+ * (6GE2C, EZ11D) is to write both halfkeys to consecutive RAM locations,
+ * with a MOV.W R0, @(disp, Rn)
+ *
+ * Can't directly use fs27_bt_stmem() since that is too permissive
+ */
 static void found_strat2_bsr(const u8 *buf, u32 pos, void *data) {
-	//unclear what to do
+#define S27_STRAT2_MOVW_MAXDIST	30
+	assert(buf && data);
+
+	// backtrack and search for a MOV.W R0, @(disp, Rn) 10000001nnnndddd
+	u32 movw_pos;
+	u32 min_pos = pos - MIN(pos, S27_STRAT2_MOVW_MAXDIST);
+
+	enum opcode_dest reg_dest;
+	unsigned mem_disp = 0;
+
+	bool found = bt_MOVW_R0_REGDISP(buf, pos, min_pos, &movw_pos, &reg_dest, &mem_disp);
+	if (!found) {
+		fprintf(dbg_stream, "found a weird strat2 bsr @ %lX. Look here for sid27 / sid36 keys !\n", (unsigned long) pos);
+		return;
+	}
 	fprintf(dbg_stream, "found a strat2 bsr @ %lX. Look here for sid27 / sid36 keys !\n", (unsigned long) pos);
-	(void) buf;
-	(void) data;
+
+	// next : find value loaded into R0 , this is KEY_L
+	u16 key_l, key_h;
+	u32 imm_temp;
+	if (sh_bt_immload(&imm_temp, buf, movw_pos - MIN(movw_pos, S27_STRAT2_MOVW_MAXDIST), movw_pos, 0)) {
+		//probably found a halfkey
+		key_l = (u16) imm_temp & 0xFFFF;
+		fprintf(dbg_stream, "halfkey 0x%04X\n", (unsigned) key_l);
+	} else {
+		//can't continue
+		return;
+	}
+
+	//continue movw search but keep only hits that write to mem_disp +/- 2
+	unsigned original_memdisp = mem_disp;	//displacement where key_l was stored
+	enum opcode_dest original_regdest = reg_dest;
+	found = 0;
+	min_pos = movw_pos - MIN(movw_pos, S27_STRAT2_MOVW_MAXDIST);
+	movw_pos = movw_pos - MIN(movw_pos, 2);	//go back 1 opcode
+	while (!found) {
+		if (!bt_MOVW_R0_REGDISP(buf, movw_pos, min_pos, &movw_pos, &reg_dest, &mem_disp)) {
+			// no hit in window : can't continue.
+			return;
+		}
+		if ((((mem_disp + 2) != original_memdisp) &&
+			(mem_disp - 2) != original_memdisp) &&
+			(reg_dest != original_regdest)) {
+			// found a movw but wrong destination or wrong base reg : keep looking
+			continue;
+		}
+		if (sh_bt_immload(&imm_temp, buf, movw_pos - MIN(movw_pos, S27_STRAT2_MOVW_MAXDIST), movw_pos, 0)) {
+			key_h = (u16) imm_temp & 0xFFFF;
+			fprintf(dbg_stream, "halfkey 0x%04X\n", (unsigned) key_h);
+			found = 1;
+		}
+		break;
+	}
+
+	if (!found) {
+		fprintf(dbg_stream, "strat2 couldn't find other halfkey\n");
+		return;
+	}
+	u32 key_candidate = (key_h << 16) + key_l;
+	// not sure if we found a s27 or s36 key. Best scenario is finding it in known keysets
+	struct s27_keyfinding *skf = data;
+
+	unsigned keyset = 0;
+	while (known_keys[keyset].s27k != 0) {
+		uint32_t curkey;
+		curkey = known_keys[keyset].s27k;
+
+		if (curkey == key_candidate) {
+			skf->s27_found = 1;
+			*skf->s27k = key_candidate;
+			skf->s27k_pos = movw_pos;
+		}
+		curkey = known_keys[keyset].s36k1;
+		if (curkey == key_candidate) {
+			skf->s36_found = 1;
+			*skf->s36k = key_candidate;
+			skf->s36k_pos = movw_pos;
+		}
+		curkey = known_keys[keyset].s36k2;
+		fprintf(dbg_stream, "strat2 indirectly found a known SID36k2 : 0x%08lX\n", (unsigned long) key_candidate);
+		keyset++;
+	}
 	return;
 }
 
@@ -1343,7 +1457,7 @@ bool find_s27_strat1(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t 
 		//printf("got 1 swapf @ %0lX;\n", patpos + 0UL);
 
 		/* Find xrefs (bsr) to this swapf instance. */
-		find_bsr(buf, patpos, found_bsr_swapf, &skf);
+		find_bsr(buf, patpos, found_strat1_bsr, &skf);
 
 		swapf_cur = patpos + 2;
 
