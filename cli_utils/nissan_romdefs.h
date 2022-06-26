@@ -1,5 +1,5 @@
 /* general information about Nissan ROMs
- * (c) fenugrec 2014-2015
+ * (c) fenugrec 2014-2022
  * GPLv3
  *
  * TODO : merge in nislib.h ?
@@ -108,19 +108,19 @@ struct fidtype_t {
 
 	unsigned features;	//bitmask, see ROM_HAS_* defines above.
 
-	// These fields are offsets relative to the start of struct FID, or ECUREC if ROM_HAS_ECUREC
+	// These fields are offsets relative to the start of struct FID
 	rel_offset	pRAMjump;
 	rel_offset	pRAM_DLAmax;	//end of RAM dl area ? ex ffff8438...DLAmax
 	rel_offset	pRAMinit;	//array of data for ram initialization ? see 8U92A
 
-	// these are ECUREC-relative if ROM_HAS_ECUREC
+	// same idea, but ECUREC-relative if ROM_HAS_ECUREC
 	rel_offset	packs_start;
 	rel_offset	packs_end;	//alt cks bounds
 	rel_offset	pIVT2;		//secondary vector table
 	rel_offset	pROMend;	// == ROMSIZE - 1
 	rel_offset	pECUREC;
 
-	uint32_t IVT2_expected;	//there should be a 1:1 correlation between FID IC and IVT2 location
+	uint32_t IVT2_expected;	// so far, there is a 1:1 correlation between FID cpucode and IVT2 location
 };
 
 extern const struct fidtype_t fidtypes[];

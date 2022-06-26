@@ -1081,6 +1081,7 @@ static bool bt_MOVW_R0_REGDISP(const u8 *buf, u32 startpos, u32 min, u32 *found_
  */
 static void found_strat2_bsr(const u8 *buf, u32 pos, void *data) {
 #define S27_STRAT2_MOVW_MAXDIST	30
+#define S27_STRAT2_IMMLOAD_MAXBT 40
 	assert(buf && data);
 
 	// backtrack and search for a MOV.W R0, @(disp, Rn) 10000001nnnndddd
@@ -1100,7 +1101,7 @@ static void found_strat2_bsr(const u8 *buf, u32 pos, void *data) {
 	// next : find value loaded into R0 , this is KEY_L
 	u16 key_l, key_h;
 	u32 imm_temp;
-	if (sh_bt_immload(&imm_temp, buf, movw_pos - MIN(movw_pos, S27_STRAT2_MOVW_MAXDIST), movw_pos, 0)) {
+	if (sh_bt_immload(&imm_temp, buf, movw_pos - MIN(movw_pos, S27_STRAT2_IMMLOAD_MAXBT), movw_pos, 0)) {
 		//probably found a halfkey
 		key_l = (u16) imm_temp & 0xFFFF;
 		fprintf(dbg_stream, "halfkey 0x%04X\n", (unsigned) key_l);
@@ -1126,7 +1127,7 @@ static void found_strat2_bsr(const u8 *buf, u32 pos, void *data) {
 			// found a movw but wrong destination or wrong base reg : keep looking
 			continue;
 		}
-		if (sh_bt_immload(&imm_temp, buf, movw_pos - MIN(movw_pos, S27_STRAT2_MOVW_MAXDIST), movw_pos, 0)) {
+		if (sh_bt_immload(&imm_temp, buf, movw_pos - MIN(movw_pos, S27_STRAT2_IMMLOAD_MAXBT), movw_pos, 0)) {
 			key_h = (u16) imm_temp & 0xFFFF;
 			fprintf(dbg_stream, "halfkey 0x%04X\n", (unsigned) key_h);
 			found = 1;
@@ -1159,7 +1160,9 @@ static void found_strat2_bsr(const u8 *buf, u32 pos, void *data) {
 			skf->s36k_pos = movw_pos;
 		}
 		curkey = known_keys[keyset].s36k2;
-		fprintf(dbg_stream, "strat2 indirectly found a known SID36k2 : 0x%08lX\n", (unsigned long) key_candidate);
+		if (curkey == key_candidate) {
+			fprintf(dbg_stream, "strat2 indirectly found a known SID36k2 : 0x%08lX\n", (unsigned long) key_candidate);
+		}
 		keyset++;
 	}
 	return;
