@@ -1247,7 +1247,7 @@ static void found_strat2_bsr(const u8 *buf, u32 pos, void *data) {
 #define S27_STRAT2_PATLEN 3
 static const uint16_t spf2_pattern[]={0x4529, 0x351c, 0x257a, 0x252a, 0x000b};
 static const uint16_t spf2_mask[]={0xf0ff, 0xf00f, 0xf00f, 0xf00f, 0xffff};
-#define S27_STRAT2_FUNCLEN 0x20	// let's assume the function is always identical. This is distance between function entry and start of pattern
+#define S27_STRAT2_MAX_FUNCLEN 0x30	// max distance between function entry and start of pattern. Typically around 0x22
 
 bool find_s27_strat2(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k) {
 	assert(buf && siz && (siz <= MAX_ROMSIZE) && s27k && s36k);
@@ -1261,25 +1261,43 @@ bool find_s27_strat2(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t 
 
 	rom_offset swapf_cur = 0;
 
-	while ( swapf_cur < siz ) {
-		rom_offset patpos;
+	while ( swapf_cur < (siz - S27_STRAT2_MAX_FUNCLEN)) {
+		u32 patpos;
 		patpos = find_pattern(&buf[swapf_cur], siz - swapf_cur,
 			S27_STRAT2_PATLEN, spf2_pattern, spf2_mask);
 		if (patpos == UINT32_MAX) break;
-		patpos += swapf_cur;	//re-adjust !
+		assert((patpos & 1) == 0);
 
-		fprintf(dbg_stream, "found a likely encrypt() pattern @ %lX\n", (unsigned long) patpos);
-
-		// TODO : backtrack to guess function entry ? for now assume fixed func length
-
-		patpos = MAX(patpos, S27_STRAT2_FUNCLEN);	//clamp
-
-		/* Find xrefs (bsr) to this possible encrypt() instance. */
-		find_bsr(buf, (patpos - S27_STRAT2_FUNCLEN), found_strat2_bsr, &skf);
-
+		patpos += swapf_cur;	//re-adjust to a rom_offset !
 		swapf_cur = patpos + 2;
 
+		// backtrack to guess function entry , by looking for previous RTS opcode.
+		// can't use u16memstr because we want the nearest occurence, not the first
+		rom_offset maybe_entry = patpos;
+		unsigned dist = 0;
+		bool rts_found = 0;
+		while (maybe_entry && (dist <= S27_STRAT2_MAX_FUNCLEN)) {
+			u16 test = reconst_16(&buf[maybe_entry]);
+			if (test == 0x000b) {
+				rts_found = 1;
+				break;
+			}
+			dist += 2;
+			maybe_entry -= 2;
+		}
+
+		if (!rts_found) {
+			fprintf(dbg_stream, "found a weird encrypt() pattern @ %lX\n", (unsigned long) patpos);
+			continue;
+		}
+		rom_offset func_entry = maybe_entry + 4;	//skip over RTS and slot opcode
+
+		fprintf(dbg_stream, "found a likely encrypt() func @ %lX\n", (unsigned long) func_entry);
+
+		/* Find xrefs (bsr) to this possible encrypt() instance. */
+		find_bsr(buf, func_entry, found_strat2_bsr, &skf);
 	}
+
 	if (skf.s27_found && skf.s36_found) {
 		fprintf(dbg_stream, "keys guessed: s27k @ 0x%06lX, s36k1 @ 0x%06lX\n",
 				(unsigned long) skf.s27k_pos, (unsigned long) skf.s36k_pos);
