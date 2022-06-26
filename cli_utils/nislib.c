@@ -1225,18 +1225,81 @@ static void found_bsr_swapf(const u8 *buf, u32 pos, void *data) {
 }
 
 
+/* callback for every bsr encrypt() for second sid27 strategy */
+static void found_strat2_bsr(const u8 *buf, u32 pos, void *data) {
+	//unclear what to do
+	fprintf(dbg_stream, "found a strat2 bsr @ %lX. Look here for sid27 / sid36 keys !\n", (unsigned long) pos);
+	(void) buf;
+	(void) data;
+	return;
+}
 
-/* Strategy :
+/* Second strategy (designed for SH705927) :
+ - find sequence of shlr and xor opcodes targeting the same reg. Example from 6GE2C:
+	0004398c 45 29           shlr16     r5
+	0004398e 35 1c           add        r1,r5
+	00043990 25 7a           xor        r7,r5
+	00043992 25 2a           xor        r2,r5
+	00043994 00 0b           rts
+ * this is part of a short encrypt() function that uses the lower halfkey.
+ */
+
+#define S27_STRAT2_PATLEN 3
+static const uint16_t spf2_pattern[]={0x4529, 0x351c, 0x257a, 0x252a, 0x000b};
+static const uint16_t spf2_mask[]={0xf0ff, 0xf00f, 0xf00f, 0xf00f, 0xffff};
+#define S27_STRAT2_FUNCLEN 0x20	// let's assume the function is always identical. This is distance between function entry and start of pattern
+
+bool find_s27_strat2(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k) {
+	assert(buf && siz && (siz <= MAX_ROMSIZE) && s27k && s36k);
+
+	struct s27_keyfinding skf={0};
+	skf.s27k = s27k;
+	skf.s27_found = 0;
+	skf.s36k = s36k;
+	skf.s36_found = 0;
+	skf.swapf_xrefs = 0;	//xrefs to "encrypt" func ; should be 2, one from each S27 and S36 func
+
+	rom_offset swapf_cur = 0;
+
+	while ( swapf_cur < siz ) {
+		rom_offset patpos;
+		patpos = find_pattern(&buf[swapf_cur], siz - swapf_cur,
+			S27_STRAT2_PATLEN, spf2_pattern, spf2_mask);
+		if (patpos == UINT32_MAX) break;
+		patpos += swapf_cur;	//re-adjust !
+
+		fprintf(dbg_stream, "found a likely encrypt() pattern @ %lX\n", (unsigned long) patpos);
+
+		// TODO : backtrack to guess function entry ? for now assume fixed func length
+
+		patpos = MAX(patpos, S27_STRAT2_FUNCLEN);	//clamp
+
+		/* Find xrefs (bsr) to this possible encrypt() instance. */
+		find_bsr(buf, (patpos - S27_STRAT2_FUNCLEN), found_strat2_bsr, &skf);
+
+		swapf_cur = patpos + 2;
+
+	}
+	if (skf.s27_found && skf.s36_found) {
+		fprintf(dbg_stream, "keys guessed: s27k @ 0x%06lX, s36k1 @ 0x%06lX\n",
+				(unsigned long) skf.s27k_pos, (unsigned long) skf.s36k_pos);
+		return 1;
+	}
+	return 0;
+}
+
+
+/* First strategy to find SID 27 keys :
  - find "swapf" function used by both encr / decryption
  - find xrefs to "swapf" (exactly 2)
- - follow xref (
-*/
+ - follow xref
+ */
 
 #define S27_SPF_PATLEN 5
 static const uint16_t spf_pattern[]={0x6001, 0x6001, 0x2001, 0x000b, 0x2001};
 static const uint16_t spf_mask[]={0xf00f, 0xf00f, 0xf00f, 0xffff, 0xf00f};
 
-bool find_s27_hardcore(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k) {
+bool find_s27_strat1(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k) {
 	uint32_t swapf_cur = 0;
 	//int swapf_instances = 0;
 
@@ -1273,6 +1336,27 @@ bool find_s27_hardcore(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_
 	return 0;
 
 }
+
+/** try to guess SID27 keys using cleverness and gnarly heuristics
+*/
+bool find_s27_hardcore(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k) {
+	assert(buf && siz && (siz <= MAX_ROMSIZE) && s27k && s36k);
+
+	bool found;
+
+	found = find_s27_strat1(buf, siz, s27k, s36k);
+	if (found) {
+		return 1;
+	}
+
+	found = find_s27_strat2(buf, siz, s27k, s36k);
+	if (found) {
+		return 1;
+	}
+
+	return 0;
+}
+
 
 /* unreliable - check if opcode at *buf could be a valid func prologue.
  * for now, accepts :
