@@ -1124,9 +1124,9 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, uint32_t bsr_offs) {
 		unsigned regno;
 		opc = reconst_16(&buf[cur]);
 
-		if (	((opc & 0xFF00) == 0xC100) ||
-			((opc & 0xFF00) == 0x8100)) {
-			// but skip anything related to r15
+		if (	IS_MOVW_R0_GBRREF(opc) ||
+			IS_MOVW_R0_REGDISP(opc)) {
+			// but skip any "r0, @(disp + r15) ops
 			if ((opc & 0xFFF0) == 0x81F0) goto next;
 			regno = 0;
 			u32 rv;
@@ -1137,7 +1137,7 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, uint32_t bsr_offs) {
 				occ += 1;
 			}
 		}
-		if ((opc & 0xF00F) == 0x2001) {
+		if (IS_MOVW_REG_TO_REGREF(opc)) {
 			//"mov.w Rm, @Rn" form. skip if @r15
 			if ((opc & 0xFF00) == 0x2F00) goto next;
 			regno = (opc & 0xF0) >> 4;
