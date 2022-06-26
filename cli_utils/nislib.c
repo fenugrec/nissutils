@@ -897,7 +897,7 @@ uint32_t find_pattern(const uint8_t *buf, uint32_t siz, unsigned patlen,
 	while (hcur < (siz - patlen * 2)) {
 		uint16_t val;
 		val = reconst_16(&buf[hcur + patcur * 2]);
-		if ((val & mask[patcur]) == pat[patcur]) {
+		if ((val & mask[patcur]) == (pat[patcur] & mask[patcur])) {
 			if (patcur == 0) bcur = hcur;
 			patcur += 1;
 			if (patcur == patlen) {
