@@ -156,33 +156,12 @@ bool find_s27k(struct romfile *rf, int *key_idx, bool thorough) {
 	if (!rf) return 0;
 	if (!(rf->buf)) return 0;
 
-	/* first method : search for every known key, it
-	 * seems a limited number of keysets exist.
+	/* first method : search for every known key with u32memstr. Was not very effective.
 	 */
-	#if 0
-	check retval
-	while (known_keys[keyset].s27k != 0) {
-		const uint8_t *keypos;
-		uint32_t curkey;
-		curkey = known_keys[keyset].s27k;
 
-		/* test 1 : search as a contig 32 bit word. Usually works */
-		keypos = u32memstr(rf->buf, rf->siz, curkey);
-		if (keypos != NULL) {
-			long key_offs = keypos - rf->buf;
-			fprintf(dbg_stream, "Keyset %lX found @ 0x%lX !\n", (unsigned long) curkey, (unsigned long) key_offs);
-			return key_offs;
-		}
-
-		keyset += 1;
-	}
-
-
-	/* test 2 : search as two 16bit halves close by
-	 * this is slower so only tried if required. TODO :
-	 * this can replace totally "test 1" actually.
+	/* method 2 : search as two 16bit halves close by;
+	 * this is slower but much better.
 	 */
-	#endif
 
 	keyset = 0;
 	u32 kpl_cur = 0;
