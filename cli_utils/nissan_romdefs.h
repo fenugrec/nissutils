@@ -84,6 +84,15 @@ enum fidtype_ic {
 		FID_MAX,	//dummy delimiter
 };
 
+/** which npkern build is required */
+enum kernel_type {
+	NPK_UNK=0,
+	NPK_7051,
+	NPK_7055_35,
+	NPK_7055_18,
+	NPK_7058,
+	NPK_MAX,
+};
 
 #define ECUREC_LEN	22	// typical (TBD) length of ECUREC string length
 
@@ -103,6 +112,8 @@ struct fidtype_t {
 	enum fidtype_ic fti;
 	uint8_t FIDIC[8];	//such as "SH705507"
 	uint32_t ROMsize;	//in bytes
+	enum kernel_type ktype;
+
 	int	FIDbase_size;	//including bogus fields between MSTCR and RAMF start
 	int	pRAMF_maxdist;	//for some ROMs where the RAMF struct is super far from the FID
 	uint32_t	RAMF_header;	//first member contained in RAMF struct
