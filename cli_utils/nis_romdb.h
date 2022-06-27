@@ -20,6 +20,8 @@
 #include "stypes.h"
 
 
+#define ECUID_LEN 5	//excluding 0-term
+
 /*********** some incomplete decls just as placeholders */
 
 struct s_nis_romdb;
