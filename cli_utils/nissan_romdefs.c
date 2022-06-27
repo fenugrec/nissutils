@@ -8,6 +8,8 @@
 #include "nissan_romdefs.h"
 
 const struct fidtype_t fidtypes[] = {
+	[FID_UNK] = {	.fti = FID_UNK,
+			},
 	[FID705101] = {	.fti = FID705101,
 			.FIDIC = "SH705101",
 			.ROMsize = 256*1024U,
@@ -197,8 +199,6 @@ const struct fidtype_t fidtypes[] = {
 			.pROMend = 4,
 			.pIVT2 = 8,
 			.IVT2_expected = 0x70004,
-			},
-	[FID_UNK] = {	.fti = FID_UNK,
 			},
 };	//fidtypes[]
 

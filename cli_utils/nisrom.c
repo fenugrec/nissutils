@@ -357,7 +357,7 @@ u32 find_fid(struct romfile *rf) {
 	rf->fid_cpu = &rf->buf[sf_offset + offsetof(struct fid_base1_t, cpu)];
 
 	/* determine FID type : iterate through array of known types, matching the CPU string */
-	for (fid_idx = 0; fidtypes[fid_idx].fti != FID_UNK; fid_idx++) {
+	for (fid_idx = 0; fid_idx < FID_MAX; fid_idx++) {
 		if (memcmp(rf->fid_cpu, fidtypes[fid_idx].FIDIC, 8) == 0) {
 			rf->fid_ic = fidtypes[fid_idx].fti;
 			break;
@@ -496,8 +496,11 @@ u32 find_ramf(struct romfile *rf) {
 	const struct fidtype_t *ft;	//helper
 
 	assert(rf);
-	if (rf->fid_ic >= FID_UNK) return -1;
-	if (rf->p_fid == (u32) -1) return -1;
+	if ((rf->fid_ic == FID_UNK) ||
+		(rf->fid_ic >= FID_MAX) ||
+		(rf->p_fid == UINT32_MAX)) {
+		 return -1;
+	}
 
 	rf->p_ramf = rf->p_fid + rf->sfid_size;
 	ft = rf->fidtype;

@@ -66,6 +66,7 @@ struct fid_base1_t {
  * the "enum fidtype_ic" will be used to index in an array of all known fid types.
  */
 enum fidtype_ic {
+		FID_UNK=0,
 		FID705101,
 		FID705415,
 		FID705507,
@@ -80,7 +81,7 @@ enum fidtype_ic {
 		FID7253331,
 		FID7253332,
 		FID7254332,
-		FID_UNK
+		FID_MAX,	//dummy delimiter
 };
 
 
