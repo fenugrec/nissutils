@@ -472,11 +472,14 @@ void checksum_fix(uint8_t *buf, uint32_t siz, uint32_t p_cks, uint32_t p_ckx,
 
  /* Example of a valid IVT : 0000 0104, ffff 7ffc, 0000 0104, ffff 7ffc
  */
-bool check_ivt(const uint8_t *buf) {
+bool check_ivt(const uint8_t *buf, unsigned siz) {
 	uint32_t por_pc, por_sp;
 	uint32_t mr_pc, mr_sp;
 
 	assert(buf);
+	if (siz < IVT_MINSIZE) {
+		return 0;
+	}
 
 	por_pc = reconst_32(buf);
 	por_sp = reconst_32(buf + 4);
@@ -500,8 +503,8 @@ uint32_t find_ivt(const uint8_t *buf, uint32_t siz) {
 	assert(buf && (siz <= MAX_ROMSIZE));
 
 	siz &= ~3;
-	for (offs = 0; siz > 0; siz -= 4, offs += 4) {
-		if (check_ivt(buf + offs)) return offs;
+	for (offs = 0; siz != 0; siz -= 4, offs += 4) {
+		if (check_ivt(buf + offs, siz)) return offs;
 	}
 	return -1;
 }
@@ -1399,12 +1402,12 @@ uint32_t find_calltable(const uint8_t *buf, uint32_t skip, uint32_t siz, unsigne
 
 	cur = skip & ~3;
 	table_start = cur;
-	for (; cur < siz; cur += 4) {
+	for (; cur < (siz - 4); cur += 4) {
 		uint32_t tv;
 
 		//skip IVTs if applicable
 		if ((siz - cur) > FCALLTABLE_IVTSKIP) {
-			if (check_ivt(&buf[cur])) {
+			if (check_ivt(&buf[cur], (siz - cur))) {
 				cur += FCALLTABLE_IVTSKIP;
 				table_start = cur + 4;
 				consec = 0;

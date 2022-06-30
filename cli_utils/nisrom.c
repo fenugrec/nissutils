@@ -567,14 +567,14 @@ u32 find_ramf(struct romfile *rf) {
 	}
 
 	if (rf->p_ivt2 != UINT32_MAX) {
-		if (rf->p_ivt2 >= rf->siz) {
+		if (rf->p_ivt2 >= (rf->siz - IVT_MINSIZE)) {
 			fprintf(dbg_stream, "warning : IVT2 value out of bound, probably due to unusual RAMF structure.\n");
 			rf->p_ivt2 = UINT32_MAX;
 		} else {
 			if (rf->p_ivt2 != ft->IVT2_expected) {
 				fprintf(dbg_stream, "Unexpected IVT2 0x%lX ! Please report this\n", (unsigned long) rf->p_ivt2);
 			}
-			if (!check_ivt(&rf->buf[rf->p_ivt2])) {
+			if (!check_ivt(&rf->buf[rf->p_ivt2], rf->siz - rf->p_ivt2)) {
 				fprintf(dbg_stream, "Unlikely IVT2 location 0x%06lX :\n", (unsigned long) rf->p_ivt2);
 				fprintf(dbg_stream, "%08lX %08lX %08lX %08lX...\n", (unsigned long) reconst_32(&rf->buf[rf->p_ivt2+0]),
 							(unsigned long) reconst_32(&rf->buf[rf->p_ivt2+4]),

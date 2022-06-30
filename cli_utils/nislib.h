@@ -156,6 +156,7 @@ void checksum_fix(uint8_t *buf, uint32_t siz, uint32_t p_cks, uint32_t p_ckx,
 
 /** Verify if a vector table (IVT) is sane.
  * @param ivt : start of vector table
+ * @param siz : bytes in buf[]
  * @return true if it's an IVT.
  *
  * Uses very basic heuristics :
@@ -165,7 +166,9 @@ void checksum_fix(uint8_t *buf, uint32_t siz, uint32_t p_cks, uint32_t p_ckx,
  *
  * Example of a valid IVT : 0000 0104, ffff 7ffc, 0000 0104, ffff 7ffc
  */
-bool check_ivt(const uint8_t *buf);
+bool check_ivt(const uint8_t *buf, unsigned siz);
+
+#define IVT_MINSIZE 0x100	//absolute minimum for a trimmed IVT on 705x
 
 /** find a likely vector table (IVT)
  * @param siz length of *buf, in bytes
