@@ -279,6 +279,37 @@ const struct keyset_t known_keys[] = {
 	{0,0,0}
 	};
 
+const struct keyset_t *find_knownkey(enum KEY_TYPE ktype, u32 candidate) {
+	if ((ktype >= KEY_INVALID) || !candidate) {
+		return NULL;
+	}
+	unsigned idx;
+	for (idx = 0; known_keys[idx].s27k; idx++) {
+		switch (ktype) {
+		case KEY_S27:
+			if (known_keys[idx].s27k == candidate) {
+				return &known_keys[idx];
+			}
+			break;
+		case KEY_S36K1:
+			if (known_keys[idx].s36k1 == candidate) {
+				return &known_keys[idx];
+			}
+			break;
+		case KEY_S36K2:
+			if (known_keys[idx].s36k2 == candidate) {
+				return &known_keys[idx];
+			}
+			break;
+		default:
+			assert(0);
+			break;
+		}
+	}
+	return NULL;
+}
+
+
 /* sum and xor all u32 values in *buf, read with SH endianness */
 void sum32(const uint8_t *buf, u32 siz, uint32_t *sum, uint32_t *xor) {
 	u32 bufcur;
@@ -1031,7 +1062,10 @@ struct s27_keyfinding {
 	uint32_t *s36k;		//where to store the keys found
 };
 
-/* callback for every "bsr swapf" hit */
+/** callback for every "bsr swapf" hit
+ *
+ * @param data is a (struct s27_keyfinding *)
+ */
 static void found_strat1_bsr(const u8 *buf, u32 pos, void *data) {
 	struct s27_keyfinding *skf;
 
@@ -1087,6 +1121,8 @@ static bool bt_MOVW_R0_REGDISP(const u8 *buf, u32 startpos, u32 min, u32 *found_
 }
 
 /** callback for every bsr encrypt() for second sid27 strategy.
+ *
+ * @param data is a (struct s27_keyfinding *)
  *
  * could be either in sid27 or sid36 function, but what seems to be common
  * (6GE2C, EZ11D) is to write both halfkeys to consecutive RAM locations,
@@ -1155,30 +1191,37 @@ static void found_strat2_bsr(const u8 *buf, u32 pos, void *data) {
 		return;
 	}
 	u32 key_candidate = (key_h << 16) + key_l;
-	// not sure if we found a s27 or s36 key. Best scenario is finding it in known keysets
+	if (key_candidate == 0) {
+		//very unlikely, and will break a few lines later
+		return;
+	}
+
+	// not sure if we found a s27 or s36 key. Best scenario is finding it in known keysets.
+	// If any one is successful, assign the other keys too.
 	struct s27_keyfinding *skf = data;
+	const struct keyset_t *keyset;
 
-	unsigned keyset = 0;
-	while (known_keys[keyset].s27k != 0) {
-		uint32_t curkey;
-		curkey = known_keys[keyset].s27k;
+	keyset = find_knownkey(KEY_S27, key_candidate);
+	if (keyset) {
+		skf->s27_found = 1;
+		*skf->s27k = key_candidate;
+		skf->s27k_pos = movw_pos;
+		skf->s36_found = 1;
+		*skf->s36k = keyset->s36k1;
+	}
 
-		if (curkey == key_candidate) {
-			skf->s27_found = 1;
-			*skf->s27k = key_candidate;
-			skf->s27k_pos = movw_pos;
-		}
-		curkey = known_keys[keyset].s36k1;
-		if (curkey == key_candidate) {
-			skf->s36_found = 1;
-			*skf->s36k = key_candidate;
-			skf->s36k_pos = movw_pos;
-		}
-		curkey = known_keys[keyset].s36k2;
-		if (curkey == key_candidate) {
-			fprintf(dbg_stream, "strat2 indirectly found a known SID36k2 : 0x%08lX\n", (unsigned long) key_candidate);
-		}
-		keyset++;
+	keyset = find_knownkey(KEY_S36K1, key_candidate);
+	if (keyset) {
+		skf->s36_found = 1;
+		*skf->s36k = key_candidate;
+		skf->s36k_pos = movw_pos;
+		skf->s27_found = 1;
+		*skf->s27k = keyset->s27k;
+	}
+
+	keyset = find_knownkey(KEY_S36K2, key_candidate);
+	if (keyset) {
+		fprintf(dbg_stream, "strat2 indirectly found a known SID36k2 : 0x%08lX\n", (unsigned long) key_candidate);
 	}
 	return;
 }
@@ -1294,7 +1337,12 @@ bool find_s27_strat1(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t 
 
 }
 
-/** try to guess SID27 keys using cleverness and gnarly heuristics
+/** try to guess SID27 keys using cleverness and gnarly heuristics.
+ *
+ * This can either find a known keyset, or discover new keys.
+ * If a strategy only finds either a s27 or s36 key but is part of a known keyset, it will
+ * also assign the other key. I.e. it's unlikely that one of these methods would produce a value that
+ * is wrong, but coincidentally part of a known keyset.
 */
 bool find_s27_hardcore(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k) {
 	assert(buf && siz && (siz <= MAX_ROMSIZE) && s27k && s36k);

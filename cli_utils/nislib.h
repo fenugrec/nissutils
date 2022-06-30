@@ -10,6 +10,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "stypes.h"
+
 #define ARRAY_SIZE(x)	(sizeof(x) / sizeof((x)[0]))
 
 #define	MIN_ROMSIZE (128*1024UL)	//smallest known ROM is SH7050, 128kB
@@ -79,6 +81,14 @@ uint32_t enc1(uint32_t data, uint32_t scode);
 uint32_t dec1(uint32_t data, uint32_t scode);
 
 /* key stuff */
+
+enum KEY_TYPE {
+	KEY_S27 = 0,	//SID27 key
+	KEY_S36K1,	//SID36 kernel key
+	KEY_S36K2,	//SID36 factory payload key (less useful)
+	KEY_INVALID,
+};
+
 struct keyset_t {
 	uint32_t s27k;
 	uint32_t s36k1;
@@ -87,6 +97,14 @@ struct keyset_t {
 
 extern const struct keyset_t known_keys[];
 
+
+/** try to see if candidate matches one known keyset.
+ *
+ * @param candidate must not be 0
+ *
+ * return NULL if not found
+ */
+const struct keyset_t *find_knownkey(enum KEY_TYPE ktype, u32 candidate);
 
 /** Sum and xor all uint32_t values in *buf, read with SH endianness
  * @param [out] *xor

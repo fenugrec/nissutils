@@ -146,9 +146,14 @@ void close_rom(struct romfile *rf) {
 }
 
 
-/** find sid 27 key
- * @param key_idx : index in known key db
+/** find literal sid 27 key
+ *
+ * @param[out]  key_idx : index in known key db
+ * @param thorough continue search for multiple occurences
+ *
  * @return sets *key_idx if succesful
+ *
+ * this does no code analysis, only looking for two halfkeys stored nearby.
  */
 bool find_s27k(struct romfile *rf, int *key_idx, bool thorough) {
 	int keyset=0;
