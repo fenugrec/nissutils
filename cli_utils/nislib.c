@@ -1132,7 +1132,7 @@ static bool bt_MOVW_R0_REGDISP(const u8 *buf, u32 startpos, u32 min, u32 *found_
  */
 static void found_strat2_bsr(const u8 *buf, u32 pos, void *data) {
 #define S27_STRAT2_MOVW_MAXDIST	30
-#define S27_STRAT2_IMMLOAD_MAXBT 40
+#define S27_STRAT2_IMMLOAD_MAXBT 60
 	assert(buf && data);
 
 	// backtrack and search for a MOV.W R0, @(disp, Rn) 10000001nnnndddd
