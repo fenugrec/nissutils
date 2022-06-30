@@ -398,8 +398,8 @@ int validate_altcks(struct romfile *rf) {
 	u32 altcs_bsize;
 	const uint8_t *pacs, *pacx;
 
-	if (!rf) return -1;
-	if (!(rf->buf)) return -1;
+	assert(rf);
+	assert(rf->buf);
 	if (!(rf->fidtype->features & ROM_HAS_ALTCKS)) return -1;
 
 	if ((rf->p_acstart == UINT32_MAX) ||
@@ -421,7 +421,7 @@ int validate_altcks(struct romfile *rf) {
 			(unsigned long) acs, (unsigned long) acx);
 	pacs = u32memstr(rf->buf, rf->siz, acs);
 	pacx = u32memstr(rf->buf, rf->siz, acx);
-	if (!pacs && !pacx) {
+	if (!pacs || !pacx) {
 		fprintf(dbg_stream, "altcks values not found in ROM, possibly unskipped vals or bad algo\n");
 		return -1;
 	} else {
