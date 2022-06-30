@@ -1131,7 +1131,7 @@ static bool bt_MOVW_R0_REGDISP(const u8 *buf, u32 startpos, u32 min, u32 *found_
  * Can't directly use fs27_bt_stmem() since that is too permissive
  */
 static void found_strat2_bsr(const u8 *buf, u32 pos, void *data) {
-#define S27_STRAT2_MOVW_MAXDIST	30
+#define S27_STRAT2_MOVW_MAXDIST	40
 #define S27_STRAT2_IMMLOAD_MAXBT 60
 	assert(buf && data);
 
