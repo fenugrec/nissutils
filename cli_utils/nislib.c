@@ -821,6 +821,21 @@ int sh_bt_immload(u32 *imm, const uint8_t *buf, uint32_t min, uint32_t start,
 			return 0;
 		}
 
+		// 2d.5) SHLL8 Rn  0100nnnn00011000
+		if (opc == (0x4018 | regno << 8)) {
+			u32 new_bt;
+			start -= 2;
+
+			if (sh_bt_immload(&new_bt, buf, min, start, regno)) {
+				//Suxxess : found literal
+				*imm = new_bt << 8;
+				return 1;
+			}
+			// recurse failed; probably loaded from arglist or some other shit
+			return 0;
+		}
+
+
 		// 2e) add imm8: recurse and add before returning. b'0111nnnniiiiiiii'
 		if ((opc & 0xFF00) == (0x7000 | (regno << 8))) {
 			u32 add_s8;

@@ -188,7 +188,7 @@ bool find_s27_hardcore(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_
  *
  * @return 0 if failed. 32-bit immediate is written to *imm if succesful
  *
- * handles multiple-mov sequences, and "shll", "shll2", "shlr16", "extu.b", "add #imm8",  too.
+ * handles : multiple-mov sequences, shll, shll2, shll8, shlr16, extu.b, add #imm8.
  */
 int sh_bt_immload(uint32_t *imm, const uint8_t *buf, uint32_t min, uint32_t start, unsigned regno);
 
