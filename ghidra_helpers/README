@@ -1,0 +1,27 @@
+Nissan / generic SH-based ROM loader for Ghidra
+
+(c) fenugrec 2022
+GPLv3
+
+This script is mainly designed for Nissan ECU ROMs but can be useful on other ROMs based on one of these :
+- SH7050, SH7051
+- SH7052, SH7054
+- SH7055
+- SH7058
+- SH7059
+- SH72531 (limited)
+- SH72543 (limited)
+
+In "full auto" mode (only works for Nissan ROM dumps), this script will determine the correct CPU and define
+- memory areas
+- interrupt vectors, including split vector tables if applicable
+- IO peripheral registers
+
+In "basic" mode, useful for generic or unknown ROMs, the script will prompt for a device type and define
+- memory areas
+- basic interrupt vectors
+- IO peripheral registers
+
+
+The raw data for vectors and registers are stored in .csv files.
+Feel free to expand or improve this, PR's are more than welcome.
