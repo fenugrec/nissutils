@@ -1,5 +1,4 @@
 vect_label,vect_offs,comment
-Poweron_Reset,0x00000000,RESET
 Illegal_instr,0x00000010,General Illegal instruction int
 Slot_illegal,0x00000018,Slot illegal instruction int
 CPUaddr_error,0x00000024,CPU addr error
@@ -108,3 +107,4 @@ INT_SCI2_RXI2,0x00000284,SCI2_RXI2 interrupt
 INT_SCI2_TXI2,0x00000288,SCI2_TXI2 interrupt
 INT_SCI2_TEI2,0x0000028C,SCI2_TEI2 interrupt
 INT_WDT_ITI,0x00000290,WDT_ITI interrupt
+Poweron_Reset,0x00000000,RESET

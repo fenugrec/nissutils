@@ -1,5 +1,4 @@
 vect_label,vect_offs,comment
-Power_On_Reset(PC),0x00000000,RESET
 Power_On_Reset(SP),0x00000004,RESET
 Manual_Reset(PC),0x00000008,Manual reset
 Manual_Reset(SP),0x0000000C,Manual reset
@@ -155,3 +154,4 @@ INT_HCAN0_OVR,0x00000374,Receive overload warning interrupt
 INT_HCAN0_RM,0x00000378,Receive message interrupt
 INT_HCAN0_SLE,0x0000037c,Mailbox empty interrupt
 INT_WDT_ITI,0x00000380,Watchdog timer interval timer interrupt
+Power_On_Reset(PC),0x00000000,RESET
