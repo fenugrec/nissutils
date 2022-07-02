@@ -105,8 +105,7 @@ def create_one_vector(label, addr, comment):
 	createData(tmp_addr, PointerDataType())
 	setEOLComment(tmp_addr, comment)
 	handler_addr = getDataAt(tmp_addr).getValue()
-	# don't create as Primary label, otherwise the default vector (POR) gets overwritten
-	createLabel(handler_addr, label, 0)
+	createFunction(handler_addr, label)
 
 
 #open vector definitions file and create vector tables
