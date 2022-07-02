@@ -6,11 +6,11 @@
 # Preferably run this immediately after importing the ROM dump, before running auto-analysis or doing any work.
 #
 # TODO : range check before creating mem blocks ? or catch exception ?
-# TODO : fallback option if CPUstring isn't found
 #
 # @category: Nissan
 
-
+import csv
+import os	#for os.path.join
 import collections
 devtype = collections.namedtuple('CPU',['cpustring', 'RAMstart', 'RAMsize', 'IOstart', 'IOsize'])
 
@@ -30,13 +30,29 @@ devlist = [
 
 
 
-fidtype = collections.namedtuple('fidtype', ['fidstring', 'IVT2_addr'])
+fidtype = collections.namedtuple('fidtype', ['fidstring', 'vectlist_file', 'IVT2_addr'])
 
-# Source for this data is nissan_romdefs.c
+# Source for this data is nissan_romdefs.c;
+# the actual vectors are stored in separate files. 7055 and 7058 have identical vector tables
 fidlist = [
-	fidtype("SH705507", None),
-	fidtype("SH705513", 0x1000)
+	fidtype("SH705101", "ivt_7050.csv", None),
+	fidtype("SH705415", "ivt_7052.csv", None),
+	fidtype("SH705507", "ivt_7055.csv", None),
+	fidtype("7058_basic", "ivt_7055.csv", None),	#generic single-IVT variant
+	fidtype("7059_basic", "ivt_7059.csv", None),	#generic single-IVT variant
+	fidtype("SH705513", "ivt_7055.csv", 0x1000),
+	fidtype("SH705519", "ivt_7055.csv", 0x10004),
+	fidtype("SH705520", "ivt_7055.csv", 0x1000),
+	fidtype("SH705821", "ivt_7055.csv", 0x1000),
+	fidtype("SH705822", "ivt_7055.csv", 0x20004),
+	fidtype("SH705823", "ivt_7055.csv", 0x2000),
+	fidtype("SH705828", "ivt_7055.csv", 0x20004),
+	fidtype("SH705927", "ivt_7059.csv", 0x20004),
+	fidtype("S7253331", "ivt_7253.csv", 0x70004),
+	fidtype("S7253332", "ivt_7253.csv", 0x70004),
+	fidtype("S7254332", "ivt_7253.csv", 0x70004),
 	]
+
 
 #create RAM and IO blocks
 def create_memblocks():
@@ -54,7 +70,7 @@ def create_memblocks():
 
 
 
-#find FID CPU string
+#find FID CPU string (or ask user selection if not found), return a fidtype namedtuple
 def find_fid():
 	block = getMemoryBlock(toAddr(0))
 
@@ -65,18 +81,41 @@ def find_fid():
 	#findBytes(toAddr(block.end), toAddr(block.start), bytes("DATABASE"), None)	# 1st arg can't be coerced to ghidra.program.model.address.Address,
 	#findBytes(block.getEnd(), block.getStart(), bytes("DATABASE"), None)	# TypeError: findBytes(): 1st arg can't be coerced to ghidra.program.model.address.Address,
 
+	detected_fidtype = None
 	fid_pos = currentProgram.getMemory().findBytes(block.getEnd(), bytes("DATABASE"), None, 0, monitor)
-	if not fid_pos:
-		print "TODO: manual select"
-		return
-	else:
+	if fid_pos:
 		print "found DATABASE string at", fid_pos
 		#SHxxxxyy string is 13 bytes later. Change my mind
 		cpustring_pos = fid_pos.addNoWrap(13)
 		cpustring = getBytes(cpustring_pos, 8).tostring()
-		#for detected_fidtype in fidlist if detected_fidtype.fidstring == cpustring
+		
 		detected_fidtype = next((x for x in fidlist if x.fidstring == cpustring), None)
-		print "FID type is: ", detected_fidtype.fidstring
+
+	if not detected_fidtype:
+		print "could not determine FID type automatically."
+		detected_fidtype = askChoice("FIDtype selection", "Select CPU code (for int vectors)", fidlist, fidlist[0])
+	print "FID type is: ", detected_fidtype.fidstring
+	return detected_fidtype
+
+
+#open vector definitions file and create vector tables
+def create_vectors(ft):
+	#for some reason the "current directory" for open() is not the script's location.
+	script_location = os.path.dirname(sourceFile.getAbsolutePath())
+	csv_filename = os.path.join(script_location, ft.vectlist_file)
+
+	#### create primary IVT at 0x00000000
+	with open(csv_filename, 'rb') as f:
+		reader = csv.DictReader(f)
+		for row in reader:
+			vect_addr = toAddr(row['vect_offs'])
+
+			# if there's a secondary IVT, truncate the primary IVT to the first 0x100 bytes
+			if ft.IVT2_addr:
+				if vect_addr.getUnsignedOffset() >= 0x100:
+					break
+			setEOLComment(vect_addr, row['comment'])
+			#row['vect_label']
 
 
 def main():
@@ -85,8 +124,8 @@ def main():
 	block.setPermissions(1,0,1)
 	block.setName("ROM")
 
-	create_memblocks()
-	find_fid()
+	#create_memblocks()
+	create_vectors(find_fid())
 	
 
 
