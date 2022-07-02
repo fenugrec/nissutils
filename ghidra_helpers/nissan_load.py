@@ -136,21 +136,17 @@ def create_vectors(ft):
 
 
 def main():
-	# set initial ROM mem block (containing address 0) to readonly
-	block = getMemoryBlock(toAddr(0))
-	block.setPermissions(1,0,1)
-	block.setName("ROM")
+	if askYesNo("Nissan: SH7xxx memory areas", "create + setup memory regions ?"):
+		# set initial ROM mem block (containing address 0) to readonly
+		block = getMemoryBlock(toAddr(0))
+		block.setPermissions(1,0,1)
+		block.setName("ROM")
 
-	#create_memblocks()
-	create_vectors(find_fid())
-	
+		create_memblocks()
 
+	if askYesNo("Nissan: SH7xxx interrupt vectors", "create + setup Interrupt vectors ?"):
+		create_vectors(find_fid())
 
-# Add a comment to the current program
-#minAddress = currentProgram.getMinAddress()
-#listing = currentProgram.getListing()
-#codeUnit = listing.getCodeUnitAt(minAddress)
-#codeUnit.setComment(codeUnit.PLATE_COMMENT, "This is an added comment!")
 
 
 # Report progress to the GUI.  Do this in all script loops!
