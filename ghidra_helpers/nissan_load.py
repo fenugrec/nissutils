@@ -1,7 +1,7 @@
+# Nissan SuperH ROM initializer
+#
 # (c) 2022 fenugrec
 # GPLv3
-#
-# Nissan SuperH ROM initializer
 #
 # Preferably run this immediately after importing the ROM dump, before running auto-analysis or doing any work.
 #

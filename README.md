@@ -1,5 +1,5 @@
 # nissutils
-(c) fenugrec 2015-2020
+(c) fenugrec 2015-2022
 
 **nissutils** is a collection of code and utilities for working with Nissan ECU ROMs from roughly 2000-2017 but newer may also work to some extent.
 
