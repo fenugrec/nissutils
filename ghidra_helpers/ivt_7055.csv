@@ -1,5 +1,4 @@
 vect_label,vect_offs,comment
-Poweron_Reset,0x00000000,RESET
 Manual_Reset,0x00000008,Manual reset
 Illegal_instr,0x00000010,General Illegal instruction int
 Slot_illegal,0x00000018,Slot illegal instruction int
@@ -162,3 +161,4 @@ INT_HCAN1_ERS1,0x00000390,HCAN1_ERS1 interrupt
 INT_HCAN1_OVR1,0x00000394,HCAN1_OVR1 interrupt
 INT_HCAN1_RM1,0x00000398,HCAN1_RM1 interrupt
 INT_HCAN1_SLE1,0x0000039c,HCAN1_SLE1 interrupt
+Poweron_Reset,0x00000000,RESET

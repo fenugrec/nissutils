@@ -98,24 +98,41 @@ def find_fid():
 	return detected_fidtype
 
 
+def create_one_vector(label, addr, comment):
+	tmp_addr = toAddr(addr)
+	from ghidra.program.model.data import PointerDataType
+
+	createData(tmp_addr, PointerDataType())
+	setEOLComment(tmp_addr, comment)
+	handler_addr = getDataAt(tmp_addr).getValue()
+	# don't create as Primary label, otherwise the default vector (POR) gets overwritten
+	createLabel(handler_addr, label, 0)
+
+
 #open vector definitions file and create vector tables
 def create_vectors(ft):
 	#for some reason the "current directory" for open() is not the script's location.
 	script_location = os.path.dirname(sourceFile.getAbsolutePath())
 	csv_filename = os.path.join(script_location, ft.vectlist_file)
 
-	#### create primary IVT at 0x00000000
 	with open(csv_filename, 'rb') as f:
 		reader = csv.DictReader(f)
 		for row in reader:
-			vect_addr = toAddr(row['vect_offs'])
+			vect_addr = int(row['vect_offs'], base=16)
+			vect_label = row['vect_label']
 
-			# if there's a secondary IVT, truncate the primary IVT to the first 0x100 bytes
+			# if there's a secondary IVT:
+			# - create duplicate entries for the first 0x100 bytes
+			# - truncate primary IVT to 0x100
 			if ft.IVT2_addr:
-				if vect_addr.getUnsignedOffset() >= 0x100:
-					break
-			setEOLComment(vect_addr, row['comment'])
-			#row['vect_label']
+				alt_label = "alt_" + vect_label
+				create_one_vector(alt_label, ft.IVT2_addr + vect_addr, row['comment'])
+				if vect_addr < 0x100:
+					create_one_vector(vect_label, vect_addr, row['comment'])
+			else:
+				# if no IVT2 : create complete primary IVT at 0x00000000
+				create_one_vector(vect_label, vect_addr, row['comment'])
+
 
 
 def main():
