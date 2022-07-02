@@ -149,22 +149,43 @@ def create_vectors(devtype_base, ivt2_offset):
 				create_one_vector(vect_label, vect_addr, row['comment'])
 
 
+# define peripheral regs
+def create_ioregs(devtype_base):
+	if not askYesNo("Nissan: SH7xxx IO regs", "create MMIO peripheral registers?"):
+		return
+
+	#for some reason the "current directory" for open() is not the script's location.
+	script_location = os.path.dirname(sourceFile.getAbsolutePath())
+	csv_filename = os.path.join(script_location, devtype_base.regs_csv)
+
+	with open(csv_filename, 'rb') as f:
+		reader = csv.DictReader(f)
+		for row in reader:
+			reg_name = row['reg_name']
+			#print reg_name, row['reg_addr']
+			reg_addr = int(row['reg_addr'], base=16)
+			# create as Primary label
+			createLabel(toAddr(reg_addr), reg_name, 1)
+
 def mode_basic():
 	device_base = askChoice("CPU memory blocks", "Select device type", devlist, devlist[0])
 	create_memblocks(device_base)
 	create_vectors(device_base, None)
+	create_ioregs(device_base)
 
 def mode_semi():
 	fidtype = prompt_fid()
 	devtype_base = get_devicetype(fidtype.cpustring)
 	create_memblocks(devtype_base)
 	create_vectors(devtype_base, fidtype.IVT2_addr)
+	create_ioregs(devtype_base)
 
 def mode_auto():
 	fidtype = find_fid()
 	devtype_base = get_devicetype(fidtype.cpustring)
 	create_memblocks(devtype_base)
 	create_vectors(devtype_base, fidtype.IVT2_addr)
+	create_ioregs(devtype_base)
 
 def main():
 	#Operation modes :
@@ -188,15 +209,6 @@ def main():
 		mode_basic()
 
 
-
-# Report progress to the GUI.  Do this in all script loops!
-#import time
-#monitor.initialize(10)
-#for i in range(10):
-#monitor.checkCanceled() # check to see if the user clicked cancel
-#    time.sleep(1) # pause a bit so we can see progress
-#    monitor.incrementProgress(1) # update the progress
-#    monitor.setMessage("Working on " + str(i)) # update the status message
 
 if __name__ == "__main__":
   main()
