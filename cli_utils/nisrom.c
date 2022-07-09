@@ -25,6 +25,8 @@
 #define DBG_OUTFILE	"nisrom_dbg.log"	//default log file
 #define ERR_PRINTF(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
 
+#define MIN(_a_, _b_) (((_a_) < (_b_) ? (_a_) : (_b_)))
+
 #if (CHAR_BIT != 8)
 #error HAH ! a non-8bit char system. Some of this will not work
 #endif
@@ -170,48 +172,37 @@ bool find_s27k(struct romfile *rf, int *key_idx, bool thorough) {
 	 */
 
 	keyset = 0;
-	u32 kpl_cur = 0;
 	u32 kph_cur = 0;
 	u32 key_offs;
 	int occurences = 0;
 	#define SPLITKEY_MAXDIST	16
 	while (known_keys[keyset].s27k != 0) {
 		const uint8_t *kp_h, *kp_l;
-		int dist;
 		uint32_t curkey;
 		uint16_t ckh, ckl;
 		curkey = known_keys[keyset].s27k;
 		ckh = curkey >> 16;
 		ckl = curkey >> 0;
 
-		/* find a match for both 16 bit halves*/
+		/* find one 16bit half */
 		kp_h = u16memstr(rf->buf + kph_cur, rf->siz - kph_cur, ckh);
-		kp_l = u16memstr(rf->buf + kpl_cur, rf->siz - kpl_cur, ckl);
 		if ((kp_h == NULL) ||
-			(kp_l == NULL)) {
-			//try next keyset
+			((kp_h - rf->buf) & 1)) {
+			// no match, or unaligned : try next keyset
 			kph_cur = 0;
-			kpl_cur = 0;
 			keyset += 1;
 			continue;
 		}
+		u32 kp_h_pos = (kp_h - rf->buf);
 
-		//how far
-		dist = kp_h - kp_l;
-		//if kp_l is misaligned, or too far behind (much lower offset in buf) : find next occurence
-		if ((dist > SPLITKEY_MAXDIST)  ||
-			((kp_l - rf->buf) & 1)) {
-			//dubious match
-			//Find next kp_l, skip current occurence
-			kpl_cur = 2 + kp_l - rf->buf;
-			continue;
-		}
-		//same idea for kp_h
-		if ((dist < -SPLITKEY_MAXDIST) ||
-			((kp_h - rf->buf) & 1)) {
-			//dubious match
-			//Find next kp_h, skip current occurence
-			kph_cur = 2 + kp_h - rf->buf;
+		/* got one half; search for other close by */
+		u32 start_offs = kp_h_pos - MIN(SPLITKEY_MAXDIST, kp_h_pos);	//start a bit before kp_h
+		u32 end_offs = MIN(kp_h_pos + SPLITKEY_MAXDIST, rf->siz - 2);	//don't overflow
+		kp_l = u16memstr(rf->buf + start_offs, end_offs - start_offs, ckl);
+		if ((kp_l == NULL) ||
+			(kp_h - rf->buf) & 1) {
+			// no match, or unaligned : try to find more occurences of kp_h
+			kph_cur = kp_h_pos + 2;
 			continue;
 		}
 
@@ -221,7 +212,6 @@ bool find_s27k(struct romfile *rf, int *key_idx, bool thorough) {
 		occurences += 1;
 		if (thorough) {
 			kph_cur = 0;
-			kpl_cur = 0;
 			keyset += 1;
 			continue;
 		}
