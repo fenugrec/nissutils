@@ -15,6 +15,7 @@
 #include <stdlib.h>	//malloc etc
 
 #include <getopt.h>
+#include "md5/md5.h"	//we could use libmd or a wrapper around windows' CryptAcquireContext() but this is simpler.
 
 #include "nissan_romdefs.h"
 #include "nislib.h"
@@ -686,6 +687,7 @@ enum rom_properties {
 	RP_GUESSED_S36K,
 	RP_EEP_READ_OFFS,
 	RP_EEP_PORT,
+	RP_MD5,
 	RP_MAX,	//not a property, just the end marker
 };
 
@@ -725,6 +727,7 @@ const struct printable_prop props_template[] = {
 	[RP_GUESSED_S36K] = {"s36k", {0}},
 	[RP_EEP_READ_OFFS] = {"&EEPROM_read()", {0}},
 	[RP_EEP_PORT] = {"EEPROM PORT", {0}},
+	[RP_MD5] = {"MD5", {0}},
 	[RP_MAX] = {NULL, {0}},
 };
 
@@ -766,6 +769,22 @@ static void print_human(const struct printable_prop *props) {
 		prop++;
 	}
 	printf("\n");
+}
+
+
+// trimmed version of MD5_End()
+static void render_md5(const u8 digest[MD5_DIGEST_LENGTH], char buf[MD5_DIGEST_STRING_LENGTH]) {
+	static const char hex[] = "0123456789abcdef";
+
+	assert(digest);
+	int i;
+
+	for (i = 0; i < MD5_DIGEST_LENGTH; i++) {
+		buf[i + i] = hex[digest[i] >> 4];
+		buf[i + i + 1] = hex[digest[i] & 0x0f];
+	}
+	buf[i + i] = '\0';
+	return;
 }
 
 /** alloc + fill a new array of properties.
@@ -922,6 +941,17 @@ static struct printable_prop *new_properties(struct romfile *rf) {
 		utstring_printf(&props[RP_EEP_PORT].rendered_value, "0x%08lX",
 						(unsigned long) rf->eep_port);
 	}
+
+	// MD5 digest of ROM
+	MD5_CTX md5c;
+	u8 md5_digest[MD5_DIGEST_LENGTH];
+	char md5_str[MD5_DIGEST_STRING_LENGTH];
+	MD5Init(&md5c);
+	MD5Update(&md5c, rf->buf, rf->siz);
+	MD5Final(md5_digest, &md5c);
+	render_md5(md5_digest, md5_str);
+	utstring_printf(&props[RP_MD5].rendered_value, "%s", md5_str);
+
 	return props;
 }
 
