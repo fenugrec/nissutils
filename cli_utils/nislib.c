@@ -17,12 +17,6 @@
 u32 sh_extsb(u8 val);
 u32 sh_extsw(u16 val);
 
-
-/****** misc stuff */
-#define MIN(_a_, _b_) (((_a_) < (_b_) ? (_a_) : (_b_)))
-#define MAX(_a_, _b_) (((_a_) > (_b_) ? (_a_) : (_b_)))
-
-
 uint32_t reconst_32(const uint8_t *buf) {
 	// ret 4 bytes at *buf with SH endianness
 	// " reconst_4B"
@@ -144,12 +138,21 @@ const uint8_t *u8memstr(const uint8_t *buf, uint32_t buflen, const uint8_t *need
 
 /* manual, aligned search for u16 val */
 const uint8_t *u16memstr(const uint8_t *buf, uint32_t buflen, const uint16_t needle) {
-	buflen &= ~1;
-	assert(buf && buflen);
+	assert(buf && (buflen >= 2));
 
+	//hack , to help compiler : pretend we're searching for a host-endian (could be LE) value that
+	//happens to have the same representation as the needle we're looking for.
+	//e.g. (testval != needle) on a LE host, but now inside the loop we're reading a u16 with
+	//host endianness and comparing it. This saves a few opcodes in the short loop; about 11% faster
+	u16 testval;
+	*((u8 *) &testval + 0) = (u8) (needle >> 8);
+	*((u8 *) &testval + 1) = (u8) (needle & 0xFF);
 	uint32_t cur;
-	for (cur = 0; cur < buflen; cur += 2) {
-		if (reconst_16(&buf[cur]) == needle) return &buf[cur];
+	for (cur = 0; cur <= (buflen - 2); cur += 2) {
+		u16 tmp;
+		memcpy(&tmp, &buf[cur], 2);	//gets optimized out
+		if (tmp == testval) return &buf[cur];
+		//if (reconst_16(&buf[cur]) == needle) return &buf[cur];
 	}
 	return NULL;
 }

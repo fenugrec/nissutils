@@ -12,6 +12,9 @@
 
 #include "stypes.h"
 
+
+#define MIN(_a_, _b_) (((_a_) < (_b_) ? (_a_) : (_b_)))
+#define MAX(_a_, _b_) (((_a_) > (_b_) ? (_a_) : (_b_)))
 #define ARRAY_SIZE(x)	(sizeof(x) / sizeof((x)[0]))
 
 #define	MIN_ROMSIZE (128*1024UL)	//smallest known ROM is SH7050, 128kB
@@ -46,6 +49,7 @@ void write_32b(uint32_t val, uint8_t *buf);
  */
 const uint8_t *u8memstr(const uint8_t *buf, uint32_t buflen, const uint8_t *needle, unsigned nlen);
 
+/** search for a big-endian u16 value. */
 const uint8_t *u16memstr(const uint8_t *buf, uint32_t buflen, const uint16_t needle);
 
 /** same as u16memstr but searches backwards starting at buf[start_pos] */
