@@ -19,7 +19,7 @@ nisguess: nisguess.c nislib.c nislib_shtools.c
 
 nisguess2: nisguess2.c nislib.c nislib_shtools.c
 
-nisrom: nisrom.c nislib.c nislib_shtools.c nissan_romdefs.c md5/md5.c
+nisrom: nisrom.c nislib.c nislib_shtools.c nisrom_keyfinders.c nissan_romdefs.c md5/md5.c
 
 unpackdat: unpackdat.c nislib.c nislib_shtools.c
 

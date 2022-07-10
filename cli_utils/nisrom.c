@@ -1,9 +1,9 @@
-/* (c) fenugrec 2015-2017
+/* (c) fenugrec 2015-2022
  * Gather information about a ROM, from metadata and heuristics
  * GPLv3
  *
- * usage:
- * nisrom <romfile>
+ * show usage:
+ * nisrom -h
  */
 
 #include <assert.h>
@@ -21,6 +21,7 @@
 #include "nissan_romdefs.h"
 #include "nislib.h"
 #include "nislib_shtools.h"
+#include "nisrom_keyfinders.h"
 
 #include "stypes.h"
 
@@ -148,127 +149,6 @@ void close_rom(struct romfile *rf) {
 	}
 	return;
 }
-
-
-#define SPLITKEY_MAXDIST 16
-/** find literal key
- *
- * @param thorough : continue search for multiple occurences
- *
- * @return 1 if ok
- *
- * this does no code analysis, only looking for two halfkeys stored nearby.
- */
-static bool find_key_literal(const u8 *buf, u32 siz, u32 key, bool thorough) {
-	assert(buf && siz);
-
-	u32 kph_cur = 0;
-	int occurences = 0;
-
-	while (kph_cur + 2 < siz) {
-		const uint8_t *kp_h, *kp_l;
-		uint16_t ckh, ckl;
-		ckh = key >> 16;
-		ckl = key >> 0;
-
-		/* find one 16bit half */
-		kp_h = u16memstr(buf + kph_cur, siz - kph_cur, ckh);
-		if (kp_h == NULL) {
-			// no match: abort
-			return 0;
-		}
-		u32 kp_h_pos = (kp_h - buf);
-
-		/* got one half; search for other close by */
-		u32 start_offs = kp_h_pos - MIN(SPLITKEY_MAXDIST, kp_h_pos);	//start a bit before kp_h
-		u32 end_offs = MIN(kp_h_pos + SPLITKEY_MAXDIST, siz - 2);	//don't overflow
-		kp_l = u16memstr(buf + start_offs, end_offs - start_offs, ckl);
-		if (kp_l == NULL) {
-			// no match: try to find more occurences of kp_h.
-			kph_cur = end_offs;
-			continue;
-		}
-
-		fprintf(dbg_stream, "Key %lX found near 0x%lX !\n", (unsigned long) key, (unsigned long) kp_h_pos);
-		occurences += 1;
-		if (thorough) {
-			kph_cur = end_offs;
-			continue;
-		}
-		break;
-
-	}	//while
-
-	if (occurences > 1) {
-		fprintf(dbg_stream, "warning : multiple copies of key found !?\n");
-	}
-	return 1;
-
-}
-
-
-
-/** find literal sid27 and/or sid36 key
- *
- * @param[out]  key_idx : index in known key db
- * @param thorough continue search for multiple occurences
- *
- * @return keyset if found and sets *keyq > KEYQ_UNK.
- *
- * this does no code analysis, only looking for two halfkeys stored nearby.
- */
- const struct keyset_t *find_keys_bruteforce(struct romfile *rf, enum key_quality *keyq, bool thorough) {
-	int keyset=0;
-
-	assert(rf && rf->buf && keyq);
-
-	/* method 1 (removed) : search for every known key with u32memstr. Was not very effective.
-	 */
-
-	/* method 2 : search as two 16bit halves close by;
-	 * this is slower but much better.
-	 */
-
-	keyset = 0;
-	u32 s27k = 0;
-	u32 s36k1 = 0;
-	bool rv;
-
-	while (known_keys[keyset].s27k != 0) {
-		s27k = known_keys[keyset].s27k;
-		rv = find_key_literal(rf->buf, rf->siz, s27k, thorough);
-		if (rv) {
-			*keyq = KEYQ_BRUTE_1;
-			//best scenario : also find matching s36k1
-			s36k1 = known_keys[keyset].s36k1;
-			rv = find_key_literal(rf->buf, rf->siz, s36k1, thorough);
-			if (rv) {
-				fprintf(dbg_stream, "found literal s27 and s36, keyset %lX\n", (unsigned long) s27k);
-				*keyq = KEYQ_BRUTE_BOTH;
-				return &known_keys[keyset];
-			}
-			fprintf(dbg_stream, "found only literal s27, keyset %lX\n", (unsigned long) s27k);
-			return &known_keys[keyset];
-		}
-		keyset += 1;
-	}
-
-	// no s27k found, try s36.
-	while (known_keys[keyset].s36k1 != 0) {
-		s36k1 = known_keys[keyset].s36k1;
-		rv = find_key_literal(rf->buf, rf->siz, s36k1, thorough);
-		if (rv) {
-			fprintf(dbg_stream, "found only literal s36k1, keyset %lX\n", (unsigned long) known_keys[keyset].s27k);
-			*keyq = KEYQ_BRUTE_1;
-			return &known_keys[keyset];
-		}
-	}
-
-	fprintf(dbg_stream, "found no literal keys\n");
-	return NULL;
-}
-
-
 
 /** find offset of LOADER struct if possible, update romfile struct
  * ret -1 if not ok
@@ -954,7 +834,7 @@ static struct printable_prop *new_properties(struct romfile *rf) {
 	} else {
 		// only bruteforce if code analysis failed, since it's much slower
 		const struct keyset_t *tmp_keyset;
-		tmp_keyset = find_keys_bruteforce(rf, &keyq, 0);
+		tmp_keyset = find_keys_bruteforce(rf->buf, rf->siz, &keyq, 0);
 		if (tmp_keyset && (keyq > KEYQ_UNK)) {
 			utstring_printf(&props[RP_KEYSET_QUAL].rendered_value, "%d", keyq);
 			utstring_printf(&props[RP_S27K].rendered_value, "0x%08lX",
