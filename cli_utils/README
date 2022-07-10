@@ -1,11 +1,6 @@
 Some standalone tools to assist with hacking Nissan ECU ROMs.
 If you don't know what these do, you probably don't need them.
 
-Compile with any C compiler. gcc example:
-gcc nisckfix2.c nislib.c -o nisckfix2.exe
-
-etc.
-
 
 Most of these are licensed under GPLv3, which has certain restrictions. Here is a short summary:
 
@@ -16,5 +11,3 @@ Any modifications to or **software including (via compiler) GPL-licensed code** 
 
 
 Commercial uses is possible, but **all code linked with GPL 3.0 source code must be disclosed under a GPL 3.0 compatible license.**
-
-If you find all or parts of **nissutils** useful, please consider a donation. There is no amount too small, every 1$ is appreciated. That is a great way to motivate me to continue adding to, and improving these tools.

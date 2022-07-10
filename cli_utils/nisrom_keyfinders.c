@@ -5,7 +5,6 @@
  */
 
 #include <assert.h>
-#include <stddef.h>	//for offsetof()
 #include <stdint.h>
 #include <stdio.h>
 

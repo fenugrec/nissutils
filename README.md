@@ -16,4 +16,4 @@ Commercial uses is possible, but **all code linked with GPL 3.0 source code must
 
 If you find all or parts of **nissutils** useful, please consider a donation, whatever the amount. That is a great way to motivate me to continue adding to, and improving these tools.
 
-I accept donations through paypal (email me first), or other methods on request @fenugrec @users.sourceforge.net or nisprog @gmail..com
+I accept donations through paypal (email me first), liberapay or other methods on request @fenugrec @users.sourceforge.net or nisprog @gmail..com
