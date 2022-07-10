@@ -8,9 +8,9 @@
 #include <stdio.h>	//for printf(); probably can go away someday
 #include <string.h>
 #include <stdbool.h>
+
 #include "nislib.h"
 #include "nislib_shtools.h"
-#include "nissan_romdefs.h"
 #include "sh_opcodes.h"
 #include "stypes.h"
 

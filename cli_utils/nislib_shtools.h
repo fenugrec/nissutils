@@ -12,9 +12,6 @@
 
 #include "stypes.h"
 
-/* this needs to be valid; debugging output is written to this.*/
-extern FILE *dbg_stream;	//such as as stdout or stderr
-
 
 /************** SH analysis helpers */
 

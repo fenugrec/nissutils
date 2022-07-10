@@ -8,6 +8,7 @@
 
 #include <assert.h>
 #include <limits.h>
+#include <stdbool.h>
 #include <stddef.h>	//for offsetof()
 #include <stdint.h>
 #include <stdio.h>
@@ -15,6 +16,7 @@
 #include <stdlib.h>	//malloc etc
 
 #include <getopt.h>
+
 #include "md5/md5.h"	//we could use libmd or a wrapper around windows' CryptAcquireContext() but this is simpler.
 #include "uthash/utstring.h"
 

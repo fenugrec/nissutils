@@ -5,12 +5,9 @@
  */
 
 #include <assert.h>
-#include <limits.h>
 #include <stddef.h>	//for offsetof()
 #include <stdint.h>
 #include <stdio.h>
-#include <string.h>	//memcmp
-#include <stdlib.h>	//malloc etc
 
 #include "nislib.h"
 #include "nislib_shtools.h"
@@ -19,9 +16,6 @@
 #include "sh_opcodes.h"
 
 #include "stypes.h"
-
-
-#define ERR_PRINTF(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
 
 
 #define SPLITKEY_MAXDIST 16

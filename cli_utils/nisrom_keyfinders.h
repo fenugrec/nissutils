@@ -6,7 +6,6 @@
 #ifndef NISROM_KEYFINDERS_H
 #define NISROM_KEYFINDERS_H
 
-#include <stdio.h>	//just for FILE
 #include <stdint.h>
 #include <stdbool.h>
 

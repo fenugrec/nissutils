@@ -6,8 +6,8 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>	//for printf(); probably can go away someday
-#include <string.h>
 #include <stdbool.h>
+
 #include "nislib.h"
 #include "nislib_shtools.h"
 #include "sh_opcodes.h"
