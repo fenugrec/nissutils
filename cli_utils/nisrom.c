@@ -762,8 +762,11 @@ static void print_csv_header(const struct printable_prop *props) {
 	assert(props);
 	const struct printable_prop *prop = props;
 
+	//print first field separately to avoid extra field separator
+	printf("\"%s\"", prop->csv_name);
+	prop++;
 	while (prop->csv_name != NULL) {
-		printf("\"%s\",", prop->csv_name);
+		printf(",\"%s\"", prop->csv_name);
 		prop++;
 	}
 	printf("\n");
@@ -774,8 +777,10 @@ static void print_csv_values(const struct printable_prop *props) {
 	assert(props);
 	const struct printable_prop *prop = props;
 
+	printf("%s", utstring_body(&prop->rendered_value));
+	prop++;
 	while (prop->csv_name != NULL) {
-		printf("%s,", utstring_body(&prop->rendered_value));
+		printf(",%s", utstring_body(&prop->rendered_value));
 		prop++;
 	}
 	printf("\n");
@@ -1069,6 +1074,15 @@ int main(int argc, char *argv[])
 	/* print headers if possible, regardless of missing args */
 	if (!enable_human && enable_csv_header) {
 		print_csv_header(props_template);
+	}
+
+	// only scenario where filename is not required is if we're just printing csv headers
+	if (!filename) {
+		if (enable_csv_header) {
+			return 0;
+		}
+		ERR_PRINTF("Must specify a file name with these options !\n");
+		return -1;
 	}
 
 	if (open_rom(&rf, filename)) {
