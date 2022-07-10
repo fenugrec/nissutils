@@ -140,10 +140,10 @@ const uint8_t *u8memstr(const uint8_t *buf, uint32_t buflen, const uint8_t *need
 const uint8_t *u16memstr(const uint8_t *buf, uint32_t buflen, const uint16_t needle) {
 	assert(buf && (buflen >= 2));
 
-	//hack , to help compiler : pretend we're searching for a host-endian (could be LE) value that
-	//happens to have the same representation as the needle we're looking for.
-	//e.g. (testval != needle) on a LE host, but now inside the loop we're reading a u16 with
-	//host endianness and comparing it. This saves a few opcodes in the short loop; about 11% faster
+	//hack , to help compiler : pretend we're searching for a host-endian (usually LE) value that
+	//happens to have the same representation as the BE needle we're looking for.
+	//e.g. (testval != needle) on a LE host, but now inside the loop we're comparing testval with a
+	// u16 with host endianness. This saves a few opcodes in the short loop; about 11% faster
 	u16 testval;
 	*((u8 *) &testval + 0) = (u8) (needle >> 8);
 	*((u8 *) &testval + 1) = (u8) (needle & 0xFF);

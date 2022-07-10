@@ -49,7 +49,7 @@ void write_32b(uint32_t val, uint8_t *buf);
  */
 const uint8_t *u8memstr(const uint8_t *buf, uint32_t buflen, const uint8_t *needle, unsigned nlen);
 
-/** search for a big-endian u16 value. */
+/** search for an aligned, big-endian u16 value. */
 const uint8_t *u16memstr(const uint8_t *buf, uint32_t buflen, const uint16_t needle);
 
 /** same as u16memstr but searches backwards starting at buf[start_pos] */

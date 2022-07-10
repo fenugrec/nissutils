@@ -187,9 +187,8 @@ bool find_s27k(struct romfile *rf, int *key_idx, bool thorough) {
 
 		/* find one 16bit half */
 		kp_h = u16memstr(rf->buf + kph_cur, rf->siz - kph_cur, ckh);
-		if ((kp_h == NULL) ||
-			((kp_h - rf->buf) & 1)) {
-			// no match, or unaligned : try next keyset
+		if (kp_h == NULL) {
+			// no match: try next keyset
 			kph_cur = 0;
 			keyset += 1;
 			continue;
@@ -200,9 +199,8 @@ bool find_s27k(struct romfile *rf, int *key_idx, bool thorough) {
 		u32 start_offs = kp_h_pos - MIN(SPLITKEY_MAXDIST, kp_h_pos);	//start a bit before kp_h
 		u32 end_offs = MIN(kp_h_pos + SPLITKEY_MAXDIST, rf->siz - 2);	//don't overflow
 		kp_l = u16memstr(rf->buf + start_offs, end_offs - start_offs, ckl);
-		if ((kp_l == NULL) ||
-			(kp_h_pos & 1)) {
-			// no match, or unaligned : try to find more occurences of kp_h.
+		if (kp_l == NULL) {
+			// no match: try to find more occurences of kp_h.
 			kph_cur = end_offs;
 			continue;
 		}
