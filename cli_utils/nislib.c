@@ -601,7 +601,7 @@ uint32_t find_eepread(const uint8_t *buf, uint32_t siz, uint32_t *real_portreg) 
 			if (pos >= (siz - 2)) break;
 
 			opc = reconst_16(&buf[pos]);
-			if ((opc & 0xF0FF) != 0x400B) continue;
+			if (!IS_JSR(opc)) continue;
 			//printf("found a mov + jsr sequence;");
 			jsr_loc = (pos);
 			found_seq = 1;

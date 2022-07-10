@@ -40,17 +40,6 @@ u32 sh_extsw(u16 val);
 enum opcode_dest {
 	R0 = 0, R15 = 15, GBR, OPC_DEST_OTHER};
 
-/** backtrack inside function (the one with "bsr swapf") to find key constant store-to-mem;
- * this will match
- *	mov.w R0, @(disp, gbr)	[C1 <dd>]
- *	mov.w R0, @(disp, Rn)	[81 <nd>]
- *	mov.w Rm, @Rn	[<2n> <m1>]
- *
- * @return the key if found, 0 otherwise
- */
-uint32_t fs27_bt_stmem(const uint8_t *buf, uint32_t bsr_offs);
-
-
 
 /** backtrack, starting at &buf[starpos], trying to find a MOV.W R0, @(disp, Rn)
 *
