@@ -1172,15 +1172,17 @@ static void found_strat2_bsr(const u8 *buf, u32 pos, void *data) {
 	found = 0;
 	min_pos = movw_pos - MIN(movw_pos, S27_STRAT2_MOVW_MAXDIST);
 	movw_pos = movw_pos - MIN(movw_pos, 2);	//go back 1 opcode
-	while (!found) {
+	while (!found && movw_pos) {
 		if (!bt_MOVW_R0_REGDISP(buf, movw_pos, min_pos, &movw_pos, &reg_dest, &mem_disp)) {
 			// no hit in window : can't continue.
 			return;
 		}
-		if ((((mem_disp + 2) != original_memdisp) &&
-			(mem_disp - 2) != original_memdisp) &&
+		bool correct_destination = ( ((mem_disp + 2) == original_memdisp) ||
+						((mem_disp - 2) == original_memdisp));
+		if ( !correct_destination ||
 			(reg_dest != original_regdest)) {
 			// found a movw but wrong destination or wrong base reg : keep looking
+			movw_pos = movw_pos - MIN(movw_pos, 2);	//go back 1 opcode
 			continue;
 		}
 		if (sh_bt_immload(&imm_temp, buf, movw_pos - MIN(movw_pos, S27_STRAT2_IMMLOAD_MAXBT), movw_pos, 0)) {
