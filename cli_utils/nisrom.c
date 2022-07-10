@@ -794,7 +794,7 @@ static struct printable_prop *new_properties(struct romfile *rf) {
 			}
 		}
 		utstring_printf(&props[RP_IVT2].rendered_value, "0x%lX", (unsigned long) rf->p_ivt2);
-		utstring_printf(&props[RP_IVT2_CONF].rendered_value, "0.%02d", ivt_conf);
+		utstring_printf(&props[RP_IVT2_CONF].rendered_value, "%02d", ivt_conf);
 	}
 
 	if (features & ROM_HAS_STDCKS) {
