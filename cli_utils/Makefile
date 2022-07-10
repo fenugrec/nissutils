@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -std=gnu99 -Wall -Wextra -Wpedantic -O2 -ggdb
+CFLAGS = -std=gnu99 -Wall -Wextra -Wpedantic -O3 -ggdb
 
 TGTLIST = test_ecuidlist nisckfix1 nisckfix2 nisdec1 nisenc1
 TGTLIST += nisguess nisguess2 nisrom unpackdat
