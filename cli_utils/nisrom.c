@@ -210,15 +210,14 @@ static bool find_key_literal(const u8 *buf, u32 siz, u32 key, bool thorough) {
  * @param[out]  key_idx : index in known key db
  * @param thorough continue search for multiple occurences
  *
- * @return key_quality > KEYQ_UNK and sets *key_idx if succesful
+ * @return keyset if found and sets *keyq > KEYQ_UNK.
  *
  * this does no code analysis, only looking for two halfkeys stored nearby.
- * TODO : return confidence / quality value
  */
-enum key_quality find_keys_bruteforce(struct romfile *rf, int *key_idx, bool thorough) {
+ const struct keyset_t *find_keys_bruteforce(struct romfile *rf, enum key_quality *keyq, bool thorough) {
 	int keyset=0;
 
-	assert(rf && rf->buf && key_idx);
+	assert(rf && rf->buf && keyq);
 
 	/* method 1 (removed) : search for every known key with u32memstr. Was not very effective.
 	 */
@@ -236,16 +235,17 @@ enum key_quality find_keys_bruteforce(struct romfile *rf, int *key_idx, bool tho
 		s27k = known_keys[keyset].s27k;
 		rv = find_key_literal(rf->buf, rf->siz, s27k, thorough);
 		if (rv) {
+			*keyq = KEYQ_BRUTE_1;
 			//best scenario : also find matching s36k1
-			*key_idx = keyset;
 			s36k1 = known_keys[keyset].s36k1;
 			rv = find_key_literal(rf->buf, rf->siz, s36k1, thorough);
 			if (rv) {
 				fprintf(dbg_stream, "found literal s27 and s36, keyset %lX\n", (unsigned long) s27k);
-				return KEYQ_BRUTE_BOTH;
+				*keyq = KEYQ_BRUTE_BOTH;
+				return &known_keys[keyset];
 			}
 			fprintf(dbg_stream, "found only literal s27, keyset %lX\n", (unsigned long) s27k);
-			return KEYQ_BRUTE_1;
+			return &known_keys[keyset];
 		}
 		keyset += 1;
 	}
@@ -256,13 +256,13 @@ enum key_quality find_keys_bruteforce(struct romfile *rf, int *key_idx, bool tho
 		rv = find_key_literal(rf->buf, rf->siz, s36k1, thorough);
 		if (rv) {
 			fprintf(dbg_stream, "found only literal s36k1, keyset %lX\n", (unsigned long) known_keys[keyset].s27k);
-			*key_idx = keyset;
-			return KEYQ_BRUTE_1;
+			*keyq = KEYQ_BRUTE_1;
+			return &known_keys[keyset];
 		}
 	}
 
 	fprintf(dbg_stream, "found no literal keys\n");
-	return 0;
+	return NULL;
 }
 
 
@@ -945,14 +945,14 @@ static struct printable_prop *new_properties(struct romfile *rf) {
 		utstring_printf(&props[RP_S36K].rendered_value, "0x%08lX", (unsigned long) s36k);
 	} else {
 		// only bruteforce if code analysis failed, since it's much slower
-		int key_idx;
-		keyq = find_keys_bruteforce(rf, &key_idx, 0);
-		if (keyq > KEYQ_UNK) {
+		const struct keyset_t *tmp_keyset;
+		tmp_keyset = find_keys_bruteforce(rf, &keyq, 0);
+		if (tmp_keyset && (keyq > KEYQ_UNK)) {
 			utstring_printf(&props[RP_KEYSET_QUAL].rendered_value, "%d", keyq);
 			utstring_printf(&props[RP_S27K].rendered_value, "0x%08lX",
-							(unsigned long) known_keys[key_idx].s27k);
+							(unsigned long) tmp_keyset->s27k);
 			utstring_printf(&props[RP_S36K].rendered_value, "0x%08lX",
-							(unsigned long) known_keys[key_idx].s36k1);
+							(unsigned long) tmp_keyset->s36k1);
 		} else {
 			utstring_printf(&props[RP_KEYSET_QUAL].rendered_value, "0");
 		}
