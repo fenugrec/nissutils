@@ -18,7 +18,7 @@
 #include "nis_romdb.h"
 
 #include "libcsv/csv.h"
-#include "uthash.h"
+#include "uthash/uthash.h"
 
 /** private struct to keep track of db data and state */
 struct s_nis_romdb {

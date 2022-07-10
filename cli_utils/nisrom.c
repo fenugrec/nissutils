@@ -16,11 +16,12 @@
 
 #include <getopt.h>
 #include "md5/md5.h"	//we could use libmd or a wrapper around windows' CryptAcquireContext() but this is simpler.
+#include "uthash/utstring.h"
 
 #include "nissan_romdefs.h"
 #include "nislib.h"
 #include "stypes.h"
-#include "utstring.h"
+
 
 #define DBG_OUTFILE	"nisrom_dbg.log"	//default log file
 #define ERR_PRINTF(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
