@@ -25,6 +25,7 @@
 #include <stdlib.h>
 
 #include "nislib.h"
+#include "nislib_shtools.h"
 #include "stypes.h"
 #include "sh_opcodes.h"
 

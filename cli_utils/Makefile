@@ -7,28 +7,28 @@ TGTLIST += findrefs findcallargs test_findcks test_romdb
 
 all: $(TGTLIST)
 
-nisckfix1: nisckfix1.c nislib.c
+nisckfix1: nisckfix1.c nislib.c nislib_shtools.c
 
-nisckfix2: nisckfix2.c nislib.c
+nisckfix2: nisckfix2.c nislib.c nislib_shtools.c
 
-nisdec1: nisdec1.c nislib.c
+nisdec1: nisdec1.c nislib.c nislib_shtools.c
 
-nisenc1: nisenc1.c nislib.c
+nisenc1: nisenc1.c nislib.c nislib_shtools.c
 
-nisguess: nisguess.c nislib.c
+nisguess: nisguess.c nislib.c nislib_shtools.c
 
-nisguess2: nisguess2.c nislib.c
+nisguess2: nisguess2.c nislib.c nislib_shtools.c
 
-nisrom: nisrom.c nislib.c nissan_romdefs.c md5/md5.c
+nisrom: nisrom.c nislib.c nislib_shtools.c nissan_romdefs.c md5/md5.c
 
-unpackdat: unpackdat.c nislib.c
+unpackdat: unpackdat.c nislib.c nislib_shtools.c
 
 test_ecuidlist: test_ecuidlist.c ecuid_list.c
 
-findrefs: findrefs.c nislib.c
+findrefs: findrefs.c nislib.c nislib_shtools.c
 
-findcallargs: findcallargs.c nislib.c
+findcallargs: findcallargs.c nislib.c nislib_shtools.c
 
-test_findcks: test_findcks.c nislib.c
+test_findcks: test_findcks.c nislib.c nislib_shtools.c
 
-test_romdb: test_romdb.c nislib.c nis_romdb.c nissan_romdefs.c libcsv/libcsv.c
+test_romdb: test_romdb.c nislib.c nislib_shtools.c nis_romdb.c nissan_romdefs.c libcsv/libcsv.c

@@ -20,6 +20,8 @@
 
 #include "nissan_romdefs.h"
 #include "nislib.h"
+#include "nislib_shtools.h"
+
 #include "stypes.h"
 
 
