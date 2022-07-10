@@ -171,11 +171,10 @@ const uint8_t *u16memstr_rev(const uint8_t *buf, uint32_t start_pos, const uint1
 
 /* manual, aligned search instead of calling u8memstr; should be faster */
 const uint8_t *u32memstr(const uint8_t *buf, uint32_t buflen, const uint32_t needle) {
-	buflen &= ~3;
-	assert(buf && buflen);
+	assert(buf && (buflen >= 4));
 
 	uint32_t cur;
-	for (cur = 0; cur < buflen; cur += 4) {
+	for (cur = 0; cur <= (buflen - 4); cur += 4) {
 		if (reconst_32(&buf[cur]) == needle) return &buf[cur];
 	}
 	return NULL;
