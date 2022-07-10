@@ -86,11 +86,21 @@ uint32_t dec1(uint32_t data, uint32_t scode);
 
 /* key stuff */
 
-enum KEY_TYPE {
+enum key_type {
 	KEY_S27 = 0,	//SID27 key
 	KEY_S36K1,	//SID36 kernel key
 	KEY_S36K2,	//SID36 factory payload key (less useful)
 	KEY_INVALID,
+};
+
+enum key_quality {
+	KEYQ_UNK = 0,	// totally inconclusive
+	KEYQ_STRAT_1NEW,	// code analysis found one new key : unusable but useful for further analysis
+	KEYQ_STRAT_2NEW,	// code analysis found two new keys, s27 vs s36 not necessarily differentiated.
+	KEYQ_BRUTE_1,	// found one known key literal by exhaustive search
+	KEYQ_BRUTE_BOTH,	//  found known s27+s36 key literals
+	KEYQ_STRAT_1,	// code an. found 1 known key
+	KEYQ_STRAT_BOTH,	// code an. found known s27+s36 keys
 };
 
 struct keyset_t {
@@ -108,7 +118,7 @@ extern const struct keyset_t known_keys[];
  *
  * return NULL if not found
  */
-const struct keyset_t *find_knownkey(enum KEY_TYPE ktype, u32 candidate);
+const struct keyset_t *find_knownkey(enum key_type ktype, u32 candidate);
 
 /** Sum and xor all uint32_t values in *buf, read with SH endianness
  * @param [out] *xor
@@ -195,8 +205,10 @@ uint32_t find_eepread(const uint8_t *buf, uint32_t siz, uint32_t *real_portreg);
 /** try to find sid27 key through code analysis
  * @param s27k : output
  * @param s36k : output
+ *
+ * @return quality > KEYQ_UNK if anything found
  */
-bool find_s27_hardcore(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k);
+enum key_quality find_s27_hardcore(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k);
 
 
 

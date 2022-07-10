@@ -281,7 +281,7 @@ const struct keyset_t known_keys[] = {
 	{0,0,0}
 	};
 
-const struct keyset_t *find_knownkey(enum KEY_TYPE ktype, u32 candidate) {
+const struct keyset_t *find_knownkey(enum key_type ktype, u32 candidate) {
 	if ((ktype >= KEY_INVALID) || !candidate) {
 		return NULL;
 	}
@@ -1204,7 +1204,7 @@ static void found_strat2_bsr(const u8 *buf, u32 pos, void *data) {
 	}
 
 	// not sure if we found a s27 or s36 key. Best scenario is finding it in known keysets.
-	// If any one is successful, assign the other keys too.
+	// Assign the other without setting the _found flag
 	struct s27_keyfinding *skf = data;
 	const struct keyset_t *keyset;
 
@@ -1213,7 +1213,6 @@ static void found_strat2_bsr(const u8 *buf, u32 pos, void *data) {
 		skf->s27_found = 1;
 		*skf->s27k = key_candidate;
 		skf->s27k_pos = movw_pos;
-		skf->s36_found = 1;
 		*skf->s36k = keyset->s36k1;
 	}
 
@@ -1222,7 +1221,6 @@ static void found_strat2_bsr(const u8 *buf, u32 pos, void *data) {
 		skf->s36_found = 1;
 		*skf->s36k = key_candidate;
 		skf->s36k_pos = movw_pos;
-		skf->s27_found = 1;
 		*skf->s27k = keyset->s27k;
 	}
 
@@ -1240,7 +1238,7 @@ static void found_strat2_bsr(const u8 *buf, u32 pos, void *data) {
 	00043990 25 7a           xor        r7,r5
 	00043992 25 2a           xor        r2,r5
 	00043994 00 0b           rts
- * this is part of a short encrypt() function that uses the lower halfkey.
+ * this is part of a short encrypt() function that uses the lower halfkey. Currently does not discover new keysets.
  */
 
 #define S27_STRAT2_PATLEN 3
@@ -1248,7 +1246,7 @@ static const uint16_t spf2_pattern[]={0x4529, 0x351c, 0x257a, 0x252a, 0x000b};
 static const uint16_t spf2_mask[]={0xf0ff, 0xf00f, 0xf00f, 0xf00f, 0xffff};
 #define S27_STRAT2_MAX_FUNCLEN 0x30	// max distance between function entry and start of pattern. Typically around 0x22
 
-bool find_s27_strat2(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k) {
+enum key_quality find_s27_strat2(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k) {
 	assert(buf && siz && (siz <= MAX_ROMSIZE) && s27k && s36k);
 
 	struct s27_keyfinding skf={0};
@@ -1288,11 +1286,21 @@ bool find_s27_strat2(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t 
 	}
 
 	if (skf.s27_found && skf.s36_found) {
-		fprintf(dbg_stream, "keys guessed: s27k @ 0x%06lX, s36k1 @ 0x%06lX\n",
+		fprintf(dbg_stream, "strat2 found known keys @ 0x%06lX, 0x%06lX\n",
 				(unsigned long) skf.s27k_pos, (unsigned long) skf.s36k_pos);
-		return 1;
+		return KEYQ_STRAT_BOTH;
 	}
-	return 0;
+	if (skf.s27_found) {
+		fprintf(dbg_stream, "strat2 found s27k @ 0x%06lX\n",
+				(unsigned long) skf.s27k_pos);
+		return KEYQ_STRAT_1;
+	}
+	if (skf.s36_found) {
+		fprintf(dbg_stream, "strat2 found new s36 @ 0x%06lX\n",
+				(unsigned long) skf.s36k_pos);
+		return KEYQ_STRAT_1;
+	}
+	return KEYQ_UNK;
 }
 
 
@@ -1306,7 +1314,7 @@ bool find_s27_strat2(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t 
 static const uint16_t spf_pattern[]={0x6001, 0x6001, 0x2001, 0x000b, 0x2001};
 static const uint16_t spf_mask[]={0xf00f, 0xf00f, 0xf00f, 0xffff, 0xf00f};
 
-bool find_s27_strat1(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k) {
+enum key_quality find_s27_strat1(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k) {
 	uint32_t swapf_cur = 0;
 	//int swapf_instances = 0;
 
@@ -1335,12 +1343,43 @@ bool find_s27_strat1(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t 
 		swapf_cur = patpos + 2;
 
 	}
-	if (skf.s27_found && skf.s36_found) {
-		fprintf(dbg_stream, "keys guessed: s27k @ 0x%06lX, s36k1 @ 0x%06lX\n",
-				(unsigned long) skf.s27k_pos, (unsigned long) skf.s36k_pos);
-		return 1;
+
+	const struct keyset_t *tmp27 = NULL;
+	const struct keyset_t *tmp36 = NULL;
+	if (skf.s27_found) {
+		tmp27 = find_knownkey(KEY_S27, *s27k);
 	}
-	return 0;
+	if (skf.s36_found) {
+		tmp36 = find_knownkey(KEY_S36K1, *s36k);
+	}
+	if (tmp27 && tmp36) {
+		if (tmp27 != tmp36) {
+			//weird, shouldn't happen
+			fprintf(dbg_stream, "strat1 found mismatched keys !?  %lX @ %lX, %lX @ %lX\n",
+					(unsigned long) *s27k, (unsigned long) skf.s27k_pos,
+					(unsigned long) *s36k, (unsigned long) skf.s36k_pos);
+			return KEYQ_STRAT_1;
+		}
+		fprintf(dbg_stream, "strat1 found full keyset %lX @ %lX\n",
+				(unsigned long) *s27k, (unsigned long) skf.s27k_pos);
+		return KEYQ_STRAT_BOTH;
+	}
+	if (skf.s27_found && skf.s36_found) {
+		fprintf(dbg_stream, "strat1 found new s27k @ 0x%06lX, s36k1 @ 0x%06lX\n",
+				(unsigned long) skf.s27k_pos, (unsigned long) skf.s36k_pos);
+		return KEYQ_STRAT_2NEW;
+	}
+	if (skf.s27_found) {
+		fprintf(dbg_stream, "strat1 found new s27k @ 0x%06lX\n",
+				(unsigned long) skf.s27k_pos);
+		return KEYQ_STRAT_1NEW;
+	}
+	if (skf.s36_found) {
+		fprintf(dbg_stream, "strat1 found new s36 @ 0x%06lX\n",
+				(unsigned long) skf.s36k_pos);
+		return KEYQ_STRAT_1NEW;
+	}
+	return KEYQ_UNK;
 
 }
 
@@ -1351,22 +1390,22 @@ bool find_s27_strat1(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t 
  * also assign the other key. I.e. it's unlikely that one of these methods would produce a value that
  * is wrong, but coincidentally part of a known keyset.
 */
-bool find_s27_hardcore(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k) {
+enum key_quality find_s27_hardcore(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k) {
 	assert(buf && siz && (siz <= MAX_ROMSIZE) && s27k && s36k);
 
-	bool found;
+	enum key_quality keyq;
 
-	found = find_s27_strat1(buf, siz, s27k, s36k);
-	if (found) {
-		return 1;
+	keyq = find_s27_strat1(buf, siz, s27k, s36k);
+	if (keyq > KEYQ_UNK) {
+		return keyq;
 	}
 
-	found = find_s27_strat2(buf, siz, s27k, s36k);
-	if (found) {
-		return 1;
+	keyq = find_s27_strat2(buf, siz, s27k, s36k);
+	if (keyq > KEYQ_UNK) {
+		return keyq;
 	}
 
-	return 0;
+	return KEYQ_UNK;
 }
 
 

@@ -210,12 +210,12 @@ static bool find_key_literal(const u8 *buf, u32 siz, u32 key, bool thorough) {
  * @param[out]  key_idx : index in known key db
  * @param thorough continue search for multiple occurences
  *
- * @return sets *key_idx if succesful
+ * @return key_quality > KEYQ_UNK and sets *key_idx if succesful
  *
  * this does no code analysis, only looking for two halfkeys stored nearby.
  * TODO : return confidence / quality value
  */
-bool find_keys_bruteforce(struct romfile *rf, int *key_idx, bool thorough) {
+enum key_quality find_keys_bruteforce(struct romfile *rf, int *key_idx, bool thorough) {
 	int keyset=0;
 
 	assert(rf && rf->buf && key_idx);
@@ -242,10 +242,10 @@ bool find_keys_bruteforce(struct romfile *rf, int *key_idx, bool thorough) {
 			rv = find_key_literal(rf->buf, rf->siz, s36k1, thorough);
 			if (rv) {
 				fprintf(dbg_stream, "found literal s27 and s36, keyset %lX\n", (unsigned long) s27k);
-				return 1;
+				return KEYQ_BRUTE_BOTH;
 			}
 			fprintf(dbg_stream, "found only literal s27, keyset %lX\n", (unsigned long) s27k);
-			return 1;
+			return KEYQ_BRUTE_1;
 		}
 		keyset += 1;
 	}
@@ -257,7 +257,7 @@ bool find_keys_bruteforce(struct romfile *rf, int *key_idx, bool thorough) {
 		if (rv) {
 			fprintf(dbg_stream, "found only literal s36k1, keyset %lX\n", (unsigned long) known_keys[keyset].s27k);
 			*key_idx = keyset;
-			return 1;
+			return KEYQ_BRUTE_1;
 		}
 	}
 
@@ -707,12 +707,9 @@ enum rom_properties {
 	RP_ALT2_X_OFS,
 	RP_ALT2_START,
 	RP_RIPEMD160,
-	RP_KNOWN_KEYSET,
-	RP_KNOWN_S27K,
-	RP_KNOWN_S36K,
-	RP_GUESSED_KEYSET,
-	RP_GUESSED_S27K,
-	RP_GUESSED_S36K,
+	RP_KEYSET_QUAL,
+	RP_S27K,
+	RP_S36K,
 	RP_EEP_READ_OFFS,
 	RP_EEP_PORT,
 	RP_MD5,
@@ -747,12 +744,9 @@ const struct printable_prop props_template[] = {
 	[RP_ALT2_X_OFS] = {"&alt2_x", {0}},
 	[RP_ALT2_START] = {"alt2_start", {0}},
 	[RP_RIPEMD160] = {"RIPEMD160", {0}},
-	[RP_KNOWN_KEYSET] = {"known keyset", {0}},
-	[RP_KNOWN_S27K] = {"s27k", {0}},
-	[RP_KNOWN_S36K] = {"s36k", {0}},
-	[RP_GUESSED_KEYSET] = {"guessed keyset", {0}},
-	[RP_GUESSED_S27K] = {"s27k", {0}},
-	[RP_GUESSED_S36K] = {"s36k", {0}},
+	[RP_KEYSET_QUAL] = {"keyset quality", {0}},
+	[RP_S27K] = {"s27k", {0}},
+	[RP_S36K] = {"s36k1", {0}},
 	[RP_EEP_READ_OFFS] = {"&EEPROM_read()", {0}},
 	[RP_EEP_PORT] = {"EEPROM PORT", {0}},
 	[RP_MD5] = {"MD5", {0}},
@@ -942,23 +936,26 @@ static struct printable_prop *new_properties(struct romfile *rf) {
 	}
 
 	//known / guessed keysets
-	int key_idx;
-	if (find_keys_bruteforce(rf, &key_idx, 0)) {
-		utstring_printf(&props[RP_KNOWN_KEYSET].rendered_value, "1");
-		utstring_printf(&props[RP_KNOWN_S27K].rendered_value, "0x%08lX",
-						(unsigned long) known_keys[key_idx].s27k);
-		utstring_printf(&props[RP_KNOWN_S36K].rendered_value, "0x%08lX",
-						(unsigned long) known_keys[key_idx].s36k1);
-	} else {
-		utstring_printf(&props[RP_KNOWN_KEYSET].rendered_value, "0");
-	}
+	enum key_quality keyq;
 	uint32_t s27k, s36k;
-	if (find_s27_hardcore(rf->buf, rf->siz, &s27k, &s36k)) {
-		utstring_printf(&props[RP_GUESSED_KEYSET].rendered_value, "1");
-		utstring_printf(&props[RP_GUESSED_S27K].rendered_value, "0x%08lX", (unsigned long) s27k);
-		utstring_printf(&props[RP_GUESSED_S36K].rendered_value, "0x%08lX", (unsigned long) s36k);
+	keyq = find_s27_hardcore(rf->buf, rf->siz, &s27k, &s36k);
+	if (keyq > KEYQ_UNK) {
+		utstring_printf(&props[RP_KEYSET_QUAL].rendered_value, "%d", keyq);
+		utstring_printf(&props[RP_S27K].rendered_value, "0x%08lX", (unsigned long) s27k);
+		utstring_printf(&props[RP_S36K].rendered_value, "0x%08lX", (unsigned long) s36k);
 	} else {
-		utstring_printf(&props[RP_GUESSED_KEYSET].rendered_value, "0");
+		// only bruteforce if code analysis failed, since it's much slower
+		int key_idx;
+		keyq = find_keys_bruteforce(rf, &key_idx, 0);
+		if (keyq > KEYQ_UNK) {
+			utstring_printf(&props[RP_KEYSET_QUAL].rendered_value, "%d", keyq);
+			utstring_printf(&props[RP_S27K].rendered_value, "0x%08lX",
+							(unsigned long) known_keys[key_idx].s27k);
+			utstring_printf(&props[RP_S36K].rendered_value, "0x%08lX",
+							(unsigned long) known_keys[key_idx].s36k1);
+		} else {
+			utstring_printf(&props[RP_KEYSET_QUAL].rendered_value, "0");
+		}
 	}
 
 	// EEPROM info
