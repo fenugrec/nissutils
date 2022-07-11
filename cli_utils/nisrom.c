@@ -297,7 +297,6 @@ u32 find_fid(struct romfile *rf) {
 	const uint8_t loadstr[]="LOADER";
 	const uint8_t *sf;
 	u32 sf_offset;	//offset in file
-	int fid_idx;
 
 	if (!rf) return -1;
 	if (!(rf->buf)) return -1;
@@ -341,19 +340,13 @@ u32 find_fid(struct romfile *rf) {
 	rf->fid_cpu = &rf->buf[sf_offset + offsetof(struct fid_base1_t, cpu)];
 
 	/* determine FID type : iterate through array of known types, matching the CPU string */
-	for (fid_idx = 0; fid_idx < FID_MAX; fid_idx++) {
-		if (memcmp(rf->fid_cpu, fidtypes[fid_idx].FIDIC, 8) == 0) {
-			rf->fid_ic = fidtypes[fid_idx].fti;
-			break;
-		}
-	}
-	rf->fidtype = &fidtypes[rf->fid_ic];	//assign, even if unknown
-
+	rf->fid_ic = get_fidtype(rf->fid_cpu);
 	if (rf->fid_ic == FID_UNK) {
 		fprintf(dbg_stream, "Unknown FID IC type %.8s ! Cannot proceed\n", rf->fid_cpu);
 		return -1;
 	}
 
+	rf->fidtype = &fidtypes[rf->fid_ic];
 	if (rf->siz != (rf->fidtype->ROMsize)) {
 		fprintf(dbg_stream, "Warning : ROM size %u k, expected %u k; possibly incomplete dump\n",
 				rf->siz / 1024, rf->fidtype->ROMsize / 1024);

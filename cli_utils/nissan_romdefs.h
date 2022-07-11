@@ -8,6 +8,8 @@
 
 #include <stdint.h>
 
+#include "stypes.h"
+
 //#define PACK __attribute__((aligned(1),packed))
 
 /* LOADER versions
@@ -95,6 +97,8 @@ enum kernel_type {
 };
 
 #define ECUREC_LEN	22	// typical (TBD) length of ECUREC string length
+#define FIDTYPE_LEN 8	// e.g. "SH705507"
+#define FIDTYPE_STRLEN (FIDTYPE_LEN + 1)	//with 0-term
 
 
 // feature flags to skip certain checks
@@ -110,7 +114,7 @@ typedef int rel_offset;		//offset relative to a certain object in ROM
 
 struct fidtype_t {
 	enum fidtype_ic fti;
-	uint8_t FIDIC[8];	//such as "SH705507"
+	uint8_t FIDIC[FIDTYPE_LEN];	//such as "SH705507", no 0-termination
 	uint32_t ROMsize;	//in bytes
 	enum kernel_type ktype;
 
@@ -137,6 +141,14 @@ struct fidtype_t {
 
 extern const struct fidtype_t fidtypes[];
 
+
+/** find matching fidtype for given CPUstring
+ *
+ * @param cpustring doesn't need to be 0-terminated (e.g. if it points inside a ROM dump)
+ * @return FID_UNK if not found
+ *
+ */
+enum fidtype_ic get_fidtype(const u8 cpustring[FIDTYPE_LEN]);
 
 /* hold data in a single format once the specific structure is parsed,
  * this is not found in any ROM but is useful for comparing metadata

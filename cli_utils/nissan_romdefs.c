@@ -5,6 +5,9 @@
  *
  */
 
+#include <assert.h>
+#include <string.h>
+
 #include "nissan_romdefs.h"
 
 const struct fidtype_t fidtypes[] = {
@@ -216,3 +219,13 @@ const struct fidtype_t fidtypes[] = {
 			},
 };	//fidtypes[]
 
+enum fidtype_ic get_fidtype(const u8 cpustring[FIDTYPE_LEN]) {
+	assert(cpustring);
+	unsigned fid_idx;
+	for (fid_idx = 0; fid_idx < FID_MAX; fid_idx++) {
+		if (memcmp(cpustring, fidtypes[fid_idx].FIDIC, FIDTYPE_LEN) == 0) {
+			return fid_idx;
+		}
+	}
+	return FID_UNK;
+}
