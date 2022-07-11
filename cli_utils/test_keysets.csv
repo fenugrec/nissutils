@@ -1,0 +1,10 @@
+s27k,s36k1,s36k2,notes
+0371AEF4,9AEFAABE,,
+0DF7BF25,F4C70C3F,E9E8A966,
+0E7D44A9,7A4D91C3,,
+0FF9C026,F6C90E40,,
+0x1C07CD33,04D61B4D,F8F6B875,all the following records should fail
+1701C82E,,,missing s36k1
+3l534,0,0,bad s36k1
+3333,unparsable_s36,,
+0x122223333,0,0,u32 overflow
