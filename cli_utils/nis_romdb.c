@@ -85,7 +85,7 @@ static void init_ecuid_rec(struct ecuid_rec *ecr) {
 }
 
 /* header field processing : find special fields, count fields per row */
-static void csv_process_header(void *s, size_t len, void *data) {
+static void csv_ecuid_process_header(void *s, size_t len, void *data) {
 	assert(data);
 	struct csvinfo_ecuid *ci = data;
 
@@ -106,7 +106,7 @@ static void csv_process_header(void *s, size_t len, void *data) {
 }
 
 /** csv callback for end-of-record during header parse */
-static void csv_header_done(int c, void *data) {
+static void csv_ecuid_header_done(int c, void *data) {
 	assert(data);
 	(void) c;
 	struct csvinfo_ecuid *ci = data;
@@ -127,7 +127,7 @@ static void csv_ecuid_field_cb(void *s, size_t len, void *data) {
 
 	struct csvinfo_ecuid *ci = data;
 	if (!ci->header_parsed) {
-		csv_process_header(s, len, data);
+		csv_ecuid_process_header(s, len, data);
 		return;
 	}
 
@@ -172,7 +172,7 @@ static void csv_ecuid_rec_cb(int c, void *data) {
 	}
 
 	if (!ci->header_parsed) {
-		csv_header_done(c, data);
+		csv_ecuid_header_done(c, data);
 		goto recdone_exit;
 	}
 
