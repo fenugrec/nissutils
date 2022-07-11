@@ -27,13 +27,13 @@ int main(int argc, char * argv[]) {
 		return -1;
 	}
 
-	romdb_ecuid_addcsv(romdb, "test.csv");
+	romdb_ecuid_addcsv(romdb, "test_ecuid.csv");
 	enum fidtype_ic fidtype = romdb_q_fidtype(romdb, argv[1]);
 	if (fidtype != FID_UNK) {
 		printf("%d\n", fidtype);
 	}
 
-	romdb_keyset_addcsv(romdb, "keysets.csv");
+	romdb_keyset_addcsv(romdb, "test_keysets.csv");
 
 	romdb_close(romdb);
 	return 0;

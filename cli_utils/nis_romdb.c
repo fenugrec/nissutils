@@ -76,6 +76,7 @@ void romdb_close(nis_romdb *romdb) {
 struct csvinfo_ecuid {
 	struct ecuid_rec **ecuid_table;	//callbacks need access to the hashtable pointer
 
+	unsigned num_recs;	//number of valid records parsed
 	unsigned num_fields;	//to enforce uniform lines
 
 	unsigned idx_ecuid;	//0-based index for the ECUID column
@@ -94,6 +95,7 @@ struct csvinfo_ecuid {
 struct csvinfo_keyset {
 	struct keyset_rec **keyset_table;	//callbacks need access to the hashtable pointer
 
+	unsigned num_recs;	//number of valid records parsed
 	unsigned num_fields;	//to enforce uniform lines
 
 	//0-based indexes for mandatory columns
@@ -260,25 +262,33 @@ static void csv_keyset_field_cb(void *s, size_t len, void *data) {
 		return;
 	}
 
-	unsigned long tmp = 0;
 	if (!len) {
 		//not necessarily an error; s36k2 could be empty
 		goto fastexit;
 	}
+
+	u32 *dest = NULL;
+	if (ci->current_field == ci->idx_s27k) {
+		dest = &ci->current_ks.keyset.s27k;
+	} else if (ci->current_field == ci->idx_s36k1) {
+		dest = &ci->current_ks.keyset.s36k1;
+	} else if (ci->current_field == ci->idx_s36k2) {
+		dest = &ci->current_ks.keyset.s36k2;
+	}
+	if (!dest) {
+		//useless field
+		goto fastexit;
+	}
+
+	unsigned long tmp = 0;
 	int rv = sscanf(s, "%lx", &tmp);
-	if ((rv != 1) || !tmp || (tmp > UINT32_MAX)) {
+	if ((rv != 1) || (tmp > UINT32_MAX)) {
 		printf("can't parse %s\n", (char *) s);
 		ci->parse_error = 1;
 		goto fastexit;
 	}
 
-	if (ci->current_field == ci->idx_s27k) {
-		ci->current_ks.keyset.s27k = tmp;
-	} else if (ci->current_field == ci->idx_s36k1) {
-		ci->current_ks.keyset.s36k1 = tmp;
-	} else if (ci->current_field == ci->idx_s36k2) {
-		ci->current_ks.keyset.s36k2 = tmp;
-	}
+	*dest = (u32) tmp;
 
 fastexit:
 	ci->current_field++;
@@ -312,6 +322,7 @@ static void csv_ecuid_rec_cb(int c, void *data) {
 			}
 			*ecr = ci->current_ecr;
 			HASH_ADD_STR(*ci->ecuid_table, ecuid, ecr);
+			ci->num_recs++;
 		}
 		printf("%s\t%u\t%08lX\n", ecr->ecuid, ecr->fidtype, (unsigned long) ecr->s27k);
 	}
@@ -346,8 +357,9 @@ static void csv_keyset_rec_cb(int c, void *data) {
 			}
 			*ksr = ci->current_ks;
 			HASH_ADD_U32(*ci->keyset_table, keyset.s27k, ksr);
+			ci->num_recs++;
 		}
-		printf("%lX\t%lX\t%lX\n", (unsigned long) ksr->keyset.s27k, (unsigned long) ksr->keyset.s36k1, (unsigned long) ksr->keyset.s36k2);
+		printf("%08lX\t%08lX\t%08lX\n", (unsigned long) ksr->keyset.s27k, (unsigned long) ksr->keyset.s36k1, (unsigned long) ksr->keyset.s36k2);
 	}
 
 recdone_exit:
@@ -416,9 +428,7 @@ bool romdb_ecuid_addcsv(nis_romdb *romdb, const char *fname) {
 		return 0;
 	}
 
-		// TODO : better check result if csv parse errors (bad headers, no records, etc...)
-	printf("parsage done : %u fields, ecuid @ %u, fidtype @ %u, keyset @ %u\n",
-			ci.num_fields, ci.idx_ecuid, ci.idx_fidtype, ci.idx_keyset);
+	printf("ecuid parsage done : added %u records\n", ci.num_recs);
 	return 1;
 }
 
@@ -439,6 +449,7 @@ bool romdb_keyset_addcsv(nis_romdb *romdb, const char *fname) {
 		return 0;
 	}
 
+	printf("keyset parsage done : added %u records\n", ci.num_recs);
 	return 1;
 }
 
