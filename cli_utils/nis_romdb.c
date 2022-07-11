@@ -244,7 +244,6 @@ static void csv_ecuid_field_cb(void *s, size_t len, void *data) {
 				ci->parse_error = 1;
 			} else {
 				ci->current_ecr.s27k = s27k;
-				// TODO : find_keyset
 			}
 		}
 	}
@@ -469,5 +468,17 @@ enum fidtype_ic romdb_q_fidtype(nis_romdb *romdb, const char *ecuid) {
 
 const struct keyset_t *romdb_q_keyset(nis_romdb *romdb, const char *ecuid) {
 	assert(romdb && ecuid);
-	return NULL;
+	struct ecuid_rec *ecr;
+	HASH_FIND_STR(romdb->ecuid_table, ecuid, ecr);
+	if (!ecr) {
+		return NULL;
+	}
+
+	struct keyset_rec *ksr;
+	HASH_FIND_U32(romdb->keyset_table, &ecr->s27k, ksr);
+	if (!ksr) {
+		return NULL;
+	}
+
+	return &ksr->keyset;
 }

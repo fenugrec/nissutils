@@ -27,13 +27,23 @@ int main(int argc, char * argv[]) {
 		return -1;
 	}
 
-	romdb_ecuid_addcsv(romdb, "test_ecuid.csv");
-	enum fidtype_ic fidtype = romdb_q_fidtype(romdb, argv[1]);
-	if (fidtype != FID_UNK) {
-		printf("%d\n", fidtype);
+	if (!romdb_ecuid_addcsv(romdb, "test_ecuid.csv")) {
+		return -1;
+	}
+	if (!romdb_keyset_addcsv(romdb, "test_keysets.csv")) {
+		return -1;
 	}
 
-	romdb_keyset_addcsv(romdb, "test_keysets.csv");
+	enum fidtype_ic fidtype = romdb_q_fidtype(romdb, argv[1]);
+	if (fidtype != FID_UNK) {
+		printf("fidtype query returns %d\n", fidtype);
+	}
+
+	const struct keyset_t *keyset = romdb_q_keyset(romdb, argv[1]);
+	if (keyset) {
+		printf("keyset query returns %08lX,%08lX,%08lX\n",
+				(unsigned long) keyset->s27k, (unsigned long) keyset->s36k1, (unsigned long) keyset->s36k2);
+	}
 
 	romdb_close(romdb);
 	return 0;
