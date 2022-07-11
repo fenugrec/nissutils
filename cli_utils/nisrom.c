@@ -807,14 +807,11 @@ static struct printable_prop *new_properties(struct romfile *rf) {
 
 	u32 fidpos = find_fid(rf);
 	if (fidpos != UINT32_MAX) {
-		const char *sfid;
-		const char *scpu;
-		sfid = (const char *) rf->fid;
-		scpu = (const char *) rf->fid_cpu;
+		const char *scpu = (const char *) rf->fid_cpu;	//shortcut
 		utstring_printf(&props[RP_FID_OFS].rendered_value, "0x%lX", (unsigned long) rf->p_fid);
 		utstring_printf(&props[RP_FID].rendered_value, "\"%.*s\"",
-						(int) sizeof(((struct fid_base1_t *)NULL)->FID), sfid);
-		utstring_printf(&props[RP_FID_CPU].rendered_value, "%.6s", scpu);
+						(int) sizeof(((struct fid_base1_t *)NULL)->FID), (const char *) rf->fid);
+		utstring_printf(&props[RP_FID_CPU].rendered_value, "%.8s", scpu);
 		utstring_printf(&props[RP_FID_CPUCODE].rendered_value, "%.2s", scpu+6);
 	} else {
 		fprintf(dbg_stream, "error: no FID struct ? Cannot continue.\n");
