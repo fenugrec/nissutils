@@ -20,24 +20,31 @@
 #include "libcsv/csv.h"
 #include "uthash/uthash.h"
 
-/** private struct to keep track of db data and state */
-struct s_nis_romdb {
-	// some hash table or csv backend data can go here
-	int a;
-};
-
-
 /** one ECUID 'record' */
 struct ecuid_rec {
-	char ecuid[ECUID_LEN+1];
+	char ecuid[ECUID_STR_LEN];
 	enum fidtype_ic fidtype;
 	u32 s27k;
+	//char md5[MD5_DIGEST_STRING_LENGTH];
+	UT_hash_handle hh;
+};
+
+/** one keyset 'record' */
+struct keyset_rec {
+	struct keyset_t keyset;
 	UT_hash_handle hh;
 };
 
 
+/** opaque struct to keep track of db data and state */
+struct s_nis_romdb {
+	struct ecuid_rec *ecuid_table;
+	struct keyset_rec *keyset_table;
+};
+
+
 nis_romdb *romdb_new(void) {
-	nis_romdb *temp = malloc(sizeof(nis_romdb));
+	nis_romdb *temp = calloc(1, sizeof(nis_romdb));
 	return temp;
 }
 
@@ -47,12 +54,15 @@ nis_romdb *romdb_new(void) {
  */
 void romdb_close(nis_romdb *romdb) {
 	assert(romdb);
+	//TODO : delete hashtables
 	free(romdb);
 }
 
 
 /********** stuff for parsing CSV */
-struct csvinfo {
+
+/** track state while parsing the ecuid db */
+struct csvinfo_ecuid {
 	unsigned num_fields;	//to enforce uniform lines
 
 	unsigned idx_ecuid;	//0-based index for the ECUID column
@@ -77,14 +87,14 @@ static void init_ecuid_rec(struct ecuid_rec *ecr) {
 /* header field processing : find special fields, count fields per row */
 static void csv_process_header(void *s, size_t len, void *data) {
 	assert(data);
-	struct csvinfo *ci = data;
+	struct csvinfo_ecuid *ci = data;
 
 	if (len) {
 		//printf("cb1 #%u, %s \n", ci->num_fields, (const char *)s);
 		if (strncmp("ECUID", s, len) == 0) {
 			ci->idx_ecuid = ci->num_fields;
 		}
-		if (strncmp("FIDtype", s, len) == 0) {
+		if (strncmp("FID CPU", s, len) == 0) {
 			ci->idx_fidtype = ci->num_fields;
 		}
 		if (strncmp("s27k", s, len) == 0) {
@@ -99,7 +109,7 @@ static void csv_process_header(void *s, size_t len, void *data) {
 static void csv_header_done(int c, void *data) {
 	assert(data);
 	(void) c;
-	struct csvinfo *ci = data;
+	struct csvinfo_ecuid *ci = data;
 
 	if (	ci->idx_ecuid == UINT_MAX ||
 			ci->idx_fidtype == UINT_MAX ||
@@ -115,7 +125,7 @@ static void csv_header_done(int c, void *data) {
 static void csv_field_cb(void *s, size_t len, void *data) {
 	assert(data);
 
-	struct csvinfo *ci = data;
+	struct csvinfo_ecuid *ci = data;
 	if (!ci->header_parsed) {
 		csv_process_header(s, len, data);
 		return;
@@ -156,7 +166,7 @@ static void csv_field_cb(void *s, size_t len, void *data) {
 static void csv_rec_done(int c, void *data) {
 	assert(data);
 
-	struct csvinfo *ci = data;
+	struct csvinfo_ecuid *ci = data;
 	if (ci->parse_error) {
 		goto recdone_exit;
 	}
@@ -186,7 +196,7 @@ recdone_exit:
 bool romdb_addcsv(nis_romdb *romdb, const char *fname) {
 	assert(romdb && fname);
 
-	struct csvinfo ci = {0};
+	struct csvinfo_ecuid ci = {0};
 
 	struct csv_parser csvp;
 	if (csv_init(&csvp,
@@ -220,6 +230,7 @@ bool romdb_addcsv(nis_romdb *romdb, const char *fname) {
 		}
 	}
 
+	// TODO : better check result if csv parse errors (bad headers, no records, etc...)
 	printf("parsage done : %u fields, ecuid @ %u, fidtype @ %u, keyset @ %u\n",
 			ci.num_fields, ci.idx_ecuid, ci.idx_fidtype, ci.idx_keyset);
 
