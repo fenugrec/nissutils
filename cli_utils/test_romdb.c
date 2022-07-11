@@ -28,6 +28,10 @@ int main(int argc, char * argv[]) {
 	}
 
 	romdb_ecuid_addcsv(romdb, "test.csv");
+	enum fidtype_ic fidtype = romdb_q_fidtype(romdb, argv[1]);
+	if (fidtype != FID_UNK) {
+		printf("%d\n", fidtype);
+	}
 
 	romdb_close(romdb);
 	return 0;

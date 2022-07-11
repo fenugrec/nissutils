@@ -273,12 +273,17 @@ bool romdb_ecuid_addcsv(nis_romdb *romdb, const char *fname) {
  * the ecuid param must be a u8[5] ; 0-termination optional
  */
 
-enum fidtype_ic romdb_q_fidtype(nis_romdb *romdb, const u8 *ecuid) {
+enum fidtype_ic romdb_q_fidtype(nis_romdb *romdb, const char *ecuid) {
 	assert(romdb && ecuid);
-	return FID_UNK;
+	struct ecuid_rec *ecr;
+	HASH_FIND_STR(romdb->ecuid_table, ecuid, ecr);
+	if (!ecr) {
+		return FID_UNK;
+	}
+	return ecr->fidtype;
 }
 
-const struct keyset_t *romdb_q_keyset(nis_romdb *romdb, const u8 *ecuid) {
+const struct keyset_t *romdb_q_keyset(nis_romdb *romdb, const char *ecuid) {
 	assert(romdb && ecuid);
 	return NULL;
 }

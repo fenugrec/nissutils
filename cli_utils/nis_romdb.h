@@ -59,12 +59,12 @@ bool romdb_ecuid_addcsv(nis_romdb *romdb, const char *fname);
  *
  * @return FID_UNK if ECUID not found
  */
-enum fidtype_ic romdb_q_fidtype(nis_romdb *romdb, const u8 *ecuid);
+enum fidtype_ic romdb_q_fidtype(nis_romdb *romdb, const char *ecuid);
 
 /** get keyset
  *
  * @return NULL if not found
  */
-const struct keyset_t *romdb_q_keyset(nis_romdb *romdb, const u8 *ecuid);
+const struct keyset_t *romdb_q_keyset(nis_romdb *romdb, const char *ecuid);
 
 #endif // NIS_ROMDB_H
