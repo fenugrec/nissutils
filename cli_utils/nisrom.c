@@ -7,6 +7,7 @@
  */
 
 #include <assert.h>
+#include <ctype.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>	//for offsetof()
@@ -24,6 +25,7 @@
 #include "nislib.h"
 #include "nislib_shtools.h"
 #include "nisrom_keyfinders.h"
+#include "nis_romdb.h"
 
 #include "stypes.h"
 
@@ -150,6 +152,69 @@ void close_rom(struct romfile *rf) {
 		rf->buf = NULL;
 	}
 	return;
+}
+
+
+/** try to extract an ECUID from given full filename
+ *
+ * @param [out] ecuid if found, write 5+1 bytes here (includes 0 term)
+ * @param filename can be full abs/rel path, or just filename. Must be 0-terminated
+ *
+ * return 1 if ok
+*/
+static bool ecuid_from_filename(const char *filename, char *ecuid) {
+	// first : search backwards for a fwd/back slash
+	// pathological test cases : "/", "abc"
+	const char *pfile;
+    pfile = filename + strlen(filename);
+    for (; pfile > filename; pfile--) {
+        if ((*pfile == '\\') || (*pfile == '/')) {
+            pfile++;
+            break;
+        }
+    }
+
+    unsigned basename_len = strlen(pfile);
+    if (basename_len < ECUID_LEN) {
+		return 0;
+    }
+
+    // make temp copy because strtok needs a writeable char *
+    char tmp_basename[1 + ECUID_LEN +2] =  {0};	//possible '1' prefix, + separator, + 0-term
+	strncpy(tmp_basename, pfile, ECUID_LEN+2);
+
+    // next : take first "token" of filename as the ECUID
+    char *tok = strtok(tmp_basename, "-_. ");
+    if (!tok) {
+		return 0;
+    }
+    unsigned tok_len = strlen(tok);
+    if ((tok_len != ECUID_LEN) &&
+		(tok_len != (1 + ECUID_LEN))) {
+		return 0;
+    }
+
+    //validate chars and make uppercase : 0-9, a-z, A-Z
+    for (unsigned idx = 0; idx < tok_len; idx++) {
+		if (!isalnum(tok[idx])) {
+			return 0;
+		}
+		tok[idx] = toupper(tok[idx]);
+    }
+
+
+    if ((tok_len == (ECUID_LEN + 1)) &&
+		(tok[0] == '1')) {
+		// 6-char string starting with '1' , e.g. 18U92A
+		memcpy(ecuid, &tok[1], ECUID_STR_LEN);
+		return 1;
+	} else if (tok_len == ECUID_LEN) {
+		//normal ECUID
+		memcpy(ecuid, tok, ECUID_STR_LEN);
+		return 1;
+	}
+
+	return 0;
 }
 
 /** find offset of LOADER struct if possible, update romfile struct
@@ -565,7 +630,8 @@ struct printable_prop {
 };
 
 enum rom_properties {
-	RP_FILE = 0,
+	RP_ECUID = 0,
+	RP_FILE,
 	RP_SIZE,
 	RP_LOADER,
 	RP_LOADER_OFS,
@@ -602,6 +668,7 @@ enum rom_properties {
 };
 
 const struct printable_prop props_template[] = {
+	[RP_ECUID] = {"ECUID", {0}},
 	[RP_FILE] = {"file", {0}},
 	[RP_SIZE] = {"size", {0}},
 	[RP_LOADER] = {"LOADER ##", {0}},
@@ -719,6 +786,11 @@ static struct printable_prop *new_properties(struct romfile *rf) {
 	}
 
 	/* fill in all properties now */
+
+	char ecuid[ECUID_STR_LEN] = {0};
+	if (ecuid_from_filename(rf->filename, ecuid)) {
+		utstring_printf(&props[RP_ECUID].rendered_value, "\"%s\"", ecuid);
+	}
 
 	utstring_printf(&props[RP_FILE].rendered_value, "\"%s\"", rf->filename);
 	utstring_printf(&props[RP_SIZE].rendered_value, "%luk", (unsigned long) rf->siz / 1024);

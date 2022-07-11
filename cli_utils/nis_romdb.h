@@ -21,6 +21,7 @@
 
 
 #define ECUID_LEN 5	//excluding 0-term
+#define ECUID_STR_LEN (ECUID_LEN + 1)	//includes 0-term
 
 /*********** some incomplete decls just as placeholders */
 
