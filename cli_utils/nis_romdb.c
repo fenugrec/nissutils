@@ -122,7 +122,7 @@ static void csv_header_done(int c, void *data) {
 
 
 /** CSV callback for field processing */
-static void csv_field_cb(void *s, size_t len, void *data) {
+static void csv_ecuid_field_cb(void *s, size_t len, void *data) {
 	assert(data);
 
 	struct csvinfo_ecuid *ci = data;
@@ -163,7 +163,7 @@ static void csv_field_cb(void *s, size_t len, void *data) {
 }
 
 /** per-record callback for end-of-record during regular parse */
-static void csv_rec_done(int c, void *data) {
+static void csv_ecuid_rec_cb(int c, void *data) {
 	assert(data);
 
 	struct csvinfo_ecuid *ci = data;
@@ -193,10 +193,10 @@ recdone_exit:
  * @return 1 if ok
  */
 
-bool romdb_addcsv(nis_romdb *romdb, const char *fname) {
-	assert(romdb && fname);
+bool romdb_addcsv_backend(nis_romdb *romdb, const char *fname,
+						void (*field_cb)(void *, size_t, void *), void (*record_cb)(int, void *), void *cbdata) {
 
-	struct csvinfo_ecuid ci = {0};
+	assert(romdb && fname);
 
 	struct csv_parser csvp;
 	if (csv_init(&csvp,
@@ -213,28 +213,17 @@ bool romdb_addcsv(nis_romdb *romdb, const char *fname) {
 
 	rewind(fh);
 
-	//initialize indices to invalid value to identify any missing fields
-	ci.idx_ecuid = UINT_MAX;
-	ci.idx_fidtype = UINT_MAX;
-	ci.idx_keyset = UINT_MAX;
-
 	// parse header and records
 	size_t bytes_read;
 	u8 readbuf[1024];
-	ci.current_field = 0;
-	init_ecuid_rec(&ci.current_ecr);
 	while ((bytes_read=fread(readbuf, 1, sizeof(readbuf), fh)) > 0) {
-		if (csv_parse(&csvp, readbuf, bytes_read, csv_field_cb, csv_rec_done, &ci) != bytes_read) {
+		if (csv_parse(&csvp, readbuf, bytes_read, field_cb, record_cb, cbdata) != bytes_read) {
 			fprintf(stderr, "Error while parsing file: %s\n", csv_strerror(csv_error(&csvp)) );
 			goto badexit;
 		}
 	}
 
-	// TODO : better check result if csv parse errors (bad headers, no records, etc...)
-	printf("parsage done : %u fields, ecuid @ %u, fidtype @ %u, keyset @ %u\n",
-			ci.num_fields, ci.idx_ecuid, ci.idx_fidtype, ci.idx_keyset);
-
-	csv_fini(&csvp, csv_field_cb, csv_rec_done, &ci);
+	csv_fini(&csvp, field_cb, record_cb, cbdata);
 	csv_free(&csvp);
 	return 1;
 
@@ -242,6 +231,28 @@ badexit:
 	csv_free(&csvp);
 	return 0;
 }
+
+bool romdb_ecuid_addcsv(nis_romdb *romdb, const char *fname) {
+	assert(romdb && fname);
+
+	struct csvinfo_ecuid ci = {0};
+		//initialize indices to invalid value to identify any missing fields
+	ci.idx_ecuid = UINT_MAX;
+	ci.idx_fidtype = UINT_MAX;
+	ci.idx_keyset = UINT_MAX;
+	init_ecuid_rec(&ci.current_ecr);
+
+	if (!romdb_addcsv_backend(romdb, fname, csv_ecuid_field_cb, csv_ecuid_rec_cb, &ci)) {
+		//parse error
+		return 0;
+	}
+
+		// TODO : better check result if csv parse errors (bad headers, no records, etc...)
+	printf("parsage done : %u fields, ecuid @ %u, fidtype @ %u, keyset @ %u\n",
+			ci.num_fields, ci.idx_ecuid, ci.idx_fidtype, ci.idx_keyset);
+	return 1;
+}
+
 
 
 /************************** queries for basic fields.

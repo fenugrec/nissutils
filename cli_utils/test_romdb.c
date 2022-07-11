@@ -27,7 +27,7 @@ int main(int argc, char * argv[]) {
 		return -1;
 	}
 
-	romdb_addcsv(romdb, "test.csv");
+	romdb_ecuid_addcsv(romdb, "test.csv");
 
 	romdb_close(romdb);
 	return 0;
