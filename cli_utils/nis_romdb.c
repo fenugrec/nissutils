@@ -141,9 +141,18 @@ static void csv_ecuid_field_cb(void *s, size_t len, void *data) {
 			memcpy(ci->current_ecr.ecuid, s, ECUID_LEN);
 		}
 	} else if (ci->current_field == ci->idx_fidtype) {
-		// TODO : call find_fidtype
-		ci->current_ecr.fidtype = FID705101;
-
+		if (len < FIDTYPE_LEN) {
+			printf("bad FIDTYPE: %s\n", (char *) s);
+			ci->parse_error = 1;
+		} else {
+			enum fidtype_ic fidtype = get_fidtype(s);
+			if (fidtype == FID_UNK) {
+				printf("bad FIDTYPE: %s\n", (char *) s);
+				ci->parse_error = 1;
+			} else {
+				ci->current_ecr.fidtype = fidtype;
+			}
+		}
 	} else if (ci->current_field == ci->idx_keyset) {
 		if (!len) {
 			printf("bad keyset field\n");
