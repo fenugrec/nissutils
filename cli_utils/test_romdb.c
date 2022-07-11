@@ -33,6 +33,8 @@ int main(int argc, char * argv[]) {
 		printf("%d\n", fidtype);
 	}
 
+	romdb_keyset_addcsv(romdb, "keysets.csv");
+
 	romdb_close(romdb);
 	return 0;
 }

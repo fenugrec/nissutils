@@ -47,9 +47,13 @@ void romdb_close(nis_romdb *romdb);
  *
  * @return 1 if ok
  */
-
 bool romdb_ecuid_addcsv(nis_romdb *romdb, const char *fname);
 
+/** append specified CSV file contents to keyset db
+ *
+ * @return 1 if ok
+ */
+bool romdb_keyset_addcsv(nis_romdb *romdb, const char *fname);
 
 /************************** queries for basic fields.
  * the ecuid param must be a u8[5] ; 0-termination optional

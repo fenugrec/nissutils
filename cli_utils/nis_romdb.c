@@ -20,6 +20,17 @@
 #include "libcsv/csv.h"
 #include "uthash/uthash.h"
 
+
+/* some helpers for hashing with a u32 key,
+ * because sizeof(int) could be != 4
+ */
+#define HASH_FIND_U32(head,findint,out)                                          \
+    HASH_FIND(hh,head,findint,sizeof(uint32_t),out)
+#define HASH_ADD_U32(head,intfield,add)                                          \
+    HASH_ADD(hh,head,intfield,sizeof(uint32_t),add)
+
+
+
 /** one ECUID 'record' */
 struct ecuid_rec {
 	char ecuid[ECUID_STR_LEN];
@@ -73,10 +84,30 @@ struct csvinfo_ecuid {
 
 	unsigned current_field;
 	struct ecuid_rec current_ecr;	 //optional, ecr scratch area during parse
-	bool parse_error;	// flag during processing to abort
 
+	bool parse_error;	// flag during processing to abort
 	bool header_parsed;
 };
+
+
+/** track state while parsing the keyset db */
+struct csvinfo_keyset {
+	struct keyset_rec **keyset_table;	//callbacks need access to the hashtable pointer
+
+	unsigned num_fields;	//to enforce uniform lines
+
+	//0-based indexes for mandatory columns
+	unsigned idx_s27k;
+	unsigned idx_s36k1;
+	unsigned idx_s36k2;
+
+	unsigned current_field;
+	struct keyset_rec current_ks;	 //scratch area during parse
+
+	bool parse_error;	// flag during processing to drop current record
+	bool header_parsed;
+};
+
 
 
 /** initialize given struct to safe, invalid values */
@@ -85,6 +116,15 @@ static void init_ecuid_rec(struct ecuid_rec *ecr) {
 	memset(ecr, 0, sizeof(*ecr));
 	ecr->fidtype = FID_UNK;
 }
+
+
+/** initialize given struct to safe, invalid values */
+static void init_keyset_rec(struct keyset_rec *ksr) {
+	assert(ksr);
+	memset(ksr, 0, sizeof(*ksr));
+}
+
+/************************* CSV header processing internal funcs *****************************/
 
 /* header field processing : find special fields, count fields per row */
 static void csv_ecuid_process_header(void *s, size_t len, void *data) {
@@ -107,6 +147,26 @@ static void csv_ecuid_process_header(void *s, size_t len, void *data) {
 	ci->num_fields++;
 }
 
+/* header field processing : find special fields, count fields per row */
+static void csv_keyset_process_header(void *s, size_t len, void *data) {
+	assert(data);
+	struct csvinfo_keyset *ci = data;
+
+	if (len) {
+		if (strncmp("s27k", s, len) == 0) {
+			ci->idx_s27k = ci->num_fields;
+		}
+		if (strncmp("s36k1", s, len) == 0) {
+			ci->idx_s36k1 = ci->num_fields;
+		}
+		if (strncmp("s36k2", s, len) == 0) {
+			ci->idx_s36k2 = ci->num_fields;
+		}
+	}
+
+	ci->num_fields++;
+}
+
 /** csv callback for end-of-record during header parse */
 static void csv_ecuid_header_done(int c, void *data) {
 	assert(data);
@@ -122,6 +182,23 @@ static void csv_ecuid_header_done(int c, void *data) {
 	ci->header_parsed = 1;
 }
 
+/** csv callback for end-of-record during header parse */
+static void csv_keyset_header_done(int c, void *data) {
+	assert(data);
+	(void) c;
+	struct csvinfo_keyset *ci = data;
+
+	if (	ci->idx_s27k == UINT_MAX ||
+			ci->idx_s36k1 == UINT_MAX ||
+			ci->idx_s36k2 == UINT_MAX ) {
+		printf("bad csv header\n");
+		ci->parse_error = 1;
+	}
+	ci->header_parsed = 1;
+}
+
+
+/************************* CSV field processing internal funcs *****************************/
 
 /** CSV callback for field processing */
 static void csv_ecuid_field_cb(void *s, size_t len, void *data) {
@@ -173,6 +250,41 @@ static void csv_ecuid_field_cb(void *s, size_t len, void *data) {
 	ci->current_field++;
 }
 
+/** CSV callback for field processing */
+static void csv_keyset_field_cb(void *s, size_t len, void *data) {
+	assert(data);
+
+	struct csvinfo_keyset *ci = data;
+	if (!ci->header_parsed) {
+		csv_keyset_process_header(s, len, data);
+		return;
+	}
+
+	unsigned long tmp = 0;
+	if (!len) {
+		//not necessarily an error; s36k2 could be empty
+		goto fastexit;
+	}
+	int rv = sscanf(s, "%lx", &tmp);
+	if ((rv != 1) || !tmp || (tmp > UINT32_MAX)) {
+		printf("can't parse %s\n", (char *) s);
+		ci->parse_error = 1;
+		goto fastexit;
+	}
+
+	if (ci->current_field == ci->idx_s27k) {
+		ci->current_ks.keyset.s27k = tmp;
+	} else if (ci->current_field == ci->idx_s36k1) {
+		ci->current_ks.keyset.s36k1 = tmp;
+	} else if (ci->current_field == ci->idx_s36k2) {
+		ci->current_ks.keyset.s36k2 = tmp;
+	}
+
+fastexit:
+	ci->current_field++;
+	return;
+}
+
 /** per-record callback for end-of-record during regular parse */
 static void csv_ecuid_rec_cb(int c, void *data) {
 	assert(data);
@@ -209,12 +321,46 @@ recdone_exit:
 	ci->current_field = 0;
 }
 
+/** per-record callback for end-of-record during regular parse */
+static void csv_keyset_rec_cb(int c, void *data) {
+	assert(data);
+
+	struct csvinfo_keyset *ci = data;
+	if (ci->parse_error) {
+		goto recdone_exit;
+	}
+
+	if (!ci->header_parsed) {
+		csv_keyset_header_done(c, data);
+		goto recdone_exit;
+	}
+
+	if (ci->current_ks.keyset.s27k && ci->current_ks.keyset.s36k1) {
+		// only s27k and s36k1 are mandatory
+		struct keyset_rec *ksr;
+		HASH_FIND_U32(*ci->keyset_table, &ci->current_ks.keyset.s27k, ksr);
+		if (ksr == NULL) {
+			ksr = calloc(1, sizeof(struct keyset_rec));
+			if (!ksr) {
+				return;
+			}
+			*ksr = ci->current_ks;
+			HASH_ADD_U32(*ci->keyset_table, keyset.s27k, ksr);
+		}
+		printf("%lX\t%lX\t%lX\n", (unsigned long) ksr->keyset.s27k, (unsigned long) ksr->keyset.s36k1, (unsigned long) ksr->keyset.s36k2);
+	}
+
+recdone_exit:
+	init_keyset_rec(&ci->current_ks);
+	ci->current_field = 0;
+}
+
 /** append specified CSV file contents to db
  *
  * @return 1 if ok
  */
 
-bool romdb_addcsv_backend(const char *fname,
+static bool romdb_addcsv_backend(const char *fname,
 						void (*field_cb)(void *, size_t, void *), void (*record_cb)(int, void *), void *cbdata) {
 
 	assert(fname && field_cb && record_cb && cbdata);
@@ -276,7 +422,25 @@ bool romdb_ecuid_addcsv(nis_romdb *romdb, const char *fname) {
 	return 1;
 }
 
+bool romdb_keyset_addcsv(nis_romdb *romdb, const char *fname) {
+	assert(romdb && fname);
 
+	struct csvinfo_keyset ci = {0};
+	ci.keyset_table = &romdb->keyset_table;
+
+		//initialize indices to invalid value to identify any missing fields
+	ci.idx_s27k = UINT_MAX;
+	ci.idx_s36k1 = UINT_MAX;
+	ci.idx_s36k2 = UINT_MAX;
+	init_keyset_rec(&ci.current_ks);
+
+	if (!romdb_addcsv_backend(fname, csv_keyset_field_cb, csv_keyset_rec_cb, &ci)) {
+		//parse error
+		return 0;
+	}
+
+	return 1;
+}
 
 /************************** queries for basic fields.
  * the ecuid param must be a u8[5] ; 0-termination optional
