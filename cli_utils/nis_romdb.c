@@ -63,6 +63,8 @@ void romdb_close(nis_romdb *romdb) {
 
 /** track state while parsing the ecuid db */
 struct csvinfo_ecuid {
+	struct ecuid_rec **ecuid_table;	//callbacks need access to the hashtable pointer
+
 	unsigned num_fields;	//to enforce uniform lines
 
 	unsigned idx_ecuid;	//0-based index for the ECUID column
@@ -180,7 +182,17 @@ static void csv_ecuid_rec_cb(int c, void *data) {
 		(ci->current_ecr.fidtype != FID_UNK) &&
 		(ci->current_ecr.s27k)) {
 		//ok, valid contents :add to hashtable
-		printf("%s\t%u\t%08lX\n", ci->current_ecr.ecuid, ci->current_ecr.fidtype, (unsigned long) ci->current_ecr.s27k);
+		struct ecuid_rec *ecr;
+		HASH_FIND_STR(*ci->ecuid_table, ci->current_ecr.ecuid, ecr);
+		if (ecr == NULL) {
+			ecr = calloc(1, sizeof(struct ecuid_rec));
+			if (!ecr) {
+				return;
+			}
+			*ecr = ci->current_ecr;
+			HASH_ADD_STR(*ci->ecuid_table, ecuid, ecr);
+		}
+		printf("%s\t%u\t%08lX\n", ecr->ecuid, ecr->fidtype, (unsigned long) ecr->s27k);
 	}
 
 recdone_exit:
@@ -193,10 +205,10 @@ recdone_exit:
  * @return 1 if ok
  */
 
-bool romdb_addcsv_backend(nis_romdb *romdb, const char *fname,
+bool romdb_addcsv_backend(const char *fname,
 						void (*field_cb)(void *, size_t, void *), void (*record_cb)(int, void *), void *cbdata) {
 
-	assert(romdb && fname);
+	assert(fname && field_cb && record_cb && cbdata);
 
 	struct csv_parser csvp;
 	if (csv_init(&csvp,
@@ -236,13 +248,15 @@ bool romdb_ecuid_addcsv(nis_romdb *romdb, const char *fname) {
 	assert(romdb && fname);
 
 	struct csvinfo_ecuid ci = {0};
+	ci.ecuid_table = &romdb->ecuid_table;
+
 		//initialize indices to invalid value to identify any missing fields
 	ci.idx_ecuid = UINT_MAX;
 	ci.idx_fidtype = UINT_MAX;
 	ci.idx_keyset = UINT_MAX;
 	init_ecuid_rec(&ci.current_ecr);
 
-	if (!romdb_addcsv_backend(romdb, fname, csv_ecuid_field_cb, csv_ecuid_rec_cb, &ci)) {
+	if (!romdb_addcsv_backend(fname, csv_ecuid_field_cb, csv_ecuid_rec_cb, &ci)) {
 		//parse error
 		return 0;
 	}
