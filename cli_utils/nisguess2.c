@@ -127,17 +127,20 @@ int main(int argc, char * argv[]) {
 	// arg 1 : enc'd file
 	if ((efh=fopen(argv[1],"rb"))==NULL) {
 		printf("error opening %s.\n", argv[1]);
-		return 0;
+		return -1;
 	}
 
 	// arg 2 : dec'd file
 	if ((dfh=fopen(argv[2],"rb"))==NULL) {
 		printf("error opening %s.\n", argv[2]);
-		return 0;
+		fclose(efh);
+		return -1;
 	}
 
 	find_key(efh, dfh);
 
+	fclose(efh);
+	fclose(dfh);
 	return 0;
 }
 

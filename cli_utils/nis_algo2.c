@@ -36,8 +36,8 @@ int main(int argc, char * argv[]) {
 	uint8_t bs8[4];	//dummy to force compilation
 	int ki;
 	
-	readinvb(bs8);
 	writeinvb(0, bs8);
+	readinvb(bs8);
 	
 	const uint32_t keytable[]={0x14FA3579, 0x27CD3964, 0x1777FE32, 0x9931AF12,
 		0x75DB3A49, 0x19294CAA, 0x0FF18CD76, 0x788236D,

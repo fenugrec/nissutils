@@ -40,7 +40,10 @@ static void fixck2(FILE *i_file, FILE *o_file,
 		return;
 	}
 
-	if (((pcs + 4)>= file_len) || ((pcx + 4) >= file_len)) return;
+	if (((pcs + 4)>= file_len) || ((pcx + 4) >= file_len)) {
+		free(src);
+		return;
+	}
 	//write 0 at the sum & xor locations, so they won't affect the overall calculation
 	
 	write_32b(0, &src[pcs]);
@@ -53,6 +56,7 @@ static void fixck2(FILE *i_file, FILE *o_file,
 	write_32b(tx, &src[pcx]);
 
 	fwrite(src, 1, file_len, o_file);
+	free(src);
 	return;
 }
 
@@ -93,6 +97,7 @@ int main(int argc, char * argv[]) {
 
 	if ((pcs & 3) || (pcx & 3)) {
 		printf("unaligned stuff\n");
+		fclose(i_file);
 		return 0;
 	}
 

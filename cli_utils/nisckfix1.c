@@ -38,10 +38,14 @@ void fixck1(FILE *i_file, FILE *o_file,
 		return;
 	}
 
-	if ((pcs >= file_len) || (pcx >= file_len) || ((pcorr + 8) >= file_len)) return;
+	if ((pcs >= file_len) || (pcx >= file_len) || ((pcorr + 8) >= file_len)) {
+		free(src);
+		return;
+	}
 
 	checksum_fix(src, file_len, pcs, pcx, pcorr +0, pcorr +4, pcorr +8);
 	fwrite(src, 1, file_len, o_file);
+	free(src);
 	return;
 }
 
@@ -85,6 +89,7 @@ int main(int argc, char * argv[]) {
 	}
 
 	if ((pcs & 3) || (pcx & 3) || (pcorr & 3)) {
+		fclose(i_file);
 		printf("unaligned stuff\n");
 		return 0;
 	}
