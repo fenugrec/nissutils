@@ -1,3 +1,6 @@
+#ifndef NISROM_FINDERS_H
+#define NISROM_FINDERS_H
+
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -28,3 +31,5 @@ uint32_t find_ivt(const uint8_t *buf, uint32_t siz);
  * returns address of eepread() function, otherwise 0 if nothing found
  */
 uint32_t find_eepread(const uint8_t *buf, uint32_t siz, uint32_t *real_portreg);
+
+#endif

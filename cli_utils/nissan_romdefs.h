@@ -6,6 +6,9 @@
  *
  */
 
+#ifndef NISSAN_ROMDEFS_H
+#define NISSAN_ROMDEFS_H
+
 #include <stdint.h>
 
 #include "stypes.h"
@@ -170,3 +173,5 @@ struct rj_preload {
 	uint16_t wdt_portH;	//&PxDR>>16
 	uint16_t wdt_portL;	//&PxDR & 0xFFFF
 };
+
+#endif
