@@ -10,6 +10,8 @@
 #include <stdlib.h>	//malloc etc
 
 #include "nislib.h"
+#include "nislib_shtools.h"
+
 #include "stypes.h"
 
 FILE *dbg_stream;

@@ -61,14 +61,6 @@ const uint8_t *u16memstr_rev(const uint8_t *buf, uint32_t start_pos, const uint1
 const uint8_t *u32memstr(const uint8_t *buf, uint32_t buflen, const uint32_t needle);
 
 
-/** Find opcode pattern... bleh
- * "patlen" is # of opcodes
- *
- * @return (u32) -1 if failed
- */
-uint32_t find_pattern(const uint8_t *buf, uint32_t siz, unsigned patlen,
-			const uint16_t *pat, const uint16_t *mask);
-
 
 /* "security" algorithms */
 
