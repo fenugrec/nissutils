@@ -396,6 +396,7 @@ void findrefs(const u8 *src, u32 siz, u32 base, u32 offs) {
 int main(int argc, char * argv[]) {
 	unsigned long tgt, minbase, base, offs;
 	FILE *i_file = NULL;
+	u8 *src = NULL;
 
 	if ((argc < 3) || (argc > 4)) {
 		printf(	"**** %s\n"
@@ -443,7 +444,7 @@ int main(int argc, char * argv[]) {
 		printf("huge file (length %lu)\n", (unsigned long) file_len);
 	}
 
-	u8 *src = malloc(file_len);
+	src = malloc(file_len);
 	if (!src) {
 		printf("malloc choke\n");
 		goto badexit;
