@@ -66,7 +66,23 @@ nis_romdb *romdb_new(void) {
  */
 void romdb_close(nis_romdb *romdb) {
 	assert(romdb);
-	//TODO : delete hashtables
+
+	if (romdb->ecuid_table) {
+		struct ecuid_rec *ecr, *tmp;
+		HASH_ITER(hh, romdb->ecuid_table, ecr, tmp) {
+			HASH_DEL(romdb->ecuid_table, ecr);
+			free(ecr);             /* optional- if you want to free  */
+		}
+		romdb->ecuid_table = NULL;
+	}
+	if (romdb->keyset_table) {
+		struct keyset_rec *ksr, *tmp;
+		HASH_ITER(hh, romdb->keyset_table, ksr, tmp) {
+			HASH_DEL(romdb->keyset_table, ksr);
+			free(ksr);             /* optional- if you want to free  */
+		}
+		romdb->keyset_table = NULL;
+	}
 	free(romdb);
 }
 
@@ -404,9 +420,13 @@ static bool romdb_addcsv_backend(const char *fname,
 
 	csv_fini(&csvp, field_cb, record_cb, cbdata);
 	csv_free(&csvp);
+	fclose(fh);
 	return 1;
 
 badexit:
+	if (fh) {
+		fclose(fh);
+	}
 	csv_free(&csvp);
 	return 0;
 }
