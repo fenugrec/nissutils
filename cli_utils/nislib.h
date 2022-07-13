@@ -23,6 +23,8 @@
 /* this needs to be valid; debugging output is written to this.*/
 extern FILE *dbg_stream;	//such as as stdout or stderr
 
+#define DBG_PRINTF(fmt, ...) fprintf(dbg_stream, fmt, ##__VA_ARGS__)
+
 /** get file length but restore position */
 uint32_t flen(FILE *hf);
 

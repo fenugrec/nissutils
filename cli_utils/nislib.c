@@ -261,7 +261,7 @@ int checksum_alt2(const uint8_t *buf, uint32_t siz, uint32_t *p_ack_s, uint32_t 
 
 	cks=xort;
 	ckx= sumt - 2*xort;	//cheat !
-	fprintf(dbg_stream, "alt2 sum=0x%0X; xor=0x%0X\n", cks, ckx);
+	DBG_PRINTF("alt2 sum=0x%0X; xor=0x%0X\n", cks, ckx);
 	//try to find cks et ckx in there
 	*p_ack_s = 0;
 	*p_ack_x = 0;
@@ -306,11 +306,11 @@ void checksum_fix(uint8_t *buf, uint32_t siz, uint32_t p_cks, uint32_t p_ckx,
 
 	cks = reconst_32(&buf[p_cks]);
 	ckx = reconst_32(&buf[p_ckx]);
-	fprintf(dbg_stream, "desired cks=%X, ckx=%X\n", cks, ckx);
+	DBG_PRINTF("desired cks=%X, ckx=%X\n", cks, ckx);
 	if ((cks & 1) != (ckx &1)) {
 		//Major problem, since both those bits should *always* match
 		// (bit 0 of an addition is the XOR of all "bit 0"s !! )
-		fprintf(dbg_stream, "Warning : unlikely original checksums; unmatched LSBs\n");
+		DBG_PRINTF("Warning : unlikely original checksums; unmatched LSBs\n");
 	}
 
 	// 1) set correction vals to 0
@@ -325,12 +325,12 @@ void checksum_fix(uint8_t *buf, uint32_t siz, uint32_t p_cks, uint32_t p_ckx,
 	// do not count orig cks and ckx
 	ds = ds - (cks + ckx);
 	dx = dx ^ cks ^ ckx;
-	fprintf(dbg_stream, "actual s=%X, x=%X\n", ds, dx);
+	DBG_PRINTF("actual s=%X, x=%X\n", ds, dx);
 
 	//required corrections :
 	ds = cks - ds;
 	dx = ckx ^ dx;
-	fprintf(dbg_stream, "corrections ds=%X, dx=%X\n", ds, dx);
+	DBG_PRINTF("corrections ds=%X, dx=%X\n", ds, dx);
 	// 3) solve thus :
 	//	- find 'c' such that c ^ dx == 0; easy : c = dx.
 	//	- the new sum correction is now (ds - c)
@@ -343,7 +343,7 @@ void checksum_fix(uint8_t *buf, uint32_t siz, uint32_t p_cks, uint32_t p_ckx,
 	a = b = ds / 2;
 	//aaaand... that's it !?
 
-	fprintf(dbg_stream, "Correction vals a=%X, b=%X, c=%X\n", a,b,c);
+	DBG_PRINTF("Correction vals a=%X, b=%X, c=%X\n", a,b,c);
 	//write correction vals
 	write_32b(a, &buf[p_a]);
 	write_32b(b, &buf[p_b]);
@@ -354,9 +354,9 @@ void checksum_fix(uint8_t *buf, uint32_t siz, uint32_t p_cks, uint32_t p_ckx,
 	ds = ds - (cks + ckx);
 	dx = dx ^ cks ^ ckx;
 	if ((ds == cks) && (dx == ckx)) {
-		fprintf(dbg_stream, "checksum fixed !\n");
+		DBG_PRINTF("checksum fixed !\n");
 	} else {
-		fprintf(dbg_stream, "could not fix checksum !!\n");
+		DBG_PRINTF("could not fix checksum !!\n");
 	}
 
 	return;
