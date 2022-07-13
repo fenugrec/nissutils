@@ -144,7 +144,10 @@ static int open_rom(struct romfile *rf, const char *fname) {
 	return 0;
 }
 
-//close & free whatever
+/** close & free romfile contents
+ *
+ * safe to call multiple times or if nothing is open yet
+ */
 void close_rom(struct romfile *rf) {
 	if (!rf) return;
 	if (rf->buf) {
@@ -1033,9 +1036,8 @@ int main(int argc, char *argv[])
 	}
 
 	if (open_rom(&rf, filename)) {
-		if (dbg_file) fclose(dbg_stream);
 		ERR_PRINTF("Trouble in open_rom()\n");
-		return -1;
+		goto badexit;
 	}
 
 	/* add header to dbg log */
@@ -1043,7 +1045,7 @@ int main(int argc, char *argv[])
 
 	struct printable_prop *props = new_properties(&rf);
 	if (!props) {
-		return -1;
+		goto badexit;
 	}
 
 	if (enable_human) {
@@ -1069,4 +1071,9 @@ int main(int argc, char *argv[])
 	close_rom(&rf);
 	if (dbg_file) fclose(dbg_stream);
 	return 0;
+
+badexit:
+	close_rom(&rf);
+	if (dbg_file) fclose(dbg_stream);
+	return -1;
 }
