@@ -24,6 +24,7 @@
 extern FILE *dbg_stream;	//such as as stdout or stderr
 
 #define DBG_PRINTF(fmt, ...) fprintf(dbg_stream, fmt, ##__VA_ARGS__)
+#define ERR_PRINTF(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
 
 /** get file length but restore position */
 uint32_t flen(FILE *hf);

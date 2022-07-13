@@ -34,8 +34,6 @@
 #define DBG_OUTFILE	"nisrom_dbg.log"	//default log file
 #define KEYSET_CSV "../romdb/keysets.csv"	//default keyset db file
 
-#define ERR_PRINTF(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
-
 #if (CHAR_BIT != 8)
 #error HAH ! a non-8bit char system. Some of this will not work
 #endif
@@ -1088,7 +1086,6 @@ int main(int argc, char *argv[])
 	UT_string csvpath;
 	utstring_init(&csvpath);
 	generate_csv_path(&csvpath, KEYSET_CSV, argv[0]);
-	printf("%s\n", utstring_body(&csvpath));
 
 	if (!romdb_keyset_addcsv(rf.romdb, utstring_body(&csvpath))) {
 		ERR_PRINTF("csv trouble\n");
