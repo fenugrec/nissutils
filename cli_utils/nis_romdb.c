@@ -5,6 +5,7 @@
 
 
 #include <assert.h>
+#include <errno.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -385,7 +386,7 @@ static bool romdb_addcsv_backend(const char *fname,
 	// open file
 	FILE *fh = fopen(fname, "rb");
 	if (!fh) {
-		printf("bad fopen\n");
+		fprintf (stderr, "can't open \"%s\": %s\n", fname, strerror (errno));
 		goto badexit;
 	}
 
@@ -468,6 +469,16 @@ enum fidtype_ic romdb_q_fidtype(nis_romdb *romdb, const char *ecuid) {
 
 const struct keyset_t *romdb_q_keyset(nis_romdb *romdb, const char *ecuid) {
 	assert(romdb && ecuid);
+
+	if (!romdb->ecuid_table) {
+		//no assert for this, since caller can't tell if db exists
+		return NULL;
+	}
+	if (!romdb->keyset_table) {
+		//no assert for this, since caller can't tell if db exists
+		return NULL;
+	}
+
 	struct ecuid_rec *ecr;
 	HASH_FIND_STR(romdb->ecuid_table, ecuid, ecr);
 	if (!ecr) {
