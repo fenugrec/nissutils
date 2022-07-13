@@ -324,7 +324,7 @@ static void csv_ecuid_rec_cb(int c, void *data) {
 			HASH_ADD_STR(*ci->ecuid_table, ecuid, ecr);
 			ci->num_recs++;
 		}
-		printf("%s\t%u\t%08lX\n", ecr->ecuid, ecr->fidtype, (unsigned long) ecr->s27k);
+		//printf("%s\t%u\t%08lX\n", ecr->ecuid, ecr->fidtype, (unsigned long) ecr->s27k);
 	}
 
 recdone_exit:
@@ -359,7 +359,7 @@ static void csv_keyset_rec_cb(int c, void *data) {
 			HASH_ADD_U32(*ci->keyset_table, keyset.s27k, ksr);
 			ci->num_recs++;
 		}
-		printf("%08lX\t%08lX\t%08lX\n", (unsigned long) ksr->keyset.s27k, (unsigned long) ksr->keyset.s36k1, (unsigned long) ksr->keyset.s36k2);
+		//printf("%08lX\t%08lX\t%08lX\n", (unsigned long) ksr->keyset.s27k, (unsigned long) ksr->keyset.s36k1, (unsigned long) ksr->keyset.s36k2);
 	}
 
 recdone_exit:
