@@ -24,6 +24,7 @@
 #include "nissan_romdefs.h"
 #include "nislib.h"
 #include "nislib_shtools.h"
+#include "nisrom_finders.h"
 #include "nisrom_keyfinders.h"
 #include "nis_romdb.h"
 
@@ -31,6 +32,8 @@
 
 
 #define DBG_OUTFILE	"nisrom_dbg.log"	//default log file
+#define KEYSET_CSV "../romdb/keysets.csv"	//default keyset db file
+
 #define ERR_PRINTF(fmt, ...) fprintf(stderr, fmt, ##__VA_ARGS__)
 
 #if (CHAR_BIT != 8)
@@ -49,6 +52,9 @@ struct romfile {
 	const char *filename;
 	u32 siz;	//in bytes
 	uint8_t *buf;	//copied here
+
+	nis_romdb *romdb;
+
 	//and some metadata
 	rom_offset p_loader;	//struct loader
 	enum loadvers_t loader_v;	//version (10, 50, 60 etc)
@@ -893,7 +899,7 @@ static struct printable_prop *new_properties(struct romfile *rf) {
 	//known / guessed keysets
 	enum key_quality keyq;
 	uint32_t s27k, s36k;
-	keyq = find_s27_hardcore(rf->buf, rf->siz, &s27k, &s36k);
+	keyq = find_s27_hardcore(rf->romdb, rf->buf, rf->siz, &s27k, &s36k);
 	if (keyq > KEYQ_UNK) {
 		utstring_printf(&props[RP_KEYSET_QUAL].rendered_value, "%d", keyq);
 		utstring_printf(&props[RP_S27K].rendered_value, "0x%08lX", (unsigned long) s27k);
@@ -901,7 +907,7 @@ static struct printable_prop *new_properties(struct romfile *rf) {
 	} else {
 		// only bruteforce if code analysis failed, since it's much slower
 		const struct keyset_t *tmp_keyset;
-		tmp_keyset = find_keys_bruteforce(rf->buf, rf->siz, &keyq, 0);
+		tmp_keyset = find_keys_bruteforce(rf->romdb, rf->buf, rf->siz, &keyq, 0);
 		if (tmp_keyset && (keyq > KEYQ_UNK)) {
 			utstring_printf(&props[RP_KEYSET_QUAL].rendered_value, "%d", keyq);
 			utstring_printf(&props[RP_S27K].rendered_value, "0x%08lX",
@@ -947,6 +953,44 @@ static void free_properties(struct printable_prop *props) {
 	free(props);
 	return;
 }
+
+
+/** get length of the path prefix of a given filename
+ *
+ * i.e. strips the filename and keeps the absolute or relative path, including
+ * last trailing dir separator / or \
+ *
+ * "~/d/stuff/file.txt" => length of "~/d/stuff/"
+ *
+ * why do I need to reinvent wheels
+ */
+static size_t get_path_len(const char *filename) {
+	// search backwards for a fwd/back slash
+
+	const char *pfile;
+    pfile = filename + strlen(filename);
+    for (; pfile > filename; pfile--) {
+        if ((*pfile == '\\') || (*pfile == '/')) {
+            pfile++;
+            break;
+        }
+    }
+    return (size_t) (pfile - filename);
+}
+
+
+/* e.g. csv_filename = "file.csv", and argv0 = "~/d/stuff/nisrom",
+ * this prints "~/d/stuff/file.csv" into the given UT_string (must already be initialized)
+ */
+static void generate_csv_path(UT_string *dest, const char *csv_filename, const char *argv0) {
+	assert(dest && csv_filename && argv0);
+
+	size_t base_len = get_path_len(argv0);
+	utstring_bincpy(dest, argv0, base_len);	//no 0-term
+	utstring_printf(dest, "%s", csv_filename);
+	return;
+}
+
 
 static void usage(void) {
 	printf(	"**** %s\n"
@@ -1035,6 +1079,22 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
+	rf.romdb = romdb_new();
+	if (!rf.romdb) {
+		ERR_PRINTF("trouble in romdb_new\n");
+		goto badexit;
+	}
+
+	UT_string csvpath;
+	utstring_init(&csvpath);
+	generate_csv_path(&csvpath, KEYSET_CSV, argv[0]);
+	printf("%s\n", utstring_body(&csvpath));
+
+	if (!romdb_keyset_addcsv(rf.romdb, utstring_body(&csvpath))) {
+		ERR_PRINTF("csv trouble\n");
+		goto badexit;
+	}
+
 	if (open_rom(&rf, filename)) {
 		ERR_PRINTF("Trouble in open_rom()\n");
 		goto badexit;
@@ -1068,11 +1128,17 @@ int main(int argc, char *argv[])
 		fprintf(dbg_stream, "possible calltable @ %lX, len=0x%X\n", (unsigned long) ctpos, ctlen);
 	}
 
+	romdb_close(rf.romdb);
+	rf.romdb = NULL;
 	close_rom(&rf);
 	if (dbg_file) fclose(dbg_stream);
 	return 0;
 
 badexit:
+	if (rf.romdb) {
+		romdb_close(rf.romdb);
+		rf.romdb = NULL;
+	}
 	close_rom(&rf);
 	if (dbg_file) fclose(dbg_stream);
 	return -1;

@@ -10,6 +10,7 @@
 
 #include "nislib.h"
 #include "nislib_shtools.h"
+#include "nisrom_finders.h"
 #include "sh_opcodes.h"
 #include "stypes.h"
 

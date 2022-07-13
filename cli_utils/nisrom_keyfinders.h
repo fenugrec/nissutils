@@ -9,6 +9,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "nis_romdb.h"
+
 #include "stypes.h"
 
 /* key stuff */
@@ -30,7 +32,7 @@ enum key_quality {
  *
  * @return quality > KEYQ_UNK if anything found
  */
-enum key_quality find_s27_hardcore(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k);
+enum key_quality find_s27_hardcore(nis_romdb *romdb, const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k);
 
 
 
@@ -43,6 +45,6 @@ enum key_quality find_s27_hardcore(const uint8_t *buf, uint32_t siz, uint32_t *s
  *
  * this does no code analysis, only looking for two halfkeys stored nearby.
  */
-const struct keyset_t *find_keys_bruteforce(const u8 *buf, u32 siz, enum key_quality *keyq, bool thorough);
+const struct keyset_t *find_keys_bruteforce(nis_romdb *romdb, const u8 *buf, u32 siz, enum key_quality *keyq, bool thorough);
 
 #endif

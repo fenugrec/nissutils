@@ -493,3 +493,59 @@ const struct keyset_t *romdb_q_keyset(nis_romdb *romdb, const char *ecuid) {
 
 	return &ksr->keyset;
 }
+
+
+const struct keyset_t *find_knownkey(nis_romdb *romdb, enum key_type ktype, u32 candidate) {
+	assert(romdb);
+
+	if (!romdb->keyset_table) {
+		//no assert for this, since caller can't tell if this table exists
+		return NULL;
+	}
+
+	if ((ktype >= KEY_INVALID) || !candidate) {
+		return NULL;
+	}
+
+	const struct keyset_rec *ksr, *tmp;
+	HASH_ITER(hh, romdb->keyset_table, ksr, tmp) {
+		switch (ktype) {
+		case KEY_S27:
+			if (ksr->keyset.s27k == candidate) {
+				return &ksr->keyset;
+			}
+			break;
+		case KEY_S36K1:
+			if (ksr->keyset.s36k1 == candidate) {
+				return &ksr->keyset;
+			}
+			break;
+		case KEY_S36K2:
+			if (ksr->keyset.s36k2 == candidate) {
+				return &ksr->keyset;
+			}
+			break;
+		default:
+			assert(0);
+			break;
+		}
+	}
+	return NULL;
+}
+
+void keysets_iterate(nis_romdb *romdb, bool (*cb1)(const struct keyset_t *keyset, void *data), void *data) {
+	assert(romdb && cb1);
+
+	if (!romdb->keyset_table) {
+		//no assert for this, since caller can't tell if this table exists
+		return;
+	}
+
+	const struct keyset_rec *ksr, *tmp;
+	HASH_ITER(hh, romdb->keyset_table, ksr, tmp) {
+		bool rv = cb1(&ksr->keyset, data);
+		if (rv) {
+			return;
+		}
+	}
+}

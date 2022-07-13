@@ -9,6 +9,7 @@
 #include <stdio.h>
 
 #include "nislib.h"
+#include "nis_romdb.h"
 #include "nislib_shtools.h"
 #include "nisrom_keyfinders.h"
 
@@ -74,10 +75,48 @@ static bool find_key_literal(const u8 *buf, u32 siz, u32 key, bool thorough) {
 }
 
 
+/* keep track of literal search results */
+struct litsearch_status {
+	const u8 *buf;
+	u32 siz;
 
-const struct keyset_t *find_keys_bruteforce(const u8 *buf, u32 siz, enum key_quality *keyq, bool thorough) {
-	int keyset=0;
+	const struct keyset_t *found_keyset;	//set by callback if found
 
+	enum key_type ktype;
+
+	bool thorough;
+};
+
+/* this callback runs for each known keyset, and tries to find two 16 bit halves close by. */
+bool keysearch_literal_cb(const struct keyset_t *keyset, void *data) {
+	assert(keyset && data);
+	struct litsearch_status *lss = data;
+
+	u32 needle;
+	switch (lss->ktype) {
+	case KEY_S27:
+		needle = keyset->s27k;
+		break;
+	case KEY_S36K1:
+		needle = keyset->s36k1;
+		break;
+	case KEY_S36K2:
+		needle = keyset->s36k2;
+		break;
+	default:
+		assert(0);
+		break;
+	}
+
+	bool rv = find_key_literal(lss->buf, lss->siz, needle, lss->thorough);
+	if (rv) {
+		lss->found_keyset = keyset;
+		return 1;
+	}
+	return 0;
+}
+
+const struct keyset_t *find_keys_bruteforce(nis_romdb *romdb, const u8 *buf, u32 siz, enum key_quality *keyq, bool thorough) {
 	assert(buf && siz && keyq);
 
 	/* method 1 (removed) : search for every known key with u32memstr. Was not very effective.
@@ -87,39 +126,36 @@ const struct keyset_t *find_keys_bruteforce(const u8 *buf, u32 siz, enum key_qua
 	 * this is slower but much better.
 	 */
 
-	keyset = 0;
-	u32 s27k = 0;
-	u32 s36k1 = 0;
 	bool rv;
+	struct litsearch_status lss = {0};
+	lss.buf = buf;
+	lss.siz = siz;
+	lss.thorough = thorough;
+	lss.ktype = KEY_S27;
 
-	while (known_keys[keyset].s27k != 0) {
-		s27k = known_keys[keyset].s27k;
-		rv = find_key_literal(buf, siz, s27k, thorough);
+	keysets_iterate(romdb, keysearch_literal_cb, &lss);
+	if (lss.found_keyset) {
+		*keyq = KEYQ_BRUTE_1;
+		//best scenario : also find matching s36k1
+		u32 s36k1 = lss.found_keyset->s36k1;
+		rv = find_key_literal(buf, siz, s36k1, thorough);
 		if (rv) {
-			*keyq = KEYQ_BRUTE_1;
-			//best scenario : also find matching s36k1
-			s36k1 = known_keys[keyset].s36k1;
-			rv = find_key_literal(buf, siz, s36k1, thorough);
-			if (rv) {
-				fprintf(dbg_stream, "found literal s27 and s36, keyset %lX\n", (unsigned long) s27k);
-				*keyq = KEYQ_BRUTE_BOTH;
-				return &known_keys[keyset];
-			}
-			fprintf(dbg_stream, "found only literal s27, keyset %lX\n", (unsigned long) s27k);
-			return &known_keys[keyset];
+			fprintf(dbg_stream, "found literal s27 and s36, keyset %lX\n", (unsigned long) lss.found_keyset->s27k);
+			*keyq = KEYQ_BRUTE_BOTH;
+			return lss.found_keyset;
 		}
-		keyset += 1;
+		fprintf(dbg_stream, "found only literal s27, keyset %lX\n", (unsigned long) lss.found_keyset->s27k);
+		return lss.found_keyset;
 	}
 
 	// no s27k found, try s36.
-	while (known_keys[keyset].s36k1 != 0) {
-		s36k1 = known_keys[keyset].s36k1;
-		rv = find_key_literal(buf, siz, s36k1, thorough);
-		if (rv) {
-			fprintf(dbg_stream, "found only literal s36k1, keyset %lX\n", (unsigned long) known_keys[keyset].s27k);
-			*keyq = KEYQ_BRUTE_1;
-			return &known_keys[keyset];
-		}
+	lss.found_keyset = NULL;
+	lss.ktype = KEY_S36K1;
+	keysets_iterate(romdb, keysearch_literal_cb, &lss);
+	if (lss.found_keyset) {
+		fprintf(dbg_stream, "found only literal s36k1, keyset %lX\n", (unsigned long) lss.found_keyset->s27k);
+		*keyq = KEYQ_BRUTE_1;
+		return lss.found_keyset;
 	}
 
 	fprintf(dbg_stream, "found no literal keys\n");
@@ -200,6 +236,8 @@ static uint32_t fs27_bt_stmem(const uint8_t *buf, uint32_t bsr_offs) {
 
 
 struct s27_keyfinding {
+	nis_romdb *romdb;
+
 	int swapf_xrefs;	//# of occurences
 	bool s27_found;
 	bool s36_found;
@@ -321,7 +359,7 @@ static void found_strat2_bsr(const u8 *buf, u32 pos, void *data) {
 	struct s27_keyfinding *skf = data;
 	const struct keyset_t *keyset;
 
-	keyset = find_knownkey(KEY_S27, key_candidate);
+	keyset = find_knownkey(skf->romdb, KEY_S27, key_candidate);
 	if (keyset) {
 		skf->s27_found = 1;
 		*skf->s27k = key_candidate;
@@ -329,7 +367,7 @@ static void found_strat2_bsr(const u8 *buf, u32 pos, void *data) {
 		*skf->s36k = keyset->s36k1;
 	}
 
-	keyset = find_knownkey(KEY_S36K1, key_candidate);
+	keyset = find_knownkey(skf->romdb, KEY_S36K1, key_candidate);
 	if (keyset) {
 		skf->s36_found = 1;
 		*skf->s36k = key_candidate;
@@ -337,7 +375,7 @@ static void found_strat2_bsr(const u8 *buf, u32 pos, void *data) {
 		*skf->s27k = keyset->s27k;
 	}
 
-	keyset = find_knownkey(KEY_S36K2, key_candidate);
+	keyset = find_knownkey(skf->romdb, KEY_S36K2, key_candidate);
 	if (keyset) {
 		fprintf(dbg_stream, "strat2 indirectly found a known SID36k2 : 0x%08lX\n", (unsigned long) key_candidate);
 	}
@@ -359,10 +397,11 @@ static const uint16_t spf2_pattern[]={0x4529, 0x351c, 0x257a, 0x252a, 0x000b};
 static const uint16_t spf2_mask[]={0xf0ff, 0xf00f, 0xf00f, 0xf00f, 0xffff};
 #define S27_STRAT2_MAX_FUNCLEN 0x30	// max distance between function entry and start of pattern. Typically around 0x22
 
-enum key_quality find_s27_strat2(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k) {
+enum key_quality find_s27_strat2(nis_romdb *romdb, const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k) {
 	assert(buf && siz && (siz <= MAX_ROMSIZE) && s27k && s36k);
 
 	struct s27_keyfinding skf={0};
+	skf.romdb = romdb;
 	skf.s27k = s27k;
 	skf.s27_found = 0;
 	skf.s36k = s36k;
@@ -427,13 +466,14 @@ enum key_quality find_s27_strat2(const uint8_t *buf, uint32_t siz, uint32_t *s27
 static const uint16_t spf_pattern[]={0x6001, 0x6001, 0x2001, 0x000b, 0x2001};
 static const uint16_t spf_mask[]={0xf00f, 0xf00f, 0xf00f, 0xffff, 0xf00f};
 
-enum key_quality find_s27_strat1(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k) {
+enum key_quality find_s27_strat1(nis_romdb *romdb, const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k) {
 	uint32_t swapf_cur = 0;
 	//int swapf_instances = 0;
 
 	assert(buf && siz && (siz <= MAX_ROMSIZE) && s27k && s36k);
 
 	struct s27_keyfinding skf={0};
+	skf.romdb = romdb;
 	skf.s27k = s27k;
 	skf.s27_found = 0;
 	skf.s36k = s36k;
@@ -460,10 +500,10 @@ enum key_quality find_s27_strat1(const uint8_t *buf, uint32_t siz, uint32_t *s27
 	const struct keyset_t *tmp27 = NULL;
 	const struct keyset_t *tmp36 = NULL;
 	if (skf.s27_found) {
-		tmp27 = find_knownkey(KEY_S27, *s27k);
+		tmp27 = find_knownkey(romdb, KEY_S27, *s27k);
 	}
 	if (skf.s36_found) {
-		tmp36 = find_knownkey(KEY_S36K1, *s36k);
+		tmp36 = find_knownkey(romdb, KEY_S36K1, *s36k);
 	}
 	if (tmp27 && tmp36) {
 		if (tmp27 != tmp36) {
@@ -503,17 +543,17 @@ enum key_quality find_s27_strat1(const uint8_t *buf, uint32_t siz, uint32_t *s27
  * also assign the other key. I.e. it's unlikely that one of these methods would produce a value that
  * is wrong, but coincidentally part of a known keyset.
 */
-enum key_quality find_s27_hardcore(const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k) {
+enum key_quality find_s27_hardcore(nis_romdb *romdb, const uint8_t *buf, uint32_t siz, uint32_t *s27k, uint32_t *s36k) {
 	assert(buf && siz && (siz <= MAX_ROMSIZE) && s27k && s36k);
 
 	enum key_quality keyq;
 
-	keyq = find_s27_strat1(buf, siz, s27k, s36k);
+	keyq = find_s27_strat1(romdb, buf, siz, s27k, s36k);
 	if (keyq > KEYQ_UNK) {
 		return keyq;
 	}
 
-	keyq = find_s27_strat2(buf, siz, s27k, s36k);
+	keyq = find_s27_strat2(romdb, buf, siz, s27k, s36k);
 	if (keyq > KEYQ_UNK) {
 		return keyq;
 	}
