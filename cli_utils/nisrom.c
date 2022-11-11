@@ -935,6 +935,7 @@ static struct printable_prop *new_properties(struct romfile *rf) {
 	MD5Final(md5_digest, &md5c);
 	render_md5(md5_digest, md5_str);
 	utstring_printf(&props[RP_MD5].rendered_value, "%s", md5_str);
+	DBG_PRINTF("MD5: %s\n", md5_str);
 
 	return props;
 }
