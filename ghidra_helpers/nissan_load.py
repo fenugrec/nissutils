@@ -57,9 +57,6 @@ fidlist = [
 
 #create RAM and IO areas. device_base is a namedtuple
 def create_memblocks(device_base):
-	if not askYesNo("Nissan: SH7xxx memory areas", "create + setup memory regions ?"):
-		return
-
 	# set initial ROM mem block (containing address 0) to readonly
 	block = getMemoryBlock(toAddr(0))
 	block.setPermissions(1,0,1)
@@ -123,9 +120,6 @@ def create_one_vector(label, addr, comment):
 #open vector definitions file and create vector tables
 #if ivt2_offset is specified, produce a dual IVT (Nissan)
 def create_vectors(devtype_base, ivt2_offset):
-	if not askYesNo("Nissan: SH7xxx interrupt vectors", "create + setup Interrupt vectors ?"):
-		return
-
 	#for some reason the "current directory" for open() is not the script's location.
 	script_location = os.path.dirname(sourceFile.getAbsolutePath())
 	csv_filename = os.path.join(script_location, devtype_base.vectlist_file)
@@ -151,9 +145,6 @@ def create_vectors(devtype_base, ivt2_offset):
 
 # define peripheral regs
 def create_ioregs(devtype_base):
-	if not askYesNo("Nissan: SH7xxx IO regs", "create MMIO peripheral registers?"):
-		return
-
 	#for some reason the "current directory" for open() is not the script's location.
 	script_location = os.path.dirname(sourceFile.getAbsolutePath())
 	csv_filename = os.path.join(script_location, devtype_base.regs_csv)
@@ -167,25 +158,30 @@ def create_ioregs(devtype_base):
 			# create as Primary label
 			createLabel(toAddr(reg_addr), reg_name, 1)
 
+# niceness : offer to not create everything. Useful for partially-defined projects
+def create_all(devtype_base, IVT2):
+	enabled_ops = askChoices("Select operations", "The script will now create/define the following:",
+		[ 1, 2, 3 ], ["Mem regions", "Interrupt vectors (+ IVT2 if applicable)", "MMIO peripheral registers"])
+	if 1 in enabled_ops:
+		create_memblocks(devtype_base)
+	if 2 in enabled_ops:
+		create_vectors(devtype_base, IVT2)
+	if 3 in enabled_ops:
+		create_ioregs(devtype_base)
+
 def mode_basic():
 	device_base = askChoice("CPU memory blocks", "Select device type", devlist, devlist[0])
-	create_memblocks(device_base)
-	create_vectors(device_base, None)
-	create_ioregs(device_base)
+	create_all(device_base, None)
 
 def mode_semi():
 	fidtype = prompt_fid()
 	devtype_base = get_devicetype(fidtype.cpustring)
-	create_memblocks(devtype_base)
-	create_vectors(devtype_base, fidtype.IVT2_addr)
-	create_ioregs(devtype_base)
+	create_all(devtype_base, fidtype.IVT2_addr)
 
 def mode_auto():
 	fidtype = find_fid()
 	devtype_base = get_devicetype(fidtype.cpustring)
-	create_memblocks(devtype_base)
-	create_vectors(devtype_base, fidtype.IVT2_addr)
-	create_ioregs(devtype_base)
+	create_all(devtype_base, fidtype.IVT2_addr)
 
 def main():
 	#Operation modes :
