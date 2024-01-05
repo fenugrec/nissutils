@@ -82,10 +82,6 @@ def get_fidtype(fidstring):
 	return next((x for x in fidlist if x.fidstring == fidstring), None)
 
 
-#return a fidtype namedtuple
-def prompt_fid():
-	return askChoice("FIDtype selection", "Select CPU code (for int vectors)", fidlist, fidlist[0])
-
 #find FID CPU string (or ask user selection if not found), return a fidtype namedtuple
 def find_fid():
 	block = getMemoryBlock(toAddr(0))
@@ -96,15 +92,19 @@ def find_fid():
 	#findBytes(block.getEnd(), block.getStart(), bytes("DATABASE"), None)	# TypeError: findBytes(): 1st arg can't be coerced to ghidra.program.model.address.Address,
 
 	fid_pos = currentProgram.getMemory().findBytes(block.getEnd(), bytes("DATABASE"), None, 0, monitor)
+	fidtype = None
 	if fid_pos:
 		print "found DATABASE string at", fid_pos
 		#SHxxxxyy string is 13 bytes later. Change my mind
 		cpustring_pos = fid_pos.addNoWrap(13)
 		cpustring = getBytes(cpustring_pos, 8).tostring()
-		return get_fidtype(cpustring)
+		fidtype = get_fidtype(cpustring)
 
-	print "could not determine FID type automatically."
-	return prompt_fid()
+	if not fidtype:
+		return askChoice("Nissan: FID type", "Could not detect FID type. Select one: ", fidlist, fidlist[0])
+	else:
+		return askChoice("Nissan: FID type", "Detected " + fidtype.fidstring + " . Change if desired ",
+			fidlist, next(x for x in fidlist if x.cpustring == fidtype.cpustring))
 
 
 def create_one_vector(label, addr, comment):
@@ -173,35 +173,26 @@ def mode_basic():
 	device_base = askChoice("CPU memory blocks", "Select device type", devlist, devlist[0])
 	create_all(device_base, None)
 
-def mode_semi():
-	fidtype = prompt_fid()
-	devtype_base = get_devicetype(fidtype.cpustring)
-	create_all(devtype_base, fidtype.IVT2_addr)
-
-def mode_auto():
+def mode_nissan():
 	fidtype = find_fid()
 	devtype_base = get_devicetype(fidtype.cpustring)
 	create_all(devtype_base, fidtype.IVT2_addr)
 
 def main():
 	#Operation modes :
-	# full magic finds the FID cpu string (e.g. "SH705513") and defines everything based on that.
-	# semi-magic finds the FID cpu string but allows some changes
+	# Nissan finds the FID cpu string (e.g. "SH705513") and defines everything based on that.
 	# basic is basic
 
 	#Surely there's a better way to do this
 	opmodes = [
-		"Full-auto magic (Nissan only)",
-		"Semi-magic (Nissan only)",
+		"Nissan (detect or choose FID CPU type)",
 		"Basic (bare SH7xxx)"
 	]
 	opmode_string = askChoice("Nissan ROM loader", "Select operation mode", opmodes, opmodes[0])
 	op_idx = opmodes.index(opmode_string)
 	if op_idx == 0:
-		mode_auto()
+		mode_nissan()
 	elif op_idx == 1:
-		mode_semi()
-	elif op_idx == 2:
 		mode_basic()
 
 
