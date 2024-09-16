@@ -1,7 +1,5 @@
 vect_label,vect_offs,comment
-Power_On_Reset(SP),0x00000004,RESET
 Manual_Reset(PC),0x00000008,Manual reset
-Manual_Reset(SP),0x0000000C,Manual reset
 Illegal_instr,0x00000010,General Illegal instruction int
 Slot_illegal,0x00000018,Slot illegal instruction int
 CPUaddr_error,0x00000024,CPU address error

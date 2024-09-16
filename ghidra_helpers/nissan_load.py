@@ -39,7 +39,7 @@ fidtype = collections.namedtuple('fidtype', ['fidstring', 'cpustring', 'IVT2_add
 # the actual vectors are stored in separate files. 7055 and 7058 have identical vector tables
 fidlist = [
 	fidtype("SH705101", "7050", None),
-	fidtype("SH705415", "7054", None),
+	fidtype("SH705415", "7054", 0x1000),
 	fidtype("SH705507", "7055_350", None),
 	fidtype("SH705513", "7055_350", 0x1000),
 	fidtype("SH705519", "7055_180", 0x10004),
