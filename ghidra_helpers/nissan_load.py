@@ -66,6 +66,7 @@ def create_memblocks(device_base):
 
 	# create RAM mem block : uninitialized, RW
 	createMemoryBlock("RAM", toAddr(device_base.RAMstart), None, device_base.RAMsize, 0)
+	ioblock.setPermissions(1,1,0)
 
 	# create IO mem block : uninit, RW and volatile
 	ioblock = createMemoryBlock("IO", toAddr(device_base.IOstart), None, device_base.IOsize, 0)
