@@ -27,7 +27,7 @@ devlist = [
 	devtype("7055_350", 0xffff6000, 0x8000, 0xffffe000, 0x2000, "ivt_7055.csv", "regs_7055_350.csv"),
 	devtype("7055_180", 0xffff6000, 0x8000, 0xffffe000, 0x2000, "ivt_7055.csv", "regs_7055_180.csv"),
 	devtype("7058", 0xffff0000, 0xc000, 0xffffc000, 0x4000, "ivt_7055.csv", "regs_7058.csv"),	#almost identical to 7058S
-	devtype("7059", 0xfffe8000, 0x14000, 0xffffc000, 0x4000, "ivt_7059.csv", "regs_7059.csv"),	#typo in DS
+	devtype("7059", 0xfffe8000, 0x14000, 0xffffc000, 0x4000, "ivt_7055.csv", "regs_7058.csv"),	#typo in DS
 	devtype("72531", 0xfff80000, 0x10000, 0xfffc0000, 0x40000, "ivt_7253.csv", "regs_7253.csv"),
 	devtype("72533", 0xfff80000, 0x18000, 0xfffc0000, 0x40000, "ivt_7253.csv", "regs_7253.csv")
 	]
