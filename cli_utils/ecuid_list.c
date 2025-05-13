@@ -47,6 +47,7 @@ const struct ecuid_klist_t ecuid_list[] = {
 	{"5WH7B", 0x6D571F84},
 	{"5Y006", 0x88733BA0},
 	{"5Y7..", 0x5414CDA6},
+	{"6GE2C", 0x1C07CD33},
 	{"6W5..", 0x0DF7BF25},
 	{"6Y3..", 0x5414CDA6},
 	{"6Z68A", 0x93B645A1},
