@@ -32,3 +32,6 @@ findcallargs: findcallargs.c nislib.c nislib_shtools.c nisrom_finders.c
 test_findcks: test_findcks.c nislib.c nislib_shtools.c nisrom_finders.c
 
 test_romdb: test_romdb.c nislib.c nis_romdb.c nissan_romdefs.c libcsv/libcsv.c
+
+clean:
+	rm $(TGTLIST)
