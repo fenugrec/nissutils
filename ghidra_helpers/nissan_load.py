@@ -105,7 +105,7 @@ def find_fid():
 		return askChoice("Nissan: FID type", "Could not detect FID type. Select one: ", fidlist, fidlist[0])
 	else:
 		return askChoice("Nissan: FID type", "Detected " + fidtype.fidstring + " . Change if desired ",
-			fidlist, next(x for x in fidlist if x.cpustring == fidtype.cpustring))
+			fidlist, next(x for x in fidlist if x.fidstring == fidtype.fidstring))
 
 
 def create_one_vector(label, addr, comment):
